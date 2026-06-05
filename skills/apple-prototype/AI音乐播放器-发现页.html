@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI音乐播放器 - 发现页</title>
+    <style>
+        /* ========================================
+           CSS变量 - 苹果设计系统
+           ======================================== */
+        :root {
+            --color-primary: #007AFF;
+            --color-primary-light: #4DA3FF;
+            --color-success: #34C759;
+            --color-warning: #FF9500;
+            --color-danger: #FF3B30;
+            --color-info: #5AC8FA;
+
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+
+            --bg-primary: #000000;
+            --bg-secondary: #1c1c1e;
+            --bg-tertiary: #2c2c2e;
+            --bg-elevated: rgba(255, 255, 255, 0.08);
+
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-tertiary: rgba(255, 255, 255, 0.3);
+
+            --border: rgba(255, 255, 255, 0.1);
+            --divider: rgba(255, 255, 255, 0.06);
+
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --radius-xl: 20px;
+            --radius-full: 9999px;
+
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+
+            --sidebar-width: 220px;
+            --navbar-height: 64px;
+            --player-height: 80px;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f7;
+            --bg-tertiary: #e5e5ea;
+            --bg-elevated: rgba(0, 0, 0, 0.04);
+            --text-primary: #1d1d1f;
+            --text-secondary: rgba(0, 0, 0, 0.6);
+            --text-tertiary: rgba(0, 0, 0, 0.3);
+            --border: rgba(0, 0, 0, 0.1);
+            --divider: rgba(0, 0, 0, 0.06);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+                         'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+            transition: background 0.25s var(--ease-smooth), color 0.25s var(--ease-smooth);
+        }
+
+        /* ========================================
+           SVG图标
+           ======================================== */
+        .icon { display: inline-flex; align-items: center; justify-content: center; }
+        .icon svg { stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+        .icon-solid svg { fill: currentColor; stroke: none; }
+        .icon-sm { width: 16px; height: 16px; }
+        .icon-md { width: 20px; height: 20px; }
+        .icon-lg { width: 24px; height: 24px; }
+        .icon-xl { width: 32px; height: 32px; }
+
+        /* ========================================
+           顶部导航栏
+           ======================================== */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--navbar-height);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 var(--space-6);
+            z-index: 100;
+        }
+
+        .navbar-logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-right: var(--space-8);
+        }
+
+        .navbar-search {
+            flex: 1;
+            max-width: 400px;
+            position: relative;
+        }
+
+        .navbar-search input {
+            width: 100%;
+            padding: var(--space-3) var(--space-4);
+            padding-left: 40px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.15s var(--ease-smooth);
+        }
+
+        .navbar-search input:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+        }
+
+        .navbar-search input::placeholder { color: var(--text-tertiary); }
+
+        .navbar-search .icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+        }
+
+        .navbar-actions {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            margin-left: auto;
+        }
+
+        .navbar-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            background: var(--bg-tertiary);
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s var(--ease-smooth);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .navbar-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+        .navbar-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* ========================================
+           布局容器
+           ======================================== */
+        .app-container {
+            display: flex;
+            padding-top: var(--navbar-height);
+            padding-bottom: var(--player-height);
+            min-height: 100vh;
+        }
+
+        /* ========================================
+           左侧边栏
+           ======================================== */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            position: fixed;
+            top: var(--navbar-height);
+            left: 0;
+            bottom: var(--player-height);
+            padding: var(--space-5);
+            overflow-y: auto;
+            z-index: 50;
+        }
+
+        .sidebar-nav { margin-bottom: var(--space-6); }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.15s var(--ease-smooth);
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: var(--space-1);
+        }
+
+        .nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+        .nav-item.active { background: var(--bg-elevated); color: var(--color-primary); }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            width: 3px;
+            height: 24px;
+            background: var(--color-primary);
+            border-radius: 0 2px 2px 0;
+        }
+
+        .nav-divider {
+            height: 1px;
+            background: var(--border);
+            margin: var(--space-4) 0;
+        }
+
+        .sidebar-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--space-3);
+        }
+
+        .playlist-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.15s var(--ease-smooth);
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .playlist-item:hover { color: var(--text-primary); }
+        .playlist-item.active { color: var(--color-primary); }
+
+        .playlist-cover {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, var(--gray-600), var(--gray-700));
+            flex-shrink: 0;
+        }
+
+        /* ========================================
+           主内容区
+           ======================================== */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: var(--space-6);
+            min-height: calc(100vh - var(--navbar-height) - var(--player-height));
+        }
+
+        /* ========================================
+           轮播Banner
+           ======================================== */
+        .banner {
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            height: 280px;
+            position: relative;
+            margin-bottom: var(--space-8);
+            cursor: pointer;
+        }
+
+        .banner-slide {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.5s var(--ease-smooth);
+        }
+
+        .banner-slide.active { opacity: 1; }
+
+        .banner-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .banner-bg-1 { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
+        .banner-bg-2 { background: linear-gradient(135deg, #2d1b4e 0%, #1a1a3a 50%, #0a0a1a 100%); }
+        .banner-bg-3 { background: linear-gradient(135deg, #1b2838 0%, #2c3e50 50%, #1a1a2e 100%); }
+
+        .banner-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%);
+        }
+
+        .banner-content {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: var(--space-8);
+        }
+
+        .banner-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: var(--color-primary);
+            border-radius: var(--radius-full);
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            width: fit-content;
+            margin-bottom: var(--space-4);
+        }
+
+        .banner-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: var(--space-2);
+            max-width: 500px;
+        }
+
+        .banner-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: var(--space-6);
+        }
+
+        .banner-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-6);
+            background: white;
+            color: #1d1d1f;
+            border-radius: var(--radius-full);
+            font-size: 14px;
+            font-weight: 600;
+            width: fit-content;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-spring);
+            border: none;
+        }
+
+        .banner-btn:hover { transform: scale(1.05); }
+
+        .banner-indicators {
+            position: absolute;
+            bottom: var(--space-5);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: var(--space-2);
+            z-index: 2;
+        }
+
+        .banner-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s var(--ease-smooth);
+        }
+
+        .banner-dot.active {
+            width: 24px;
+            background: white;
+        }
+
+        .banner-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-smooth);
+            z-index: 2;
+            color: white;
+        }
+
+        .banner-nav:hover { background: rgba(255, 255, 255, 0.2); }
+        .banner-nav.prev { left: var(--space-5); }
+        .banner-nav.next { right: var(--space-5); }
+
+        /* ========================================
+           内容区块
+           ======================================== */
+        .section { margin-bottom: var(--space-10); }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-5);
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .section-more {
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+
+        .section-more:hover { color: var(--color-primary); }
+
+        /* ========================================
+           卡片网格
+           ======================================== */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: var(--space-5);
+        }
+
+        @media (max-width: 1400px) { .card-grid { grid-template-columns: repeat(5, 1fr); } }
+        @media (max-width: 1200px) { .card-grid { grid-template-columns: repeat(4, 1fr); } }
+        @media (max-width: 900px) { .card-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 600px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-spring);
+        }
+
+        .card:hover {
+            transform: translateY(-4px) scale(1.02);
+            border-color: var(--color-primary);
+            box-shadow: 0 20px 40px rgba(0, 122, 255, 0.15);
+        }
+
+        .card-cover {
+            aspect-ratio: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-play-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s var(--ease-smooth);
+        }
+
+        .card:hover .card-play-overlay { opacity: 1; }
+
+        .card-play-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transform: scale(0.8);
+            transition: transform 0.2s var(--ease-spring);
+        }
+
+        .card:hover .card-play-btn { transform: scale(1); }
+
+        .card-body { padding: var(--space-4); }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: var(--space-1);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-meta {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        /* ========================================
+           分类标签
+           ======================================== */
+        .category-tabs {
+            display: flex;
+            gap: var(--space-3);
+            margin-bottom: var(--space-5);
+            flex-wrap: wrap;
+        }
+
+        .category-tab {
+            padding: var(--space-2) var(--space-5);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.15s var(--ease-smooth);
+            color: var(--text-secondary);
+        }
+
+        .category-tab:hover { background: var(--bg-elevated); color: var(--text-primary); }
+        .category-tab.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+
+        /* ========================================
+           歌曲列表
+           ======================================== */
+        .song-list {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .song-item {
+            display: flex;
+            align-items: center;
+            padding: var(--space-4);
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .song-item:last-child { border-bottom: none; }
+        .song-item:hover { background: var(--bg-tertiary); }
+        .song-item.playing { background: rgba(0, 122, 255, 0.1); }
+
+        .song-index {
+            width: 32px;
+            font-size: 14px;
+            color: var(--text-tertiary);
+            text-align: center;
+        }
+
+        .song-item:hover .song-index { color: var(--color-primary); }
+
+        .song-cover {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, var(--gray-600), var(--gray-700));
+            margin: 0 var(--space-4);
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .song-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+        .song-info { flex: 1; min-width: 0; }
+
+        .song-name {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .song-artist {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .song-album {
+            flex: 1;
+            font-size: 13px;
+            color: var(--text-tertiary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 var(--space-4);
+        }
+
+        .song-duration {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            padding-left: var(--space-4);
+        }
+
+        /* ========================================
+           播放控制栏
+           ======================================== */
+        .player-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: var(--player-height);
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 var(--space-6);
+            z-index: 100;
+        }
+
+        .player-song {
+            display: flex;
+            align-items: center;
+            width: 240px;
+            flex-shrink: 0;
+        }
+
+        .player-cover {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+            margin-right: var(--space-4);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .player-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+        .player-song-text { flex: 1; min-width: 0; }
+
+        .player-song-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .player-song-artist {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .player-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            max-width: 600px;
+        }
+
+        .player-buttons {
+            display: flex;
+            align-items: center;
+            gap: var(--space-5);
+            margin-bottom: var(--space-3);
+        }
+
+        .player-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s var(--ease-smooth);
+            color: var(--text-secondary);
+        }
+
+        .player-btn:hover { color: var(--text-primary); transform: scale(1.1); }
+
+        .player-btn-main {
+            width: 40px;
+            height: 40px;
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .player-btn-main:hover { transform: scale(1.1); box-shadow: 0 0 20px rgba(0, 122, 255, 0.5); }
+
+        .player-progress {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .player-time {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            width: 48px;
+            text-align: center;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            margin: 0 var(--space-3);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--color-primary);
+            border-radius: 2px;
+            width: 35%;
+            position: relative;
+        }
+
+        .progress-handle {
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 0 10px rgba(0, 122, 255, 0.5);
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .progress-bar:hover .progress-handle { opacity: 1; }
+
+        .player-extras {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            width: 240px;
+            justify-content: flex-end;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .volume-bar {
+            width: 80px;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .volume-fill {
+            width: 70%;
+            height: 100%;
+            background: var(--color-primary);
+            border-radius: 2px;
+        }
+
+        /* ========================================
+           右扩展面板（歌词）
+           ======================================== */
+        .lyric-panel {
+            position: fixed;
+            top: var(--navbar-height);
+            right: 0;
+            bottom: var(--player-height);
+            width: 320px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            z-index: 50;
+            transform: translateX(100%);
+            transition: transform 0.3s var(--ease-spring);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lyric-panel.open { transform: translateX(0); }
+
+        .lyric-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-5);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .lyric-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .lyric-close {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-md);
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            color: var(--text-secondary);
+        }
+
+        .lyric-close:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+        .lyric-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-6);
+            text-align: center;
+        }
+
+        .lyric-line {
+            padding: var(--space-3);
+            font-size: 16px;
+            color: var(--text-secondary);
+            transition: all 0.3s var(--ease-smooth);
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+        }
+
+        .lyric-line:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+
+        .lyric-line.active {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            background: linear-gradient(90deg, var(--color-primary), var(--color-info));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .queue-section {
+            padding: var(--space-5);
+            border-top: 1px solid var(--border);
+        }
+
+        .queue-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: var(--space-4);
+            color: var(--text-secondary);
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-3);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .queue-item:hover { background: var(--bg-tertiary); }
+        .queue-item.playing { background: var(--bg-elevated); }
+
+        .queue-cover {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            background: var(--gray-600);
+            flex-shrink: 0;
+        }
+
+        .queue-info { flex: 1; min-width: 0; }
+
+        .queue-name {
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .queue-artist {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        /* ========================================
+           主题切换
+           ======================================== */
+        .theme-toggle {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-spring);
+            z-index: 200;
+        }
+
+        .theme-toggle:hover { transform: scale(1.1); }
+        .theme-toggle svg { stroke: var(--text-primary); fill: none; stroke-width: 2; }
+
+        /* ========================================
+           骨架屏
+           ======================================== */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-elevated) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: var(--radius-sm);
+        }
+
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+        /* ========================================
+           滚动条
+           ======================================== */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+        /* ========================================
+           响应式
+           ======================================== */
+        @media (max-width: 1024px) {
+            .sidebar { width: 180px; }
+            .main-content { margin-left: 180px; }
+            .card-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; }
+            .card-grid { grid-template-columns: repeat(3, 1fr); }
+            .player-song { width: 160px; }
+            .player-extras { display: none; }
+            .lyric-panel { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar">
+        <span class="navbar-logo">AI Music</span>
+        <div class="navbar-search">
+            <span class="icon icon-md">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="text" placeholder="搜索音乐、歌手、歌单...">
+        </div>
+        <div class="navbar-actions">
+            <button class="navbar-btn">
+                <span class="icon icon-lg">
+                    <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                </span>
+            </button>
+            <div class="navbar-avatar">E</div>
+        </div>
+    </nav>
+
+    <!-- 布局容器 -->
+    <div class="app-container">
+        <!-- 左侧边栏 -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <div class="nav-item active">
+                    <span class="icon icon-lg">
+                        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    </span>
+                    <span>首页</span>
+                </div>
+                <div class="nav-item">
+                    <span class="icon icon-lg">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                    </span>
+                    <span>发现音乐</span>
+                </div>
+                <div class="nav-item">
+                    <span class="icon icon-lg">
+                        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                    </span>
+                    <span>我的收藏</span>
+                </div>
+                <div class="nav-item">
+                    <span class="icon icon-lg">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </span>
+                    <span>最近播放</span>
+                </div>
+            </nav>
+
+            <div class="nav-divider"></div>
+
+            <div class="sidebar-title">创建的歌单</div>
+            <div class="playlist-item active">
+                <div class="playlist-cover"></div>
+                <span>我喜欢的音乐</span>
+            </div>
+            <div class="playlist-item">
+                <div class="playlist-cover"></div>
+                <span>工作学习BGM</span>
+            </div>
+            <div class="playlist-item">
+                <div class="playlist-cover"></div>
+                <span>睡前助眠</span>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- Banner -->
+            <div class="banner" id="banner">
+                <div class="banner-slide active" data-index="0">
+                    <div class="banner-bg banner-bg-1"></div>
+                    <div class="banner-overlay"></div>
+                    <div class="banner-content">
+                        <span class="banner-tag">
+                            <span class="icon icon-sm">
+                                <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            </span>
+                            今日推荐
+                        </span>
+                        <h1 class="banner-title">AI智能推荐 · 发现你的专属音乐</h1>
+                        <p class="banner-subtitle">根据你的喜好，量身定制个性化歌单</p>
+                        <button class="banner-btn">
+                            <span class="icon icon-md icon-solid">
+                                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            </span>
+                            立即播放
+                        </button>
+                    </div>
+                </div>
+
+                <div class="banner-slide" data-index="1">
+                    <div class="banner-bg banner-bg-2"></div>
+                    <div class="banner-overlay"></div>
+                    <div class="banner-content">
+                        <span class="banner-tag">
+                            <span class="icon icon-sm">
+                                <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                            </span>
+                            周末特供
+                        </span>
+                        <h1 class="banner-title">沉浸在电子音乐的魅力中</h1>
+                        <p class="banner-subtitle">精选EDM、House、Techno，让节奏点燃你的周末</p>
+                        <button class="banner-btn">
+                            <span class="icon icon-md icon-solid">
+                                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            </span>
+                            探索更多
+                        </button>
+                    </div>
+                </div>
+
+                <div class="banner-slide" data-index="2">
+                    <div class="banner-bg banner-bg-3"></div>
+                    <div class="banner-overlay"></div>
+                    <div class="banner-content">
+                        <span class="banner-tag">
+                            <span class="icon icon-sm">
+                                <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            </span>
+                            用户热议
+                        </span>
+                        <h1 class="banner-title">华语流行新歌速递</h1>
+                        <p class="banner-subtitle">每周更新，紧跟乐坛潮流动态</p>
+                        <button class="banner-btn">
+                            <span class="icon icon-md icon-solid">
+                                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            </span>
+                            查看全部
+                        </button>
+                    </div>
+                </div>
+
+                <div class="banner-indicators">
+                    <div class="banner-dot active" data-index="0"></div>
+                    <div class="banner-dot" data-index="1"></div>
+                    <div class="banner-dot" data-index="2"></div>
+                </div>
+
+                <div class="banner-nav prev">
+                    <span class="icon icon-lg">
+                        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                    </span>
+                </div>
+                <div class="banner-nav next">
+                    <span class="icon icon-lg">
+                        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                    </span>
+                </div>
+            </div>
+
+            <!-- 个性化推荐 -->
+            <section class="section">
+                <div class="section-header">
+                    <h2 class="section-title">为你推荐</h2>
+                    <div class="section-more">
+                        查看更多
+                        <span class="icon icon-sm">
+                            <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </span>
+                    </div>
+                </div>
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#667eea,#764ba2);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">深夜独处时光</div>
+                            <div class="card-meta">328万播放</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#f093fb,#f5576c);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">电子氛围乐</div>
+                            <div class="card-meta">215万播放</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#4facfe,#00f2fe);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">华语流行精选</div>
+                            <div class="card-meta">189万播放</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#43e97b,#38f9d7);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">轻音乐疗愈</div>
+                            <div class="card-meta">156万播放</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#fa709a,#fee140);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">独立民谣时光</div>
+                            <div class="card-meta">98万播放</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#a8edea,#fed6e3);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">Jazz灵魂乐</div>
+                            <div class="card-meta">87万播放</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 分类歌单 -->
+            <section class="section">
+                <div class="section-header">
+                    <h2 class="section-title">分类歌单</h2>
+                    <div class="section-more">
+                        查看更多
+                        <span class="icon icon-sm">
+                            <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </span>
+                    </div>
+                </div>
+                <div class="category-tabs">
+                    <span class="category-tab active">全部</span>
+                    <span class="category-tab">欧美</span>
+                    <span class="category-tab">日韩</span>
+                    <span class="category-tab">华语</span>
+                    <span class="category-tab">电子</span>
+                    <span class="category-tab">民谣</span>
+                </div>
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#667eea,#764ba2);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">Chill Vibes</div>
+                            <div class="card-meta">32首</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#f093fb,#f5576c);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">K-Pop Hits</div>
+                            <div class="card-meta">28首</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#4facfe,#00f2fe);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">中文热歌榜</div>
+                            <div class="card-meta">45首</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-cover">
+                            <div style="width:100%;height:100%;background:linear-gradient(135deg,#43e97b,#38f9d7);"></div>
+                            <div class="card-play-overlay">
+                                <div class="card-play-btn">
+                                    <span class="icon icon-md icon-solid"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title">EDM Mix</div>
+                            <div class="card-meta">36首</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 新歌速递 -->
+            <section class="section">
+                <div class="section-header">
+                    <h2 class="section-title">最新上线</h2>
+                    <div class="section-more">
+                        查看更多
+                        <span class="icon icon-sm">
+                            <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </span>
+                    </div>
+                </div>
+                <div class="song-list">
+                    <div class="song-item">
+                        <span class="song-index">1</span>
+                        <div class="song-cover" style="background:linear-gradient(135deg,#667eea,#764ba2);"></div>
+                        <div class="song-info">
+                            <div class="song-name">星河漫游</div>
+                            <div class="song-artist">艾AI</div>
+                        </div>
+                        <span class="song-album">AI创作 EP.1</span>
+                        <span class="song-duration">03:45</span>
+                    </div>
+                    <div class="song-item">
+                        <span class="song-index">2</span>
+                        <div class="song-cover" style="background:linear-gradient(135deg,#f093fb,#f5576c);"></div>
+                        <div class="song-info">
+                            <div class="song-name">午夜电车</div>
+                            <div class="song-artist">虚拟歌手</div>
+                        </div>
+                        <span class="song-album">夜之城</span>
+                        <span class="song-duration">04:12</span>
+                    </div>
+                    <div class="song-item">
+                        <span class="song-index">3</span>
+                        <div class="song-cover" style="background:linear-gradient(135deg,#4facfe,#00f2fe);"></div>
+                        <div class="song-info">
+                            <div class="song-name">未来之声</div>
+                            <div class="song-artist">合成器乐队</div>
+                        </div>
+                        <span class="song-album">数字浪潮</span>
+                        <span class="song-duration">03:58</span>
+                    </div>
+                    <div class="song-item playing">
+                        <span class="song-index">4</span>
+                        <div class="song-cover" style="background:linear-gradient(135deg,#43e97b,#38f9d7);"></div>
+                        <div class="song-info">
+                            <div class="song-name">梦境碎片</div>
+                            <div class="song-artist">梦之队</div>
+                        </div>
+                        <span class="song-album">睡眠指南</span>
+                        <span class="song-duration">04:30</span>
+                    </div>
+                    <div class="song-item">
+                        <span class="song-index">5</span>
+                        <div class="song-cover" style="background:linear-gradient(135deg,#fa709a,#fee140);"></div>
+                        <div class="song-info">
+                            <div class="song-name">霓虹都市</div>
+                            <div class="song-artist">赛博朋克</div>
+                        </div>
+                        <span class="song-album">2077</span>
+                        <span class="song-duration">03:22</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 播放控制栏 -->
+    <div class="player-bar">
+        <div class="player-song">
+            <div class="player-cover" style="background:linear-gradient(135deg,#43e97b,#38f9d7);"></div>
+            <div class="player-song-text">
+                <div class="player-song-name">梦境碎片</div>
+                <div class="player-song-artist">梦之队</div>
+            </div>
+        </div>
+        <div class="player-controls">
+            <div class="player-buttons">
+                <span class="player-btn">
+                    <span class="icon icon-lg">
+                        <svg viewBox="0 0 24 24"><polyline points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+                    </span>
+                </span>
+                <span class="player-btn player-btn-main" id="playBtn">
+                    <span class="icon icon-lg icon-solid">
+                        <svg viewBox="0 0 24 24" id="playIcon"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </span>
+                </span>
+                <span class="player-btn">
+                    <span class="icon icon-lg">
+                        <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                    </span>
+                </span>
+                <span class="player-btn" id="likeBtn">
+                    <span class="icon icon-lg icon-solid">
+                        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                    </span>
+                </span>
+            </div>
+            <div class="player-progress">
+                <span class="player-time">01:23</span>
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" style="width: 35%;">
+                        <div class="progress-handle"></div>
+                    </div>
+                </div>
+                <span class="player-time">04:30</span>
+            </div>
+        </div>
+        <div class="player-extras">
+            <span class="player-btn">
+                <span class="icon icon-md">
+                    <svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                </span>
+            </span>
+            <span class="player-btn">
+                <span class="icon icon-md">
+                    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </span>
+            </span>
+            <div class="volume-control">
+                <span class="player-btn">
+                    <span class="icon icon-md">
+                        <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                    </span>
+                </span>
+                <div class="volume-bar">
+                    <div class="volume-fill"></div>
+                </div>
+            </div>
+            <span class="player-btn" id="lyricBtn">
+                <span class="icon icon-md">
+                    <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                </span>
+            </span>
+        </div>
+    </div>
+
+    <!-- 歌词面板 -->
+    <aside class="lyric-panel" id="lyricPanel">
+        <div class="lyric-header">
+            <span class="lyric-title">歌词</span>
+            <div class="lyric-close" id="lyricClose">
+                <span class="icon icon-md">
+                    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </span>
+            </div>
+        </div>
+        <div class="lyric-content">
+            <div class="lyric-line">星星坠入夜空的瞬间</div>
+            <div class="lyric-line">我听见宇宙的呼吸</div>
+            <div class="lyric-line">在无边的黑暗中漫游</div>
+            <div class="lyric-line active">寻找光的方向</div>
+            <div class="lyric-line">穿越星辰与尘埃</div>
+            <div class="lyric-line">抵达你的梦境</div>
+            <div class="lyric-line">让音乐带你飞翔</div>
+            <div class="lyric-line">在这片星河之中</div>
+            <div class="lyric-line">我们相遇</div>
+            <div class="lyric-line">在这无尽宇宙</div>
+        </div>
+        <div class="queue-section">
+            <div class="queue-title">正在播放</div>
+            <div class="queue-item playing">
+                <div class="queue-cover" style="background:linear-gradient(135deg,#43e97b,#38f9d7);"></div>
+                <div class="queue-info">
+                    <div class="queue-name">梦境碎片</div>
+                    <div class="queue-artist">梦之队</div>
+                </div>
+            </div>
+            <div class="queue-item">
+                <div class="queue-cover" style="background:linear-gradient(135deg,#667eea,#764ba2);"></div>
+                <div class="queue-info">
+                    <div class="queue-name">星河漫游</div>
+                    <div class="queue-artist">艾AI</div>
+                </div>
+            </div>
+            <div class="queue-item">
+                <div class="queue-cover" style="background:linear-gradient(135deg,#f093fb,#f5576c);"></div>
+                <div class="queue-info">
+                    <div class="queue-name">午夜电车</div>
+                    <div class="queue-artist">虚拟歌手</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 主题切换 -->
+    <button class="theme-toggle" onclick="toggleTheme()">
+        <svg class="icon-sun" width="24" height="24" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon-moon" width="24" height="24" viewBox="0 0 24 24" style="display:none">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+    </button>
+
+    <script>
+        // Theme Toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const newTheme = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+
+            const sunIcon = document.querySelector('.icon-sun');
+            const moonIcon = document.querySelector('.icon-moon');
+            sunIcon.style.display = newTheme === 'light' ? 'none' : 'block';
+            moonIcon.style.display = newTheme === 'light' ? 'block' : 'none';
+        }
+
+        // Banner Carousel
+        const banner = document.getElementById('banner');
+        const slides = banner.querySelectorAll('.banner-slide');
+        const dots = banner.querySelectorAll('.banner-dot');
+        let currentSlide = 0;
+        let autoplayTimer = null;
+
+        function goToSlide(index) {
+            slides.forEach((slide, i) => {
+                slide.classList.toggle('active', i === index);
+                dots[i].classList.toggle('active', i === index);
+            });
+            currentSlide = index;
+        }
+
+        function nextSlide() {
+            goToSlide((currentSlide + 1) % slides.length);
+        }
+
+        function prevSlide() {
+            goToSlide((currentSlide - 1 + slides.length) % slides.length);
+        }
+
+        dots.forEach((dot, i) => {
+            dot.addEventListener('click', () => goToSlide(i));
+        });
+
+        banner.querySelector('.banner-nav.prev').addEventListener('click', prevSlide);
+        banner.querySelector('.banner-nav.next').addEventListener('click', nextSlide);
+
+        function startAutoplay() {
+            autoplayTimer = setInterval(nextSlide, 5000);
+        }
+
+        function stopAutoplay() {
+            clearInterval(autoplayTimer);
+        }
+
+        banner.addEventListener('mouseenter', stopAutoplay);
+        banner.addEventListener('mouseleave', startAutoplay);
+        startAutoplay();
+
+        // Play Button
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        let isPlaying = true;
+
+        playBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+            } else {
+                playIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+            }
+        });
+
+        // Lyric Panel
+        const lyricBtn = document.getElementById('lyricBtn');
+        const lyricPanel = document.getElementById('lyricPanel');
+        const lyricClose = document.getElementById('lyricClose');
+
+        lyricBtn.addEventListener('click', () => {
+            lyricPanel.classList.add('open');
+        });
+
+        lyricClose.addEventListener('click', () => {
+            lyricPanel.classList.remove('open');
+        });
+
+        // Progress Bar
+        const progressBar = document.getElementById('progressBar');
+        let isDraggingProgress = false;
+
+        progressBar.addEventListener('mousedown', (e) => {
+            isDraggingProgress = true;
+            updateProgress(e);
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDraggingProgress) updateProgress(e);
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDraggingProgress = false;
+        });
+
+        function updateProgress(e) {
+            const rect = progressBar.getBoundingClientRect();
+            const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+            progressBar.querySelector('.progress-fill').style.width = percent + '%';
+        }
+
+        // Category Tabs
+        const categoryTabs = document.querySelectorAll('.category-tab');
+        categoryTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                categoryTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+            });
+        });
+
+        // Like Button
+        const likeBtn = document.getElementById('likeBtn');
+        let isLiked = false;
+
+        likeBtn.addEventListener('click', () => {
+            isLiked = !isLiked;
+            likeBtn.style.color = isLiked ? 'var(--color-danger)' : '';
+        });
+
+        // Lyric Click
+        document.querySelectorAll('.lyric-line').forEach(line => {
+            line.addEventListener('click', () => {
+                document.querySelectorAll('.lyric-line').forEach(l => l.classList.remove('active'));
+                line.classList.add('active');
+            });
+        });
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case ' ':
+                    e.preventDefault();
+                    playBtn.click();
+                    break;
+                case 'ArrowLeft':
+                    prevSlide();
+                    break;
+                case 'ArrowRight':
+                    nextSlide();
+                    break;
+                case 'l':
+                    lyricBtn.click();
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Prototype Components</title>
+    <style>
+        /* ========================================
+           CSS变量 - 苹果中性色板
+           ======================================== */
+        :root {
+            /* 主色 */
+            --color-primary: #007AFF;
+            --color-primary-light: #4DA3FF;
+            --color-primary-dark: #0056B3;
+
+            /* 语义色 */
+            --color-success: #34C759;
+            --color-warning: #FF9500;
+            --color-danger: #FF3B30;
+            --color-info: #5AC8FA;
+
+            /* 中性灰阶 */
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+
+            /* 深色主题 */
+            --bg-primary: #000000;
+            --bg-secondary: #1c1c1e;
+            --bg-tertiary: #2c2c2e;
+            --bg-elevated: rgba(255, 255, 255, 0.08);
+
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-tertiary: rgba(255, 255, 255, 0.3);
+
+            --border: rgba(255, 255, 255, 0.1);
+            --divider: rgba(255, 255, 255, 0.06);
+
+            /* 圆角 */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --radius-xl: 20px;
+            --radius-full: 9999px;
+
+            /* 动效 */
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+            /* 间距 */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-10: 40px;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f7;
+            --bg-tertiary: #e5e5ea;
+            --bg-elevated: rgba(0, 0, 0, 0.04);
+            --text-primary: #1d1d1f;
+            --text-secondary: rgba(0, 0, 0, 0.6);
+            --text-tertiary: rgba(0, 0, 0, 0.3);
+            --border: rgba(0, 0, 0, 0.1);
+            --divider: rgba(0, 0, 0, 0.06);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+                         'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 40px;
+            line-height: 1.5;
+            transition: background 0.25s var(--ease-smooth), color 0.25s var(--ease-smooth);
+        }
+
+        h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+        h2 { font-size: 20px; font-weight: 600; margin-bottom: 24px; color: var(--text-secondary); }
+        h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text-secondary); }
+
+        .section { margin-bottom: 48px; }
+        .demo-area {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        .demo-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .demo-col { display: flex; flex-direction: column; gap: 16px; }
+        .demo-label { font-size: 12px; color: var(--text-tertiary); margin-top: 8px; }
+
+        /* ========================================
+           SVG图标系统
+           ======================================== */
+        .icon { display: inline-flex; align-items: center; justify-content: center; }
+        .icon svg { stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+        .icon-solid svg { fill: currentColor; stroke: none; }
+        .icon-sm { width: 16px; height: 16px; }
+        .icon-md { width: 20px; height: 20px; }
+        .icon-lg { width: 24px; height: 24px; }
+        .icon-xl { width: 32px; height: 32px; }
+
+        /* ========================================
+           Button按钮
+           ======================================== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-5);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s var(--ease-smooth);
+            white-space: nowrap;
+        }
+        .btn:hover { transform: scale(1.02); }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-primary { background: var(--color-primary); color: white; }
+        .btn-primary:hover { background: var(--color-primary-light); }
+
+        .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        .btn-secondary:hover { background: var(--bg-elevated); }
+
+        .btn-ghost { background: transparent; color: var(--color-primary); }
+        .btn-ghost:hover { background: rgba(0, 122, 255, 0.1); }
+
+        .btn-danger { background: var(--color-danger); color: white; }
+
+        .btn-sm { padding: var(--space-2) var(--space-4); font-size: 12px; }
+        .btn-lg { padding: var(--space-4) var(--space-6); font-size: 16px; }
+        .btn-full { width: 100%; }
+
+        .btn-icon { padding: var(--space-3); }
+
+        /* ========================================
+           Input输入框
+           ======================================== */
+        .input-group { display: flex; flex-direction: column; gap: var(--space-2); }
+        .input-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+        .input {
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.15s var(--ease-smooth);
+            outline: none;
+        }
+        .input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2); }
+        .input::placeholder { color: var(--text-tertiary); }
+        .input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .input-error { border-color: var(--color-danger); }
+        .input-error:focus { box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.2); }
+        .input-hint { font-size: 12px; color: var(--text-tertiary); }
+        .input-error-msg { font-size: 12px; color: var(--color-danger); }
+
+        .input-with-icon { position: relative; }
+        .input-with-icon .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); }
+        .input-with-icon .input { padding-left: 40px; }
+
+        /* ========================================
+           Switch开关
+           ======================================== */
+        .switch { display: inline-flex; align-items: center; gap: var(--space-3); cursor: pointer; }
+        .switch-track {
+            width: 51px;
+            height: 31px;
+            border-radius: 16px;
+            background: var(--gray-400);
+            position: relative;
+            transition: background 0.2s var(--ease-smooth);
+        }
+        .switch-thumb {
+            width: 27px;
+            height: 27px;
+            border-radius: 50%;
+            background: white;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s var(--ease-spring);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .switch.active .switch-track { background: var(--color-primary); }
+        .switch.active .switch-thumb { transform: translateX(20px); }
+        .switch-label { font-size: 14px; color: var(--text-primary); }
+
+        /* ========================================
+           Checkbox复选框
+           ======================================== */
+        .checkbox { display: inline-flex; align-items: center; gap: var(--space-3); cursor: pointer; }
+        .checkbox-box {
+            width: 20px;
+            height: 20px;
+            border-radius: var(--radius-sm);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s var(--ease-smooth);
+        }
+        .checkbox-box svg { width: 12px; height: 12px; opacity: 0; transform: scale(0.5); transition: all 0.15s var(--ease-spring); }
+        .checkbox.checked .checkbox-box { background: var(--color-primary); border-color: var(--color-primary); }
+        .checkbox.checked .checkbox-box svg { opacity: 1; transform: scale(1); stroke: white; }
+        .checkbox-label { font-size: 14px; color: var(--text-primary); }
+
+        /* ========================================
+           Radio单选框
+           ======================================== */
+        .radio { display: inline-flex; align-items: center; gap: var(--space-3); cursor: pointer; }
+        .radio-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s var(--ease-smooth);
+        }
+        .radio-dot::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: white;
+            transform: scale(0);
+            transition: transform 0.15s var(--ease-spring);
+        }
+        .radio.checked .radio-dot { border-color: var(--color-primary); }
+        .radio.checked .radio-dot::after { transform: scale(1); background: var(--color-primary); }
+        .radio-label { font-size: 14px; color: var(--text-primary); }
+
+        /* ========================================
+           Badge徽标 & Tag标签
+           ======================================== */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 8px;
+            border-radius: var(--radius-full);
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-primary { background: rgba(0, 122, 255, 0.15); color: var(--color-primary); }
+        .badge-success { background: rgba(52, 199, 89, 0.15); color: var(--color-success); }
+        .badge-warning { background: rgba(255, 149, 0, 0.15); color: var(--color-warning); }
+        .badge-danger { background: rgba(255, 59, 48, 0.15); color: var(--color-danger); }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        .tag-close { cursor: pointer; opacity: 0.6; }
+        .tag-close:hover { opacity: 1; }
+
+        /* ========================================
+           Avatar头像
+           ======================================== */
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            overflow: hidden;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar-sm { width: 32px; height: 32px; font-size: 14px; }
+        .avatar-lg { width: 56px; height: 56px; font-size: 20px; }
+        .avatar-xl { width: 80px; height: 80px; font-size: 28px; }
+
+        .avatar-group { display: flex; }
+        .avatar-group .avatar { border: 2px solid var(--bg-primary); margin-left: -8px; }
+        .avatar-group .avatar:first-child { margin-left: 0; }
+
+        /* ========================================
+           Progress进度条
+           ======================================== */
+        .progress {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: var(--color-primary);
+            border-radius: 4px;
+            transition: width 0.3s var(--ease-smooth);
+        }
+        .progress-sm { height: 4px; }
+        .progress-lg { height: 12px; }
+
+        .progress-circle {
+            width: 80px;
+            height: 80px;
+            position: relative;
+        }
+        .progress-circle svg { transform: rotate(-90deg); }
+        .progress-circle-bg { fill: none; stroke: var(--bg-tertiary); stroke-width: 8; }
+        .progress-circle-bar { fill: none; stroke: var(--color-primary); stroke-width: 8; stroke-linecap: round; }
+        .progress-circle-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* ========================================
+           Tabs标签页
+           ======================================== */
+        .tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--border); }
+        .tab {
+            padding: var(--space-3) var(--space-4);
+            font-size: 14px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s var(--ease-smooth);
+            margin-bottom: -1px;
+        }
+        .tab:hover { color: var(--text-primary); }
+        .tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+
+        /* ========================================
+           Breadcrumb面包屑
+           ======================================== */
+        .breadcrumb { display: flex; align-items: center; gap: var(--space-2); font-size: 14px; }
+        .breadcrumb-item { color: var(--text-secondary); }
+        .breadcrumb-item:last-child { color: var(--text-primary); font-weight: 500; }
+        .breadcrumb-separator { color: var(--text-tertiary); }
+        .breadcrumb-item:hover { color: var(--color-primary); cursor: pointer; }
+
+        /* ========================================
+           Pagination分页
+           ======================================== */
+        .pagination { display: flex; align-items: center; gap: var(--space-2); }
+        .pagination-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s var(--ease-smooth);
+            font-size: 14px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: none;
+        }
+        .pagination-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+        .pagination-btn.active { background: var(--color-primary); color: white; }
+        .pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .pagination-ellipsis { color: var(--text-tertiary); padding: 0 var(--space-2); }
+
+        /* ========================================
+           Steps步骤条
+           ======================================== */
+        .steps { display: flex; align-items: center; }
+        .step { display: flex; align-items: center; }
+        .step-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.2s var(--ease-smooth);
+        }
+        .step.active .step-icon { background: var(--color-primary); color: white; }
+        .step.completed .step-icon { background: var(--color-success); color: white; }
+        .step-label { margin-left: var(--space-3); font-size: 14px; color: var(--text-secondary); }
+        .step.active .step-label, .step.completed .step-label { color: var(--text-primary); }
+        .step-line { flex: 1; height: 2px; background: var(--border); margin: 0 var(--space-4); min-width: 40px; }
+        .step.completed + .step .step-line, .step:last-child .step-line { display: none; }
+
+        /* ========================================
+           Card卡片
+           ======================================== */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: all 0.2s var(--ease-smooth);
+        }
+        .card:hover { border-color: var(--text-tertiary); }
+        .card-cover { aspect-ratio: 16/9; background: var(--bg-tertiary); }
+        .card-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .card-body { padding: var(--space-4); }
+        .card-title { font-size: 16px; font-weight: 600; margin-bottom: var(--space-2); }
+        .card-desc { font-size: 14px; color: var(--text-secondary); }
+        .card-footer { padding: var(--space-4); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: var(--space-3); }
+
+        /* ========================================
+           Table表格
+           ======================================== */
+        .table-wrapper { overflow-x: auto; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { padding: var(--space-3) var(--space-4); text-align: left; border-bottom: 1px solid var(--border); }
+        .table th { font-size: 13px; font-weight: 600; color: var(--text-secondary); background: var(--bg-tertiary); }
+        .table tr:hover td { background: var(--bg-elevated); }
+        .table td { font-size: 14px; }
+
+        /* ========================================
+           List列表
+           ======================================== */
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: var(--space-4);
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s var(--ease-smooth);
+            cursor: pointer;
+        }
+        .list-item:hover { background: var(--bg-elevated); }
+        .list-item:last-child { border-bottom: none; }
+        .list-item-icon { margin-right: var(--space-4); }
+        .list-item-content { flex: 1; }
+        .list-item-title { font-size: 14px; font-weight: 500; }
+        .list-item-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        .list-item-action { margin-left: var(--space-4); }
+
+        /* ========================================
+           Empty空状态
+           ======================================== */
+        .empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-10);
+            text-align: center;
+        }
+        .empty-icon { font-size: 48px; color: var(--text-tertiary); margin-bottom: var(--space-4); }
+        .empty-title { font-size: 16px; font-weight: 600; margin-bottom: var(--space-2); }
+        .empty-desc { font-size: 14px; color: var(--text-secondary); }
+
+        /* ========================================
+           Divider分隔线
+           ======================================== */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: var(--space-4) 0;
+        }
+        .divider-vertical {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 var(--space-4);
+        }
+
+        /* ========================================
+           Alert警告提示
+           ======================================== */
+        .alert {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-3);
+            padding: var(--space-4);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+        }
+        .alert-icon { flex-shrink: 0; }
+        .alert-content { flex: 1; }
+        .alert-title { font-weight: 600; margin-bottom: var(--space-1); }
+        .alert-info { background: rgba(90, 200, 250, 0.15); color: var(--color-info); }
+        .alert-success { background: rgba(52, 199, 89, 0.15); color: var(--color-success); }
+        .alert-warning { background: rgba(255, 149, 0, 0.15); color: var(--color-warning); }
+        .alert-danger { background: rgba(255, 59, 48, 0.15); color: var(--color-danger); }
+        .alert-close { cursor: pointer; opacity: 0.6; }
+        .alert-close:hover { opacity: 1; }
+
+        /* ========================================
+           Loading加载
+           ======================================== */
+        .loading { display: flex; align-items: center; justify-content: center; padding: var(--space-6); }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-elevated) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: var(--radius-sm);
+        }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+        /* ========================================
+           Modal模态弹窗
+           ======================================== */
+        .modal-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.25s var(--ease-smooth);
+        }
+        .modal-mask.open { opacity: 1; visibility: visible; }
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-xl);
+            min-width: 320px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: hidden;
+            transform: scale(0.9);
+            transition: transform 0.25s var(--ease-spring);
+        }
+        .modal-mask.open .modal { transform: scale(1); }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-5);
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-title { font-size: 17px; font-weight: 600; }
+        .modal-close { cursor: pointer; opacity: 0.6; }
+        .modal-close:hover { opacity: 1; }
+        .modal-body { padding: var(--space-5); overflow-y: auto; max-height: 60vh; }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-3);
+            padding: var(--space-4) var(--space-5);
+            border-top: 1px solid var(--border);
+        }
+
+        /* ========================================
+           Drawer侧边抽屉
+           ======================================== */
+        .drawer-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.25s var(--ease-smooth);
+        }
+        .drawer-mask.open { opacity: 1; visibility: visible; }
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 320px;
+            max-width: 90vw;
+            background: var(--bg-secondary);
+            z-index: 1001;
+            transform: translateX(100%);
+            transition: transform 0.3s var(--ease-spring);
+            display: flex;
+            flex-direction: column;
+        }
+        .drawer-mask.open .drawer { transform: translateX(0); }
+        .drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-5);
+            border-bottom: 1px solid var(--border);
+        }
+        .drawer-title { font-size: 17px; font-weight: 600; }
+        .drawer-close { cursor: pointer; opacity: 0.6; }
+        .drawer-close:hover { opacity: 1; }
+        .drawer-body { flex: 1; padding: var(--space-5); overflow-y: auto; }
+        .drawer-footer {
+            padding: var(--space-4) var(--space-5);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: var(--space-3);
+        }
+
+        /* ========================================
+           Toast轻提示
+           ======================================== */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-3);
+        }
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-3) var(--space-5);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            font-size: 14px;
+            transform: translateY(-20px);
+            opacity: 0;
+            animation: toastIn 0.3s var(--ease-spring) forwards;
+        }
+        .toast.toast-out { animation: toastOut 0.2s var(--ease-smooth) forwards; }
+        @keyframes toastIn { to { transform: translateY(0); opacity: 1; } }
+        @keyframes toastOut { to { transform: translateY(-20px); opacity: 0; } }
+        .toast-icon { flex-shrink: 0; }
+        .toast-success { border-left: 3px solid var(--color-success); }
+        .toast-error { border-left: 3px solid var(--color-danger); }
+        .toast-warning { border-left: 3px solid var(--color-warning); }
+        .toast-info { border-left: 3px solid var(--color-info); }
+
+        /* ========================================
+           Tooltip鼠标悬浮提示
+           ======================================== */
+        .tooltip { position: relative; display: inline-flex; }
+        .tooltip-content {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            padding: var(--space-2) var(--space-3);
+            background: var(--gray-800);
+            color: white;
+            font-size: 12px;
+            border-radius: var(--radius-sm);
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.15s var(--ease-smooth);
+            z-index: 100;
+        }
+        .tooltip-content::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--gray-800);
+        }
+        .tooltip:hover .tooltip-content { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(-4px); }
+
+        /* ========================================
+           主题切换
+           ======================================== */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-spring);
+            z-index: 1000;
+        }
+        .theme-toggle:hover { transform: scale(1.1); }
+        .theme-toggle svg { stroke: var(--text-primary); fill: none; stroke-width: 2; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">
+        <svg class="icon-sun" width="24" height="24" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon-moon" width="24" height="24" viewBox="0 0 24 24" style="display:none">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+    </button>
+
+    <h1>Apple Prototype Components</h1>
+    <h2>通用组件库 · 中性色彩 · 交互模式</h2>
+
+    <!-- Button按钮 -->
+    <section class="section">
+        <h2>Button 按钮</h2>
+        <div class="demo-area">
+            <h3>类型</h3>
+            <div class="demo-row">
+                <button class="btn btn-primary">主要按钮</button>
+                <button class="btn btn-secondary">次要按钮</button>
+                <button class="btn btn-ghost">幽灵按钮</button>
+                <button class="btn btn-danger">危险按钮</button>
+            </div>
+        </div>
+        <div class="demo-area">
+            <h3>尺寸</h3>
+            <div class="demo-row">
+                <button class="btn btn-primary btn-sm">小按钮</button>
+                <button class="btn btn-primary">中按钮</button>
+                <button class="btn btn-primary btn-lg">大按钮</button>
+            </div>
+        </div>
+        <div class="demo-area">
+            <h3>状态</h3>
+            <div class="demo-row">
+                <button class="btn btn-primary">正常</button>
+                <button class="btn btn-primary" disabled>禁用</button>
+                <button class="btn btn-primary btn-full">全宽按钮</button>
+            </div>
+        </div>
+        <div class="demo-area">
+            <h3>图标按钮</h3>
+            <div class="demo-row">
+                <button class="btn btn-icon btn-secondary">
+                    <span class="icon icon-md">
+                        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </span>
+                </button>
+                <button class="btn btn-icon btn-secondary">
+                    <span class="icon icon-md">
+                        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
+                    </span>
+                </button>
+                <button class="btn btn-icon btn-secondary">
+                    <span class="icon icon-md">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Input输入框 -->
+    <section class="section">
+        <h2>Input 输入框</h2>
+        <div class="demo-area">
+            <h3>基本输入框</h3>
+            <div class="demo-col" style="max-width: 400px;">
+                <div class="input-group">
+                    <label class="input-label">用户名</label>
+                    <input type="text" class="input" placeholder="请输入用户名">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">邮箱</label>
+                    <input type="email" class="input" placeholder="请输入邮箱">
+                    <span class="input-hint">我们将发送验证邮件到此邮箱</span>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">错误状态</label>
+                    <input type="text" class="input input-error" value="错误输入">
+                    <span class="input-error-msg">输入格式不正确</span>
+                </div>
+            </div>
+        </div>
+        <div class="demo-area">
+            <h3>带图标的输入框</h3>
+            <div class="demo-col" style="max-width: 400px;">
+                <div class="input-with-icon">
+                    <span class="icon icon-md">
+                        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </span>
+                    <input type="text" class="input" placeholder="搜索...">
+                </div>
+                <div class="input-with-icon">
+                    <span class="icon icon-md">
+                        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <input type="text" class="input" placeholder="搜索用户...">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Switch开关 -->
+    <section class="section">
+        <h2>Switch 开关</h2>
+        <div class="demo-area">
+            <div class="demo-row">
+                <div class="switch" onclick="toggleSwitch(this)">
+                    <div class="switch-track"><div class="switch-thumb"></div></div>
+                    <span class="switch-label">关闭状态</span>
+                </div>
+                <div class="switch active" onclick="toggleSwitch(this)">
+                    <div class="switch-track"><div class="switch-thumb"></div></div>
+                    <span class="switch-label">开启状态</span>
+                </div>
+                <div class="switch" onclick="toggleSwitch(this)" disabled>
+                    <div class="switch-track"><div class="switch-thumb"></div></div>
+                    <span class="switch-label">禁用状态</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Checkbox复选框 -->
+    <section class="section">
+        <h2>Checkbox 复选框</h2>
+        <div class="demo-area">
+            <div class="demo-row">
+                <div class="checkbox" onclick="toggleCheckbox(this)">
+                    <div class="checkbox-box">
+                        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span class="checkbox-label">选项一</span>
+                </div>
+                <div class="checkbox checked" onclick="toggleCheckbox(this)">
+                    <div class="checkbox-box">
+                        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span class="checkbox-label">选项二（选中）</span>
+                </div>
+                <div class="checkbox" onclick="toggleCheckbox(this)" disabled>
+                    <div class="checkbox-box">
+                        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span class="checkbox-label">禁用状态</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Radio单选框 -->
+    <section class="section">
+        <h2>Radio 单选框</h2>
+        <div class="demo-area">
+            <div class="demo-row">
+                <div class="radio" onclick="toggleRadio(this)">
+                    <div class="radio-dot"></div>
+                    <span class="radio-label">选项一</span>
+                </div>
+                <div class="radio checked" onclick="toggleRadio(this)">
+                    <div class="radio-dot"></div>
+                    <span class="radio-label">选项二（选中）</span>
+                </div>
+                <div class="radio" onclick="toggleRadio(this)" disabled>
+                    <div class="radio-dot"></div>
+                    <span class="radio-label">禁用状态</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Badge & Tag -->
+    <section class="section">
+        <h2>Badge 徽标 & Tag 标签</h2>
+        <div class="demo-area">
+            <h3>Badge</h3>
+            <div class="demo-row">
+                <span class="badge badge-primary">主要</span>
+                <span class="badge badge-success">成功</span>
+                <span class="badge badge-warning">警告</span>
+                <span class="badge badge-danger">危险</span>
+            </div>
+        </div>
+        <div class="demo-area">
+            <h3>Tag</h3>
+            <div class="demo-row">
+                <span class="tag">标签一</span>
+                <span class="tag">
+                    标签二
+                    <span class="tag-close icon icon-sm">
+                        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </span>
+                </span>
+                <span class="tag">
+                    可关闭标签
+                    <span class="tag-close icon icon-sm">
+                        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </span>
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Avatar -->
+    <section class="section">
+        <h2>Avatar 头像</h2>
+        <div class="demo-area">
+            <div class="demo-row">
+                <div class="avatar avatar-sm" style="background: #8e8e93;">李</div>
+                <div class="avatar" style="background: var(--color-primary);">张</div>
+                <div class="avatar avatar-lg" style="background: var(--color-success);">王</div>
+                <div class="avatar avatar-xl" style="background: var(--color-warning);">刘</div>
+            </div>
+        </div>
+        <div class="demo-area">
+            <h3>头像组</h3>
+            <div class="avatar-group">
+                <div class="avatar" style="background: #8e8e93;">陈</div>
+                <div class="avatar" style="background: var(--color-primary);">林</div>
+                <div class="avatar" style="background: var(--color-success);">何</div>
+                <div class="avatar" style="background: var(--color-warning);">周</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Progress -->
+    <section class="section">
+        <h2>Progress 进度条</h2>
+        <div class="demo-area">
+            <h3>线性进度条</h3>
+            <div class="demo-col" style="max-width: 400px;">
+                <div class="progress"><div class="progress-bar" style="width: 30%;"></div></div>
+                <div class="progress progress-sm"><div class="progress-bar" style="width: 60%;"></div></div>
+                <div class="progress progress-lg"><div class="progress-bar" style="width: 85%;"></div></div>
+            </div>
+        </div>
+        <div class="demo-area">
+            <h3>圆形进度</h3>
+            <div class="demo-row">
+                <div class="progress-circle">
+                    <svg width="80" height="80" viewBox="0 0 80 80">
+                        <circle class="progress-circle-bg" cx="40" cy="40" r="34"/>
+                        <circle class="progress-circle-bar" cx="40" cy="40" r="34" stroke-dasharray="213.6" stroke-dashoffset="64"/>
+                    </svg>
+                    <div class="progress-circle-text">70%</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tabs -->
+    <section class="section">
+        <h2>Tabs 标签页</h2>
+        <div class="demo-area">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab(this)">标签一</div>
+                <div class="tab" onclick="switchTab(this)">标签二</div>
+                <div class="tab" onclick="switchTab(this)">标签三</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Breadcrumb -->
+    <section class="section">
+        <h2>Breadcrumb 面包屑</h2>
+        <div class="demo-area">
+            <div class="breadcrumb">
+                <span class="breadcrumb-item">首页</span>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-item">产品</span>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-item">详情</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pagination -->
+    <section class="section">
+        <h2>Pagination 分页</h2>
+        <div class="demo-area">
+            <div class="pagination">
+                <button class="pagination-btn" disabled>
+                    <span class="icon icon-md"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+                </button>
+                <button class="pagination-btn active">1</button>
+                <button class="pagination-btn">2</button>
+                <button class="pagination-btn">3</button>
+                <span class="pagination-ellipsis">...</span>
+                <button class="pagination-btn">10</button>
+                <button class="pagination-btn">
+                    <span class="icon icon-md"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Steps -->
+    <section class="section">
+        <h2>Steps 步骤条</h2>
+        <div class="demo-area">
+            <div class="steps">
+                <div class="step completed">
+                    <div class="step-icon">
+                        <span class="icon icon-sm icon-solid"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+                    </div>
+                    <span class="step-label">已完成</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step active">
+                    <div class="step-icon">2</div>
+                    <span class="step-label">进行中</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step">
+                    <div class="step-icon">3</div>
+                    <span class="step-label">待完成</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Card -->
+    <section class="section">
+        <h2>Card 卡片</h2>
+        <div class="demo-area">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 800px;">
+                <div class="card">
+                    <div class="card-cover" style="background: linear-gradient(135deg, var(--color-primary), var(--color-info));"></div>
+                    <div class="card-body">
+                        <div class="card-title">卡片标题</div>
+                        <div class="card-desc">卡片描述内容</div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-ghost btn-sm">取消</button>
+                        <button class="btn btn-primary btn-sm">确定</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-cover" style="background: linear-gradient(135deg, var(--color-success), var(--color-primary));"></div>
+                    <div class="card-body">
+                        <div class="card-title">卡片标题</div>
+                        <div class="card-desc">卡片描述内容</div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-ghost btn-sm">取消</button>
+                        <button class="btn btn-primary btn-sm">确定</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-cover" style="background: linear-gradient(135deg, var(--color-warning), var(--color-danger));"></div>
+                    <div class="card-body">
+                        <div class="card-title">卡片标题</div>
+                        <div class="card-desc">卡片描述内容</div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-ghost btn-sm">取消</button>
+                        <button class="btn btn-primary btn-sm">确定</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Table -->
+    <section class="section">
+        <h2>Table 表格</h2>
+        <div class="demo-area">
+            <div class="table-wrapper" style="max-width: 800px;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>姓名</th>
+                            <th>邮箱</th>
+                            <th>角色</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>张三</td>
+                            <td>zhangsan@example.com</td>
+                            <td>管理员</td>
+                            <td><span class="badge badge-success">启用</span></td>
+                        </tr>
+                        <tr>
+                            <td>李四</td>
+                            <td>lisi@example.com</td>
+                            <td>编辑</td>
+                            <td><span class="badge badge-success">启用</span></td>
+                        </tr>
+                        <tr>
+                            <td>王五</td>
+                            <td>wangwu@example.com</td>
+                            <td>访客</td>
+                            <td><span class="badge badge-warning">待审核</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- List -->
+    <section class="section">
+        <h2>List 列表</h2>
+        <div class="demo-area">
+            <div style="max-width: 500px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden;">
+                <div class="list-item">
+                    <div class="avatar avatar-sm" style="background: var(--color-primary);">张</div>
+                    <div class="list-item-content">
+                        <div class="list-item-title">列表项标题一</div>
+                        <div class="list-item-desc">描述信息</div>
+                    </div>
+                    <div class="list-item-action">
+                        <span class="badge badge-primary">新</span>
+                    </div>
+                </div>
+                <div class="list-item">
+                    <div class="avatar avatar-sm" style="background: var(--color-success);">李</div>
+                    <div class="list-item-content">
+                        <div class="list-item-title">列表项标题二</div>
+                        <div class="list-item-desc">描述信息</div>
+                    </div>
+                    <div class="list-item-action">
+                        <span class="icon icon-md" style="color: var(--text-tertiary);">
+                            <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </span>
+                    </div>
+                </div>
+                <div class="list-item">
+                    <div class="avatar avatar-sm" style="background: var(--color-warning);">王</div>
+                    <div class="list-item-content">
+                        <div class="list-item-title">列表项标题三</div>
+                        <div class="list-item-desc">描述信息</div>
+                    </div>
+                    <div class="list-item-action">
+                        <span class="icon icon-md" style="color: var(--text-tertiary);">
+                            <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Empty -->
+    <section class="section">
+        <h2>Empty 空状态</h2>
+        <div class="demo-area">
+            <div style="max-width: 400px;">
+                <div class="empty">
+                    <div class="empty-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                    <div class="empty-title">暂无数据</div>
+                    <div class="empty-desc">当前没有内容，稍后再来看看吧</div>
+                    <button class="btn btn-primary" style="margin-top: 16px;">刷新</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Alert -->
+    <section class="section">
+        <h2>Alert 警告提示</h2>
+        <div class="demo-area">
+            <div class="demo-col" style="max-width: 500px;">
+                <div class="alert alert-info">
+                    <span class="alert-icon icon icon-md">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    </span>
+                    <div class="alert-content">
+                        <div class="alert-title">提示信息</div>
+                        <div>这是一条提示信息内容</div>
+                    </div>
+                </div>
+                <div class="alert alert-success">
+                    <span class="alert-icon icon icon-md">
+                        <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </span>
+                    <div class="alert-content">
+                        <div class="alert-title">成功</div>
+                        <div>操作已成功完成</div>
+                    </div>
+                </div>
+                <div class="alert alert-warning">
+                    <span class="alert-icon icon icon-md">
+                        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </span>
+                    <div class="alert-content">
+                        <div class="alert-title">警告</div>
+                        <div>请注意操作风险</div>
+                    </div>
+                </div>
+                <div class="alert alert-danger">
+                    <span class="alert-icon icon icon-md">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    </span>
+                    <div class="alert-content">
+                        <div class="alert-title">错误</div>
+                        <div>操作失败，请重试</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Loading -->
+    <section class="section">
+        <h2>Loading 加载状态</h2>
+        <div class="demo-area">
+            <h3>Spinner</h3>
+            <div class="demo-row">
+                <div class="loading"><div class="spinner"></div></div>
+                <div class="loading"><div class="spinner" style="border-top-color: var(--color-success);"></div></div>
+                <div class="loading"><div class="spinner" style="border-top-color: var(--color-warning);"></div></div>
+                <div class="loading"><div class="spinner" style="border-top-color: var(--color-danger);"></div></div>
+            </div>
+        </div>
+        <div class="demo-area">
+            <h3>Skeleton骨架屏</h3>
+            <div style="display: flex; gap: 16px; max-width: 500px;">
+                <div style="flex: 1;">
+                    <div class="skeleton" style="height: 120px; margin-bottom: 12px;"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                </div>
+                <div style="flex: 1;">
+                    <div class="skeleton" style="height: 120px; margin-bottom: 12px;"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modal -->
+    <section class="section">
+        <h2>Modal 模态弹窗</h2>
+        <div class="demo-area">
+            <button class="btn btn-primary" onclick="openModal()">打开弹窗</button>
+        </div>
+    </section>
+
+    <!-- Drawer -->
+    <section class="section">
+        <h2>Drawer 侧边抽屉</h2>
+        <div class="demo-area">
+            <button class="btn btn-primary" onclick="openDrawer()">打开抽屉</button>
+        </div>
+    </section>
+
+    <!-- Toast -->
+    <section class="section">
+        <h2>Toast 轻提示</h2>
+        <div class="demo-area">
+            <div class="demo-row">
+                <button class="btn btn-secondary" onclick="showToast('success')">成功提示</button>
+                <button class="btn btn-secondary" onclick="showToast('error')">错误提示</button>
+                <button class="btn btn-secondary" onclick="showToast('warning')">警告提示</button>
+                <button class="btn btn-secondary" onclick="showToast('info')">信息提示</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tooltip -->
+    <section class="section">
+        <h2>Tooltip 鼠标悬浮提示</h2>
+        <div class="demo-area">
+            <div class="demo-row">
+                <div class="tooltip">
+                    <span class="btn btn-secondary">鼠标悬停</span>
+                    <span class="tooltip-content">这是提示内容</span>
+                </div>
+                <div class="tooltip">
+                    <span class="btn btn-secondary">上面提示</span>
+                    <span class="tooltip-content">提示文字</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Divider -->
+    <section class="section">
+        <h2>Divider 分隔线</h2>
+        <div class="demo-area">
+            <div class="demo-row">
+                <div style="flex: 1;">
+                    <div style="padding: 8px 0;">内容一</div>
+                    <div class="divider"></div>
+                    <div style="padding: 8px 0;">内容二</div>
+                    <div class="divider"></div>
+                    <div style="padding: 8px 0;">内容三</div>
+                </div>
+                <div class="divider-vertical"></div>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <span>左侧</span>
+                    <div class="divider-vertical"></div>
+                    <span>右侧</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Theme Toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+
+            const sunIcon = document.querySelector('.icon-sun');
+            const moonIcon = document.querySelector('.icon-moon');
+            sunIcon.style.display = newTheme === 'light' ? 'none' : 'block';
+            moonIcon.style.display = newTheme === 'light' ? 'block' : 'none';
+        }
+
+        // Switch
+        function toggleSwitch(el) {
+            if (el.disabled) return;
+            el.classList.toggle('active');
+        }
+
+        // Checkbox
+        function toggleCheckbox(el) {
+            if (el.disabled) return;
+            el.classList.toggle('checked');
+        }
+
+        // Radio
+        function toggleRadio(el) {
+            if (el.disabled) return;
+            const siblings = el.parentElement.children;
+            for (let sibling of siblings) {
+                if (sibling.classList.contains('radio')) {
+                    sibling.classList.remove('checked');
+                }
+            }
+            el.classList.add('checked');
+        }
+
+        // Tab
+        function switchTab(el) {
+            const tabs = el.parentElement.children;
+            for (let tab of tabs) {
+                if (tab.classList.contains('tab')) {
+                    tab.classList.remove('active');
+                }
+            }
+            el.classList.add('active');
+        }
+
+        // Modal
+        function openModal() {
+            document.getElementById('modal').classList.add('open');
+        }
+        function closeModal() {
+            document.getElementById('modal').classList.remove('open');
+        }
+
+        // Drawer
+        function openDrawer() {
+            document.getElementById('drawer').classList.add('open');
+        }
+        function closeDrawer() {
+            document.getElementById('drawer').classList.remove('open');
+        }
+
+        // Toast
+        function showToast(type) {
+            const container = document.getElementById('toastContainer');
+            const icons = {
+                success: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34C759" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+                error: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+                warning: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF9500" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+                info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5AC8FA" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+            };
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<span class="toast-icon">${icons[type]}</span><span>提示信息内容</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('toast-out');
+                setTimeout(() => toast.remove(), 200);
+            }, 3000);
+        }
+    </script>
+
+    <!-- Modal Element -->
+    <div class="modal-mask" id="modal" onclick="handleModalMask(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <span class="modal-title">弹窗标题</span>
+                <span class="modal-close icon icon-md" onclick="closeModal()">
+                    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </span>
+            </div>
+            <div class="modal-body">
+                <p>这是弹窗的内容区域。</p>
+                <p>可以放置表单、提示信息等内容。</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="closeModal()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function handleModalMask(event) {
+            if (event.target === event.currentTarget) closeModal();
+        }
+    </script>
+
+    <!-- Drawer Element -->
+    <div class="drawer-mask" id="drawerMask" onclick="closeDrawer()">
+        <div class="drawer" id="drawer" onclick="event.stopPropagation()">
+            <div class="drawer-header">
+                <span class="drawer-title">抽屉标题</span>
+                <span class="drawer-close icon icon-md" onclick="closeDrawer()">
+                    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </span>
+            </div>
+            <div class="drawer-body">
+                <p>这是抽屉的内容区域。</p>
+                <p>可以从右侧滑入的面板。</p>
+            </div>
+            <div class="drawer-footer">
+                <button class="btn btn-secondary btn-full" onclick="closeDrawer()">取消</button>
+                <button class="btn btn-primary btn-full" onclick="closeDrawer()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fix drawer mask reference
+        document.getElementById('drawer').parentElement.id = 'drawer-mask';
+
+        function openDrawer() {
+            document.querySelector('.drawer-mask').classList.add('open');
+        }
+        function closeDrawer() {
+            document.querySelector('.drawer-mask').classList.remove('open');
+        }
+    </script>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+</body>
+</html>
