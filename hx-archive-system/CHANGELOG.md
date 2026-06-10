@@ -31,6 +31,28 @@
 
 ## 版本记录
 
+### v1.0.2 - 菜单选中bug + 报工审批编辑功能
+
+**日期**: 2026-06-10
+
+**更新内容**:
+
+1. **菜单选中bug修复**
+   - 子菜单使用精确匹配（===）替代startsWith
+   - 解决选中【报工审批】时【报工记录】也被选中的问题
+
+2. **报工审批详情页编辑功能**
+   - 新增编辑按钮，仅待审批和已驳回状态显示
+   - 可编辑字段：申请班次、报工点、审批班长
+   - 新增updateSupplementApplication API
+
+**涉及文件**:
+- src/components/layout/AppSider.tsx - 修复菜单选中逻辑
+- src/features/report-work/pages/ApproveDetailPage.tsx - 新增编辑功能
+- src/features/report-work/services/api.ts - 新增updateSupplementApplication API
+
+---
+
 ### v1.0.1 - 报工管理模块 + 菜单结构优化
 
 **日期**: 2026-06-10

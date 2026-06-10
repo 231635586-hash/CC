@@ -145,8 +145,8 @@ export function ApproveDetailPage() {
           </Button>
           <h1 className="text-xl font-semibold text-text-primary">审批详情</h1>
         </div>
-        {/* 编辑按钮 - 仅待审批和已驳回状态显示 */}
-        {(currentSupplement.status === '待审批' || currentSupplement.status === '已驳回') && (
+        {/* 编辑按钮 - 仅待审批状态显示 */}
+        {currentSupplement.status === '待审批' && (
           <Button variant="secondary" size="sm" icon={<EditIcon className="w-4 h-4" />} onClick={handleEditClick}>
             编辑
           </Button>
