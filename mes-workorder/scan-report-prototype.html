@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>扫码报工记录管理系统 - 小程序原型</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand: oklch(48% 0.14 235);
+      --brand-hover: oklch(42% 0.14 235);
+      --brand-subtle: oklch(96% 0.015 235);
+      --surface: oklch(98% 0.008 220);
+      --surface-raised: #fff;
+      --border: oklch(90% 0.01 220);
+      --text-primary: oklch(20% 0.025 220);
+      --text-secondary: oklch(45% 0.015 220);
+      --text-tertiary: oklch(65% 0.01 220);
+      --success: oklch(52% 0.16 148);
+      --success-subtle: oklch(95% 0.04 148);
+      --warning: oklch(68% 0.17 75);
+      --warning-subtle: oklch(95% 0.04 75);
+      --danger: oklch(52% 0.19 25);
+      --danger-subtle: oklch(95% 0.03 25);
+      --info: oklch(52% 0.14 235);
+      --info-subtle: oklch(95% 0.03 235);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --radius-lg: 14px;
+      --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.05);
+      --shadow: 0 2px 8px oklch(0% 0 0 / 0.07);
+      --shadow-lg: 0 8px 28px oklch(0% 0 0 / 0.10);
+      --shadow-focus: 0 0 0 3px oklch(55% 0.12 235 / 0.15);
+      --font-sans: 'Noto Sans SC', 'Geist', sans-serif;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { font-size: 16px; }
+    body {
+      font-family: var(--font-sans);
+      background: #1a1a1a;
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    /* iPhone 模拟器框架 */
+    .phone-frame {
+      width: 375px;
+      height: 812px;
+      background: #000;
+      border-radius: 44px;
+      padding: 20px;
+      box-shadow: 0 0 0 3px #333, 0 20px 60px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    .phone-screen {
+      width: 100%;
+      height: 100%;
+      background: var(--surface);
+      border-radius: 38px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 刘海区域 */
+    .phone-notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 150px;
+      height: 30px;
+      background: #000;
+      border-radius: 0 0 20px 20px;
+      z-index: 100;
+    }
+
+    /* 底部安全区域 */
+    .phone-home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: #fff;
+      border-radius: 3px;
+      opacity: 0.2;
+    }
+
+    /* 页面容器 */
+    .miniapp-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ==================== 小程序导航栏 ==================== */
+    .mini-navbar {
+      height: 44px;
+      background: var(--surface-raised);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      position: relative;
+      flex-shrink: 0;
+      margin-top: 30px;
+    }
+    .mini-navbar-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .mini-navbar-capsule {
+      position: absolute;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+    }
+    .mini-navbar-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+    }
+
+    /* ==================== 页面通用样式 ==================== */
+    .page { display: none; height: 100%; flex-direction: column; }
+    .page.active { display: flex; }
+
+    /* 内容区域 */
+    .page-content { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+    /* 按钮 */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      width: 100%;
+    }
+    .btn:active:not(:disabled) { opacity: 0.8; }
+    .btn:disabled, .btn.disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--brand-hover); }
+    .btn-secondary { background: var(--surface-raised); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+
+    /* 表单元素 */
+    .form-group { margin-bottom: 20px; }
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .form-label .required { color: var(--danger); margin-left: 2px; }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      color: var(--text-primary);
+      background: var(--surface-raised);
+      transition: all 0.2s;
+      -webkit-appearance: none;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--brand);
+      box-shadow: var(--shadow-focus);
+      outline: none;
+    }
+    .form-input[readonly], .form-input:disabled {
+      background: var(--surface);
+      color: var(--text-tertiary);
+    }
+    .form-textarea { resize: none; min-height: 100px; }
+    .form-hint { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
+
+    /* Tab栏 */
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      padding: 4px;
+      background: var(--surface);
+      margin: 16px;
+      border-radius: var(--radius-sm);
+    }
+    .tab-item {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .tab-item.active {
+      background: var(--surface-raised);
+      color: var(--brand);
+      box-shadow: var(--shadow-sm);
+    }
+    .tab-item .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      background: var(--brand);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 4px;
+    }
+
+    /* 状态标签 */
+    .status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status-tag-success { background: var(--success-subtle); color: var(--success); }
+    .status-tag-warning { background: var(--warning-subtle); color: var(--warning); }
+    .status-tag-danger { background: var(--danger-subtle); color: var(--danger); }
+    .status-tag-info { background: var(--info-subtle); color: var(--info); }
+    .status-tag::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* 卡片 */
+    .card {
+      background: var(--surface-raised);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    /* 列表项 */
+    .list-item {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+      background: var(--surface-raised);
+    }
+    .list-item:last-child { border-bottom: none; }
+    .list-item:active { background: var(--surface); }
+    .list-item-content { flex: 1; }
+    .list-item-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+    .list-item-meta { font-size: 13px; color: var(--text-tertiary); }
+
+    /* 空状态 */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    .empty-state-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-tertiary);
+    }
+    .empty-state-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+    .empty-state-desc { font-size: 13px; color: var(--text-tertiary); }
+
+    /* 弹窗 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal {
+      background: var(--surface-raised);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      width: 100%;
+      max-width: 375px;
+      max-height: 80vh;
+      overflow: hidden;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .modal-overlay.active .modal { transform: translateY(0); }
+    .modal-handle {
+      width: 36px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 12px auto;
+    }
+    .modal-title { font-size: 17px; font-weight: 600; text-align: center; padding: 8px 20px 16px; }
+    .modal-body { padding: 0 20px 20px; }
+    .modal-footer {
+      padding: 12px 20px 34px;
+      display: flex;
+      gap: 12px;
+    }
+    .modal-footer .btn { flex: 1; }
+
+    /* ==================== P001: 报工记录列表页（日历视图） ==================== */
+    .calendar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 12px;
+    }
+    .calendar-nav {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .calendar-nav-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface-raised);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s;
+    }
+    .calendar-nav-btn:active { transform: scale(0.95); background: var(--surface); }
+    .calendar-title { font-size: 17px; font-weight: 600; }
+    .calendar-legend {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .calendar-legend-item { display: flex; align-items: center; gap: 4px; }
+    .calendar-legend-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      padding: 0 16px 16px;
+    }
+    .calendar-weekday {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      padding: 8px 0;
+    }
+    .calendar-day {
+      aspect-ratio: 1;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: var(--surface-raised);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      min-height: 42px;
+    }
+    .calendar-day:active { transform: scale(0.95); }
+    .calendar-day.other-month { opacity: 0.3; }
+    .calendar-day.today { background: var(--brand-subtle); }
+    .calendar-day-num {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+    .calendar-day-label {
+      font-size: 9px;
+      color: var(--text-tertiary);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0 2px;
+    }
+    .calendar-day.has-record::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+    }
+    .calendar-day.record-complete::after { background: var(--success); }
+    .calendar-day.record-missing::after { background: var(--border); }
+    .calendar-day.record-supplement::after { background: var(--info); }
+
+    .calendar-tip {
+      text-align: center;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      background: var(--surface-raised);
+      margin: 0 16px 16px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* ==================== P002: 报工详情页 ==================== */
+    .detail-section { padding: 16px; }
+    .detail-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    .detail-card {
+      background: var(--surface-raised);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row-label { font-size: 14px; color: var(--text-secondary); }
+    .detail-row-value { font-size: 15px; font-weight: 500; text-align: right; }
+    .history-list { margin-top: 8px; }
+    .history-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--brand);
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    .history-content { flex: 1; }
+    .history-time { font-size: 12px; color: var(--text-tertiary); margin-bottom: 2px; }
+    .history-text { font-size: 13px; color: var(--text-secondary); }
+    .history-text strong { font-weight: 500; color: var(--text-primary); }
+    .detail-footer {
+      padding: 16px;
+      background: var(--surface-raised);
+      position: absolute;
+      bottom: 34px;
+      left: 0;
+      right: 0;
+    }
+
+    /* ==================== P003: 发起补报页 ==================== */
+    .form-tip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--warning-subtle);
+      margin: 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--warning);
+    }
+    .form-content { padding: 0 16px 120px; }
+    .radio-group { display: flex; flex-direction: column; gap: 8px; }
+    .radio-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface-raised);
+    }
+    .radio-item:active { background: var(--surface); }
+    .radio-item.selected { border-color: var(--brand); background: var(--brand-subtle); }
+    .radio-item input { display: none; }
+    .radio-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .radio-item.selected .radio-dot { border-color: var(--brand); background: var(--brand); }
+    .radio-item.selected .radio-dot::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+    }
+    .radio-label { font-size: 15px; font-weight: 500; }
+    .form-footer {
+      position: absolute;
+      bottom: 34px;
+      left: 0;
+      right: 0;
+      padding: 16px;
+      background: linear-gradient(to top, var(--surface) 80%, transparent);
+    }
+
+    /* ==================== P004: 审批列表页 ==================== */
+    .approve-card {
+      background: var(--surface-raised);
+      border-bottom: 1px solid var(--border);
+      padding: 16px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .approve-card:active { background: var(--surface); }
+    .approve-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .approve-user { font-size: 15px; font-weight: 600; }
+    .approve-dept { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+    .approve-content-row {
+      display: flex;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .approve-content-label { color: var(--text-tertiary); }
+    .approve-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .approve-time { font-size: 12px; color: var(--text-tertiary); }
+    .approve-actions { display: flex; gap: 8px; }
+    .approve-actions .btn {
+      width: auto;
+      padding: 6px 14px;
+      font-size: 13px;
+    }
+
+    /* ==================== P005: 审批详情页 ==================== */
+    .approve-user-card {
+      background: var(--surface-raised);
+      padding: 20px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .approve-user-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: var(--brand-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--brand);
+    }
+    .approve-user-name { font-size: 16px; font-weight: 600; }
+    .approve-user-meta { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+    .approve-info-card {
+      background: var(--surface-raised);
+      margin: 0 16px;
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .approve-info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .approve-info-row:last-child { border-bottom: none; }
+    .approve-info-label { font-size: 14px; color: var(--text-secondary); }
+    .approve-info-value { font-size: 15px; font-weight: 500; }
+    .approve-reason {
+      background: var(--surface);
+      margin: 12px 16px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .approve-reason strong { color: var(--text-primary); font-weight: 500; }
+    .approve-original-record {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 16px 16px;
+      padding: 12px 14px;
+      background: var(--danger-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--danger);
+    }
+    .approve-action-bar {
+      position: absolute;
+      bottom: 34px;
+      left: 0;
+      right: 0;
+      display: flex;
+      gap: 12px;
+      padding: 16px;
+      background: var(--surface-raised);
+    }
+    .approve-action-bar .btn { flex: 1; }
+
+    /* ==================== 页面导航（演示用） ==================== */
+    .demo-nav {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      z-index: 999;
+      max-width: 90vw;
+      overflow-x: auto;
+    }
+    .demo-nav button {
+      padding: 8px 12px;
+      border-radius: 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .demo-nav button:active { transform: scale(0.95); }
+    .demo-nav button.active { background: var(--brand); color: #fff; }
+
+    /* 页面标题标签 */
+    .page-label {
+      position: absolute;
+      top: 50px;
+      right: 16px;
+      padding: 4px 10px;
+      background: var(--brand);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 10px;
+      z-index: 50;
+    }
+  </style>
+</head>
+<body>
+
+<!-- iPhone 模拟器 -->
+<div class="phone-frame">
+  <div class="phone-screen">
+    <!-- 刘海 -->
+    <div class="phone-notch"></div>
+
+    <!-- 页面容器 -->
+    <div class="miniapp-container">
+
+      <!-- ==================== P001: 报工记录列表页（日历视图） ==================== -->
+      <div id="p001" class="page active">
+        <span class="page-label">P001 日历视图</span>
+        <div class="mini-navbar">
+          <span class="mini-navbar-title">我的报工记录</span>
+          <div class="mini-navbar-capsule">
+            <button class="mini-navbar-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="page-content">
+          <!-- Tab筛选 -->
+          <div class="tab-bar">
+            <button class="tab-item active">全部</button>
+            <button class="tab-item">已完成</button>
+            <button class="tab-item">未完成</button>
+            <button class="tab-item">已补报</button>
+          </div>
+
+          <!-- 日历头部 -->
+          <div class="calendar-header">
+            <div class="calendar-nav">
+              <button class="calendar-nav-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <span class="calendar-title">2026年06月</span>
+              <button class="calendar-nav-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
+            </div>
+            <div class="calendar-legend">
+              <div class="calendar-legend-item">
+                <span class="calendar-legend-dot" style="background: var(--success)"></span>
+                <span>已完成</span>
+              </div>
+              <div class="calendar-legend-item">
+                <span class="calendar-legend-dot" style="background: var(--border)"></span>
+                <span>未完成</span>
+              </div>
+              <div class="calendar-legend-item">
+                <span class="calendar-legend-dot" style="background: var(--info)"></span>
+                <span>已补报</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 日历网格 -->
+          <div class="calendar-grid">
+            <div class="calendar-weekday">日</div>
+            <div class="calendar-weekday">一</div>
+            <div class="calendar-weekday">二</div>
+            <div class="calendar-weekday">三</div>
+            <div class="calendar-weekday">四</div>
+            <div class="calendar-weekday">五</div>
+            <div class="calendar-weekday">六</div>
+
+            <!-- 上月日期 -->
+            <div class="calendar-day other-month"><span class="calendar-day-num">25</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">26</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">27</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">28</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">29</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">30</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">31</span></div>
+
+            <!-- 本月日期 -->
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">1</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">2</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">3</span><span class="calendar-day-label">夜班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">4</span><span class="calendar-day-label">夜班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">5</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">6</span><span class="calendar-day-label">休息</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">7</span><span class="calendar-day-label">休息</span></div>
+
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">8</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">9</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day today has-record record-complete"><span class="calendar-day-num">10</span><span class="calendar-day-label">夜班</span></div>
+            <div class="calendar-day has-record record-missing"><span class="calendar-day-num">11</span><span class="calendar-day-label">未报工</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">12</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">13</span><span class="calendar-day-label">休息</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">14</span><span class="calendar-day-label">休息</span></div>
+
+            <div class="calendar-day has-record record-missing"><span class="calendar-day-num">15</span><span class="calendar-day-label">未报工</span></div>
+            <div class="calendar-day has-record record-missing"><span class="calendar-day-num">16</span><span class="calendar-day-label">未报工</span></div>
+            <div class="calendar-day has-record record-missing"><span class="calendar-day-num">17</span><span class="calendar-day-label">未报工</span></div>
+            <div class="calendar-day has-record record-missing"><span class="calendar-day-num">18</span><span class="calendar-day-label">未报工</span></div>
+            <div class="calendar-day has-record record-missing"><span class="calendar-day-num">19</span><span class="calendar-day-label">未报工</span></div>
+            <div class="calendar-day has-record record-missing"><span class="calendar-day-num">20</span><span class="calendar-day-label">未报工</span></div>
+            <div class="calendar-day has-record record-missing"><span class="calendar-day-num">21</span><span class="calendar-day-label">未报工</span></div>
+
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">22</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">23</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">24</span><span class="calendar-day-label">夜班</span></div>
+            <div class="calendar-day has-record record-supplement"><span class="calendar-day-num">25</span><span class="calendar-day-label">已补报</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">26</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">27</span><span class="calendar-day-label">休息</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">28</span><span class="calendar-day-label">休息</span></div>
+
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">29</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day has-record record-complete"><span class="calendar-day-num">30</span><span class="calendar-day-label">白班</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">1</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">2</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">3</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">4</span></div>
+            <div class="calendar-day other-month"><span class="calendar-day-num">5</span></div>
+          </div>
+
+          <!-- 提示信息 -->
+          <div class="calendar-tip">
+            仅支持查看7天内报工记录
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== P002: 报工详情页 ==================== -->
+      <div id="p002" class="page">
+        <span class="page-label">P002 详情页</span>
+        <div class="mini-navbar">
+          <button class="mini-navbar-btn" style="position: absolute; left: 16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="mini-navbar-title">报工详情</span>
+        </div>
+
+        <div class="page-content" style="padding-bottom: 100px;">
+          <div class="detail-section">
+            <div class="detail-section-title">基本信息</div>
+            <div class="detail-card">
+              <div class="detail-row">
+                <span class="detail-row-label">日期</span>
+                <span class="detail-row-value">2026-06-09</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">班次</span>
+                <span class="detail-row-value">白班</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">报工点</span>
+                <span class="detail-row-value">车间A-入口</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">报工时间</span>
+                <span class="detail-row-value">2026-06-09 08:30</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">报工方式</span>
+                <span class="detail-row-value">扫码报到</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">当前状态</span>
+                <span class="status-tag status-tag-success">已完成</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-title">操作历史</div>
+            <div class="detail-card">
+              <div class="history-list" style="padding: 0 16px;">
+                <div class="history-item">
+                  <div class="history-dot"></div>
+                  <div class="history-content">
+                    <div class="history-time">2026-06-09 08:30</div>
+                    <div class="history-text"><strong>张三</strong> 扫码报到，报工班次：白班，报工点：车间A-入口</div>
+                  </div>
+                </div>
+                <div class="history-item">
+                  <div class="history-dot"></div>
+                  <div class="history-content">
+                    <div class="history-time">2026-06-09 08:29</div>
+                    <div class="history-text">系统创建初始记录</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- P002 详情页底部不留按钮，已完成状态不可补报 -->
+      </div>
+
+      <!-- ==================== P002b: 未报工详情页 ==================== -->
+      <div id="p002b" class="page">
+        <span class="page-label">P002b 未报工详情</span>
+        <div class="mini-navbar">
+          <button class="mini-navbar-btn" style="position: absolute; left: 16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="mini-navbar-title">报工详情</span>
+        </div>
+
+        <div class="page-content" style="padding-bottom: 100px;">
+          <div class="detail-section">
+            <div class="detail-section-title">基本信息</div>
+            <div class="detail-card">
+              <div class="detail-row">
+                <span class="detail-row-label">日期</span>
+                <span class="detail-row-value">2026-06-11</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">班次</span>
+                <span class="detail-row-value">-</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">报工点</span>
+                <span class="detail-row-value">-</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">报工时间</span>
+                <span class="detail-row-value">-</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">报工方式</span>
+                <span class="detail-row-value">-</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-row-label">当前状态</span>
+                <span class="status-tag status-tag-danger">未报工</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-title">操作历史</div>
+            <div class="detail-card">
+              <div class="history-list" style="padding: 0 16px;">
+                <div class="history-item">
+                  <div class="history-dot" style="background: var(--danger);"></div>
+                  <div class="history-content">
+                    <div class="history-time">2026-06-11 23:59</div>
+                    <div class="history-text">系统记录：当日未进行扫码报工</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-footer">
+          <button class="btn btn-primary">发起补报</button>
+        </div>
+      </div>
+
+      <!-- ==================== P003: 发起补报页 ==================== -->
+      <div id="p003" class="page">
+        <span class="page-label">P003 发起补报</span>
+        <div class="mini-navbar">
+          <button class="mini-navbar-btn" style="position: absolute; left: 16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="mini-navbar-title">发起补报</span>
+          <div class="mini-navbar-capsule">
+            <button class="mini-navbar-btn" style="background: var(--brand); color: #fff;">提交</button>
+          </div>
+        </div>
+
+        <div class="page-content">
+          <div class="form-tip">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            仅支持7天内未报工日期
+          </div>
+
+          <div class="form-content">
+            <div class="form-group">
+              <label class="form-label">补报日期</label>
+              <input type="text" class="form-input" value="2026-06-08" readonly>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">班次 <span class="required">*</span></label>
+              <div class="radio-group">
+                <label class="radio-item selected">
+                  <input type="radio" name="shift" value="白班" checked>
+                  <span class="radio-dot"></span>
+                  <span class="radio-label">白班</span>
+                </label>
+                <label class="radio-item">
+                  <input type="radio" name="shift" value="夜班">
+                  <span class="radio-dot"></span>
+                  <span class="radio-label">夜班</span>
+                </label>
+                <label class="radio-item">
+                  <input type="radio" name="shift" value="白倒夜18">
+                  <span class="radio-dot"></span>
+                  <span class="radio-label">白倒夜18</span>
+                </label>
+                <label class="radio-item">
+                  <input type="radio" name="shift" value="夜倒白18">
+                  <span class="radio-dot"></span>
+                  <span class="radio-label">夜倒白18</span>
+                </label>
+                <label class="radio-item">
+                  <input type="radio" name="shift" value="白倒夜24">
+                  <span class="radio-dot"></span>
+                  <span class="radio-label">白倒夜24</span>
+                </label>
+                <label class="radio-item">
+                  <input type="radio" name="shift" value="夜倒白24">
+                  <span class="radio-dot"></span>
+                  <span class="radio-label">夜倒白24</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">报工点 <span class="required">*</span></label>
+              <select class="form-select">
+                <option value="">请选择报工点</option>
+                <option value="车间A-入口">车间A-入口</option>
+                <option value="车间A-出口">车间A-出口</option>
+                <option value="车间B-入口">车间B-入口</option>
+                <option value="车间B-出口">车间B-出口</option>
+                <option value="车间C-入口">车间C-入口</option>
+                <option value="车间C-出口">车间C-出口</option>
+              </select>
+              <div class="form-hint">系统后台维护的报工地点</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">审批班长 <span class="required">*</span></label>
+              <select class="form-select">
+                <option value="">请选择审批班长</option>
+                <option value="王班长">王建国（生产一班班长）</option>
+                <option value="张班长">张志明（生产二班班长）</option>
+                <option value="李班长">李伟（生产三班班长）</option>
+              </select>
+              <div class="form-hint">请选择本次补报的审批人</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">补报原因（选填）</label>
+              <textarea class="form-textarea" placeholder="请输入补报原因（选填）"></textarea>
+              <div class="form-hint">说明补报原因有助于审批通过</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button class="btn btn-primary">提交申请</button>
+        </div>
+      </div>
+
+      <!-- ==================== P004: 审批列表页 ==================== -->
+      <div id="p004" class="page">
+        <span class="page-label">P004 审批列表</span>
+        <div class="mini-navbar">
+          <span class="mini-navbar-title">审批管理</span>
+          <div class="mini-navbar-capsule">
+            <button class="mini-navbar-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="page-content" style="padding-bottom: 34px;">
+          <div class="tab-bar" style="margin: 16px;">
+            <button class="tab-item active">待审批 <span class="badge">3</span></button>
+            <button class="tab-item">已通过</button>
+            <button class="tab-item">已驳回</button>
+          </div>
+
+          <!-- 申请卡片1 -->
+          <div class="approve-card">
+            <div class="approve-card-header">
+              <div>
+                <div class="approve-user">李四</div>
+                <div class="approve-dept">生产一班</div>
+              </div>
+              <span class="status-tag status-tag-warning">待审批</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">补报日期：</span>
+              <span>2026-06-08</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">申请班次：</span>
+              <span>白班</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">报工点：</span>
+              <span>车间A-入口</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">审批班长：</span>
+              <span>王建国</span>
+            </div>
+            <div class="approve-footer">
+              <span class="approve-time">申请时间：2026-06-09 10:30</span>
+              <div class="approve-actions">
+                <button class="btn btn-secondary">查看</button>
+                <button class="btn btn-primary">审批</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 申请卡片2 -->
+          <div class="approve-card">
+            <div class="approve-card-header">
+              <div>
+                <div class="approve-user">王五</div>
+                <div class="approve-dept">生产一班</div>
+              </div>
+              <span class="status-tag status-tag-warning">待审批</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">补报日期：</span>
+              <span>2026-06-07</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">申请班次：</span>
+              <span>夜班</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">报工点：</span>
+              <span>车间B-入口</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">审批班长：</span>
+              <span>王建国</span>
+            </div>
+            <div class="approve-footer">
+              <span class="approve-time">申请时间：2026-06-09 09:00</span>
+              <div class="approve-actions">
+                <button class="btn btn-secondary">查看</button>
+                <button class="btn btn-primary">审批</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 申请卡片3 -->
+          <div class="approve-card">
+            <div class="approve-card-header">
+              <div>
+                <div class="approve-user">赵六</div>
+                <div class="approve-dept">生产二班</div>
+              </div>
+              <span class="status-tag status-tag-warning">待审批</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">补报日期：</span>
+              <span>2026-06-06</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">申请班次：</span>
+              <span>白倒夜18</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">报工点：</span>
+              <span>车间C-入口</span>
+            </div>
+            <div class="approve-content-row">
+              <span class="approve-content-label">审批班长：</span>
+              <span>张志明</span>
+            </div>
+            <div class="approve-footer">
+              <span class="approve-time">申请时间：2026-06-09 08:15</span>
+              <div class="approve-actions">
+                <button class="btn btn-secondary">查看</button>
+                <button class="btn btn-primary">审批</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== P005: 审批详情页 ==================== -->
+      <div id="p005" class="page">
+        <span class="page-label">P005 审批详情</span>
+        <div class="mini-navbar">
+          <button class="mini-navbar-btn" style="position: absolute; left: 16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="mini-navbar-title">审批详情</span>
+        </div>
+
+        <div class="page-content" style="padding-bottom: 100px;">
+          <div class="approve-user-card">
+            <div class="approve-user-avatar">李</div>
+            <div>
+              <div class="approve-user-name">李四</div>
+              <div class="approve-user-meta">工号：EMP001 · 生产一班</div>
+            </div>
+          </div>
+
+          <div class="approve-info-card">
+            <div class="approve-info-row">
+              <span class="approve-info-label">补报日期</span>
+              <span class="approve-info-value">2026-06-08</span>
+            </div>
+            <div class="approve-info-row">
+              <span class="approve-info-label">申请班次</span>
+              <span class="approve-info-value">白班</span>
+            </div>
+            <div class="approve-info-row">
+              <span class="approve-info-label">报工点</span>
+              <span class="approve-info-value">车间A-入口</span>
+            </div>
+            <div class="approve-info-row">
+              <span class="approve-info-label">申请时间</span>
+              <span class="approve-info-value">2026-06-09 10:30</span>
+            </div>
+            <div class="approve-info-row">
+              <span class="approve-info-label">审批班长</span>
+              <span class="approve-info-value">王建国</span>
+            </div>
+          </div>
+
+          <div class="approve-reason">
+            <strong>补报原因：</strong>因前一天加班忘记打卡，早上匆忙赶来后发现已过报工时间。
+          </div>
+
+          <div class="approve-original-record">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            原报工记录：未报工
+          </div>
+        </div>
+
+        <div class="approve-action-bar">
+          <button class="btn btn-danger" id="rejectBtn">驳回</button>
+          <button class="btn btn-success" id="approveBtn">通过</button>
+        </div>
+      </div>
+
+      <!-- ==================== P005a: 审批详情页（查看，只读） ==================== -->
+      <div id="p005a" class="page">
+        <span class="page-label">P005a 查看详情</span>
+        <div class="mini-navbar">
+          <button class="mini-navbar-btn" style="position: absolute; left: 16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="mini-navbar-title">审批详情</span>
+        </div>
+
+        <div class="page-content" style="padding-bottom: 34px;">
+          <div class="approve-user-card">
+            <div class="approve-user-avatar">李</div>
+            <div>
+              <div class="approve-user-name">李四</div>
+              <div class="approve-user-meta">工号：EMP001 · 生产一班</div>
+            </div>
+          </div>
+
+          <div class="approve-info-card">
+            <div class="approve-info-row">
+              <span class="approve-info-label">补报日期</span>
+              <span class="approve-info-value">2026-06-08</span>
+            </div>
+            <div class="approve-info-row">
+              <span class="approve-info-label">申请班次</span>
+              <span class="approve-info-value">白班</span>
+            </div>
+            <div class="approve-info-row">
+              <span class="approve-info-label">报工点</span>
+              <span class="approve-info-value">车间A-入口</span>
+            </div>
+            <div class="approve-info-row">
+              <span class="approve-info-label">申请时间</span>
+              <span class="approve-info-value">2026-06-09 10:30</span>
+            </div>
+            <div class="approve-info-row">
+              <span class="approve-info-label">审批班长</span>
+              <span class="approve-info-value">王建国</span>
+            </div>
+          </div>
+
+          <div class="approve-reason">
+            <strong>补报原因：</strong>因前一天加班忘记打卡，早上匆忙赶来后发现已过报工时间。
+          </div>
+
+          <div class="approve-original-record">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            原报工记录：未报工
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 底部指示条 -->
+    <div class="phone-home-indicator"></div>
+  </div>
+</div>
+
+<!-- 页面导航 -->
+<div class="demo-nav">
+  <button class="active" data-page="p001">日历</button>
+  <button data-page="p002">详情</button>
+  <button data-page="p002b">未报工详情</button>
+  <button data-page="p003">补报</button>
+  <button data-page="p004">审批</button>
+  <button data-page="p005">审批详情</button>
+  <button data-page="p005a">查看详情</button>
+</div>
+
+<!-- 确认弹窗 -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle">确认审批</div>
+    <div class="modal-body">
+      <p id="modalText" style="margin-bottom: 16px;">确认通过此补报申请？</p>
+      <div id="rejectReasonContainer" style="display: none;">
+        <label class="form-label" style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; display: block;">驳回原因 <span class="required">*</span></label>
+        <textarea class="form-textarea" id="modalRejectReason" placeholder="请输入驳回原因" style="min-height: 80px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="modalConfirmBtn">确认</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 页面导航切换
+  document.querySelectorAll('.demo-nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.demo-nav button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const pageId = btn.dataset.page;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+    });
+  });
+
+  // Tab切换
+  document.querySelectorAll('.tab-bar').forEach(tabBar => {
+    tabBar.querySelectorAll('.tab-item').forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabBar.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+  });
+
+  // 单选框交互
+  document.querySelectorAll('.radio-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const group = item.parentElement;
+      group.querySelectorAll('.radio-item').forEach(r => r.classList.remove('selected'));
+      item.classList.add('selected');
+      item.querySelector('input').checked = true;
+    });
+  });
+
+  // 弹窗
+  function closeModal() {
+    document.getElementById('confirmModal').classList.remove('active');
+    document.getElementById('rejectReasonContainer').style.display = 'none';
+    document.getElementById('modalRejectReason').value = '';
+  }
+
+  // 弹窗确认按钮逻辑
+  document.getElementById('modalConfirmBtn')?.addEventListener('click', () => {
+    const modalTitle = document.getElementById('modalTitle').textContent;
+
+    if (modalTitle === '确认通过') {
+      closeModal();
+      alert('审批通过成功！');
+      document.querySelector('[data-page="p004"]').click();
+    } else if (modalTitle === '确认驳回') {
+      const reason = document.getElementById('modalRejectReason').value.trim();
+      if (!reason) {
+        alert('请填写驳回原因');
+        return;
+      }
+      closeModal();
+      alert('审批驳回成功！');
+      document.querySelector('[data-page="p004"]').click();
+    } else if (modalTitle === '提交成功') {
+      closeModal();
+    }
+  });
+
+  // 通过按钮
+  document.getElementById('approveBtn')?.addEventListener('click', () => {
+    document.getElementById('modalTitle').textContent = '确认通过';
+    document.getElementById('modalText').textContent = '确认通过此补报申请？通过后该日期将记录为已报工。';
+    document.getElementById('rejectReasonContainer').style.display = 'none';
+    document.getElementById('confirmModal').classList.add('active');
+  });
+
+  // 驳回按钮 - 直接弹窗让用户填写原因
+  document.getElementById('rejectBtn')?.addEventListener('click', () => {
+    document.getElementById('modalTitle').textContent = '确认驳回';
+    document.getElementById('modalText').textContent = '请填写驳回原因：';
+    document.getElementById('rejectReasonContainer').style.display = 'block';
+    document.getElementById('modalRejectReason').value = '';
+    document.getElementById('confirmModal').classList.add('active');
+  });
+
+  // 点击遮罩关闭弹窗
+  document.getElementById('confirmModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      closeModal();
+    }
+  });
+
+  // 日历日期点击 - 根据状态跳转到不同详情页
+  document.querySelectorAll('.calendar-day:not(.other-month)').forEach(day => {
+    day.addEventListener('click', () => {
+      if (day.classList.contains('record-missing')) {
+        // 未报工日期跳转到未报工详情页
+        document.querySelector('[data-page="p002b"]').click();
+      } else {
+        // 已完成的日期跳转到正常详情页
+        document.querySelector('[data-page="p002"]').click();
+      }
+    });
+  });
+
+  // 未报工详情页的补报按钮点击跳转到补报页
+  document.querySelector('#p002b .btn-primary')?.addEventListener('click', () => {
+    document.querySelector('[data-page="p003"]').click();
+  });
+
+  // 审批卡片点击 - 整个卡片不跳转，只通过按钮跳转
+  document.querySelectorAll('.approve-card').forEach(card => {
+    // 查看按钮 → 跳转只读详情页
+    card.querySelector('.btn-secondary')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelector('[data-page="p005a"]').click();
+    });
+    // 审批按钮 → 跳转可操作详情页
+    card.querySelector('.btn-primary')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelector('[data-page="p005"]').click();
+    });
+  });
+
+  // 提交申请
+  document.querySelector('#p003 .btn-primary').addEventListener('click', () => {
+    const modal = document.getElementById('confirmModal');
+    document.getElementById('modalTitle').textContent = '提交成功';
+    document.getElementById('modalText').textContent = '补报申请已提交，请等待班长审批。';
+    modal.classList.add('active');
+  });
+</script>
+
+</body>
+</html>

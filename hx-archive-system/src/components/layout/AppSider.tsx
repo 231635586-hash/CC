@@ -193,7 +193,7 @@ export function AppSider({ collapsed, onCollapsedChange }: AppSiderProps) {
               {hasChildren && !collapsed && isExpanded && (
                 <div className="ml-6 mt-1 space-y-1">
                   {item.children?.map(child => {
-                    const childActive = location.pathname.startsWith(child.path);
+                    const childActive = location.pathname === child.path;
                     return (
                       <Link
                         key={child.key}

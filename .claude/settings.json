@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lark-cli contact *)",
+      "Bash(lark-cli auth *)",
+      "Edit(/.claude/skills/prd-writer/**)",
+      "Bash(lark-cli api *)",
+      "Bash(lark-cli update *)",
+      "Bash(npm install *)",
+      "Bash(npm list *)",
+      "WebFetch(domain:minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com)"
+    ]
+  }
+}

@@ -138,6 +138,25 @@ export async function rejectSupplement(id: string, reason: string): Promise<bool
   return false;
 }
 
+// 编辑补报申请信息（仅限班次、报工点、审批班长）
+export async function updateSupplementApplication(id: string, data: {
+  shiftType: string;
+  reportPoint: string;
+  approverId: string;
+  approverName: string;
+}): Promise<boolean> {
+  await delay(500);
+  const item = mockSupplementApplications.find(s => s.id === id);
+  if (item) {
+    item.shiftType = data.shiftType as SupplementApplication['shiftType'];
+    item.reportPoint = data.reportPoint;
+    item.approverId = data.approverId;
+    item.approverName = data.approverName;
+    return true;
+  }
+  return false;
+}
+
 // 编辑报工记录（Web端管理员功能）
 export async function updateReportRecord(id: string, data: {
   shiftType?: string;
