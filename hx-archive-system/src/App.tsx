@@ -11,6 +11,13 @@ import {
   ApproveListPage,
   ApproveDetailPage,
 } from '@/features/report-work/pages';
+import {
+  DepartmentPage,
+  PositionPage,
+  EstablishmentPage,
+  DepartmentArchivePage,
+  RankPage,
+} from '@/features/organization/pages';
 
 function App() {
   return (
@@ -19,10 +26,12 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/archive" replace />} />
 
-          {/* 组织管理 - 建设中 */}
-          <Route path="/organization/department" element={<UnderConstructionPage title="部门管理" />} />
-          <Route path="/organization/position" element={<UnderConstructionPage title="职位管理" />} />
-          <Route path="/organization/headcount" element={<UnderConstructionPage title="编制管理" />} />
+          {/* 组织管理 */}
+          <Route path="/organization/department" element={<DepartmentPage />} />
+          <Route path="/organization/position" element={<PositionPage />} />
+          <Route path="/organization/headcount" element={<EstablishmentPage />} />
+          <Route path="/organization/department-archive" element={<DepartmentArchivePage />} />
+          <Route path="/organization/rank" element={<RankPage />} />
 
           {/* 员工档案 */}
           <Route path="/archive" element={<ArchiveListPage />} />

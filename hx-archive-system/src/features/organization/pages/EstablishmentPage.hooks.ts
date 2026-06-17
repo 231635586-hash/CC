@@ -1,0 +1,513 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useToast } from '@/components/ui/Toast';
+import {
+  getEstablishmentMatrix,
+  getDepartmentTree,
+  getDepartmentFullPath,
+  applyEstablishmentChange,
+  batchCreateEstablishment,
+} from '../services/api';
+import { YEAR_RANGE } from '../constants';
+import type {
+  DepartmentTreeNode,
+  EstablishmentMatrixRow,
+  EstablishmentMatrixCell,
+} from '../types';
+
+// ==================== 状态类型定义 ====================
+
+export interface ApplyCell {
+  establishmentId?: string;
+  departmentId?: string;
+  departmentName: string;
+  positionId?: string;
+  positionName: string;
+  monthLabel: string;
+  quota: number;
+  occupied: number;
+  remaining: number;
+  lockReason?: string;
+  lockExpiredAt?: string;
+}
+
+export interface HistoryModalData {
+  establishmentId: string;
+  departmentName: string;
+  positionName: string;
+}
+
+export interface BatchPreview {
+  row: EstablishmentMatrixRow;
+  cellIndex: number;
+  monthLabel: string;
+  oldValue: number;
+  newValue: number;
+  establishmentId: string;
+}
+
+// ==================== 主 Hook ====================
+
+export const useEstablishment = () => {
+  const { toasts, addToast, removeToast } = useToast();
+
+  // 年份
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+  // 部门树
+  const [departmentTree, setDepartmentTree] = useState<DepartmentTreeNode[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>();
+
+  // 矩阵数据
+  const [matrixData, setMatrixData] = useState<{ headers: string[]; rows: EstablishmentMatrixRow[] }>({
+    headers: [],
+    rows: [],
+  });
+  const [loading, setLoading] = useState(true);
+
+  // 搜索相关
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [autoExpandAll, setAutoExpandAll] = useState(false);
+  const [highlightNodeIds, setHighlightNodeIds] = useState<Set<string>>(new Set());
+
+  // 待审批数量（仅用于部门树展示）
+  const [pendingApprovalCounts] = useState<Record<string, number>>({});
+
+  // 申请弹窗
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [applyModalMode, setApplyModalMode] = useState<'create' | 'edit'>('edit');
+  const [applyCell, setApplyCell] = useState<ApplyCell | null>(null);
+
+  // 历史面板
+  const [historyPanelVisible, setHistoryPanelVisible] = useState(false);
+  const [selectedEstablishmentId, setSelectedEstablishmentId] = useState<string | undefined>();
+  const [selectedEstablishmentInfo, setSelectedEstablishmentInfo] = useState<{
+    departmentName: string;
+    positionName: string;
+  } | undefined>();
+
+  // 历史记录弹窗
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [historyModalData, setHistoryModalData] = useState<HistoryModalData | null>(null);
+
+  // 审批记录弹窗
+  const [approvalRecordsModalVisible, setApprovalRecordsModalVisible] = useState(false);
+
+  // 解锁申请弹窗
+  const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+  const [unlockCell, setUnlockCell] = useState<ApplyCell | null>(null);
+
+  // 锁定申请弹窗
+  const [lockModalOpen, setLockModalOpen] = useState(false);
+  const [lockCell, setLockCell] = useState<ApplyCell | null>(null);
+
+  // 选择单元格模式（用于锁定操作）
+  const [selectingCellForLock, setSelectingCellForLock] = useState(false);
+
+  // 批量选择模式
+  const [batchSelectMode, setBatchSelectMode] = useState(false);
+  const [selectedEstablishmentIds, setSelectedEstablishmentIds] = useState<Set<string>>(new Set());
+
+  // 批量操作弹窗
+  const [batchLockModalOpen, setBatchLockModalOpen] = useState(false);
+  const [batchLockModalMode, setBatchLockModalMode] = useState<'lock' | 'unlock'>('lock');
+
+  // 批量导入
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchModalType, setBatchModalType] = useState<'create' | 'adjust'>('create');
+
+  // 新增编制
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  // 批量编辑
+  const [batchEditMode, setBatchEditMode] = useState(false);
+  const [modifiedCells, setModifiedCells] = useState<Record<string, number>>({});
+
+  // 批量预览
+  const [batchPreviewOpen, setBatchPreviewOpen] = useState(false);
+  const [batchPreviewLoading, setBatchPreviewLoading] = useState(false);
+
+  // ==================== 计算属性 ====================
+
+  const modifiedCellsCount = useMemo(() => Object.keys(modifiedCells).length, [modifiedCells]);
+
+  const yearOptions = useMemo(
+    () => Array.from({ length: YEAR_RANGE }, (_, i) => currentYear - 5 + i),
+    [currentYear]
+  );
+
+  const selectedDepartmentName = useMemo(
+    () => (selectedDepartmentId ? getDepartmentFullPath(selectedDepartmentId) : undefined),
+    [selectedDepartmentId]
+  );
+
+  const batchPreviews = useMemo(() => {
+    return Object.entries(modifiedCells).map(([key, newValue]) => {
+      const [rowIdx, cellIdx] = key.split('-').map(Number);
+      const row = matrixData.rows[rowIdx];
+      const cell = row?.cells[cellIdx];
+      return {
+        row,
+        cellIndex: cellIdx,
+        monthLabel: matrixData.headers[cellIdx] || '',
+        oldValue: cell?.quota || 0,
+        newValue,
+        establishmentId: cell?.establishmentId,
+      };
+    }).filter((p) => p.row && p.establishmentId) as BatchPreview[];
+  }, [modifiedCells, matrixData]);
+
+  // ==================== 数据加载 ====================
+
+  const loadMatrix = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getEstablishmentMatrix(currentYear, selectedDepartmentId);
+      if (res.code === 0 && res.data) {
+        setMatrixData(res.data);
+      }
+    } catch (error) {
+      console.error('加载编制矩阵失败', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentYear, selectedDepartmentId]);
+
+  // 初始化加载
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      const treeRes = await getDepartmentTree();
+      if (treeRes.code === 0 && treeRes.data && treeRes.data.length > 0) {
+        const rootNode = treeRes.data[0];
+        setDepartmentTree(treeRes.data);
+        setSelectedDepartmentId(rootNode.id);
+      }
+      setLoading(false);
+    };
+    loadData();
+  }, []);
+
+  // 加载矩阵数据
+  useEffect(() => {
+    if (selectedDepartmentId) {
+      loadMatrix();
+    }
+  }, [selectedDepartmentId, loadMatrix]);
+
+  // ==================== 事件处理 ====================
+
+  const handleSearch = useCallback((keyword: string) => {
+    setSearchKeyword(keyword);
+    if (!keyword.trim()) {
+      setAutoExpandAll(false);
+      setHighlightNodeIds(new Set());
+    } else {
+      setAutoExpandAll(true);
+      setHighlightNodeIds(new Set());
+    }
+  }, []);
+
+  const handleSelectDepartment = useCallback((node: DepartmentTreeNode) => {
+    setSelectedDepartmentId(node.id);
+  }, []);
+
+  const handleEdit = useCallback(
+    (cell: EstablishmentMatrixCell, monthLabel: string, row: EstablishmentMatrixRow) => {
+      // 如果正在选择单元格模式（用于锁定），打开锁定申请弹窗
+      if (selectingCellForLock) {
+        setSelectingCellForLock(false);
+        setLockCell({
+          establishmentId: cell.establishmentId,
+          departmentName: row.departmentName,
+          positionName: row.positionName,
+          monthLabel,
+          quota: cell.quota,
+          occupied: cell.occupied,
+          remaining: cell.remaining,
+        });
+        setLockModalOpen(true);
+        return;
+      }
+
+      // 如果单元格已被锁定，显示解锁申请弹窗
+      if (cell.lockStatus === 'locked') {
+        setUnlockCell({
+          establishmentId: cell.establishmentId,
+          departmentName: row.departmentName,
+          positionName: row.positionName,
+          monthLabel,
+          quota: cell.quota,
+          occupied: cell.occupied,
+          remaining: cell.remaining,
+          lockReason: cell.lockReason,
+          lockExpiredAt: cell.lockExpiredAt,
+        });
+        setUnlockModalOpen(true);
+        return;
+      }
+
+      // 如果单元格锁定中，提示锁定申请审批中
+      if (cell.lockStatus === 'locking') {
+        addToast('该编制的锁定申请正在审批中，请等待审批结果', 'info');
+        return;
+      }
+
+      setApplyCell({
+        establishmentId: cell.establishmentId,
+        departmentName: row.departmentName,
+        positionName: row.positionName,
+        monthLabel,
+        quota: cell.quota,
+        occupied: cell.occupied,
+        remaining: cell.remaining,
+      });
+      setApplyModalMode('edit');
+      setApplyModalOpen(true);
+    },
+    [addToast, selectingCellForLock]
+  );
+
+  const handleCreate = useCallback(
+    (_cell: EstablishmentMatrixCell, monthLabel: string, row: EstablishmentMatrixRow) => {
+      setApplyCell({
+        departmentId: row.departmentId,
+        departmentName: row.departmentName,
+        positionId: row.positionId,
+        positionName: row.positionName,
+        monthLabel,
+        quota: 0,
+        occupied: 0,
+        remaining: 0,
+      });
+      setApplyModalMode('create');
+      setApplyModalOpen(true);
+    },
+    []
+  );
+
+  const handleViewHistory = useCallback(
+    (cell: EstablishmentMatrixCell, row: EstablishmentMatrixRow) => {
+      setSelectedEstablishmentId(cell.establishmentId);
+      setSelectedEstablishmentInfo({
+        departmentName: row.departmentName,
+        positionName: row.positionName,
+      });
+      setHistoryPanelVisible(true);
+    },
+    []
+  );
+
+  const handleRowClick = useCallback(
+    (row: EstablishmentMatrixRow) => {
+      const firstValidCell = row.cells.find(
+        (c) => c.status !== 'empty' && c.establishmentId
+      );
+      if (!firstValidCell) {
+        addToast('该部门/职位暂无编制记录，无法查看历史', 'info');
+        return;
+      }
+      setHistoryModalData({
+        establishmentId: firstValidCell.establishmentId,
+        departmentName: row.departmentName,
+        positionName: row.positionName,
+      });
+      setHistoryModalVisible(true);
+    },
+    [addToast]
+  );
+
+  const handleApplySuccess = useCallback(() => {
+    setApplyModalOpen(false);
+    setApplyCell(null);
+    loadMatrix();
+  }, [loadMatrix]);
+
+  const handleOpenCreate = useCallback(() => {
+    setCreateModalOpen(true);
+  }, []);
+
+  const handleOpenBatchAdjust = useCallback(() => {
+    setBatchEditMode(true);
+    setModifiedCells({});
+  }, []);
+
+  const handleCancelBatchEdit = useCallback(() => {
+    setBatchEditMode(false);
+    setModifiedCells({});
+  }, []);
+
+  const handleCellValueChange = useCallback(
+    (rowIndex: number, cellIndex: number, newValue: number) => {
+      const key = `${rowIndex}-${cellIndex}`;
+      setModifiedCells((prev) => ({ ...prev, [key]: newValue }));
+    },
+    []
+  );
+
+  const handleSubmitBatchAdjust = useCallback(() => {
+    if (modifiedCellsCount === 0) {
+      addToast('请先修改单元格的值', 'error');
+      return;
+    }
+    setBatchPreviewOpen(true);
+  }, [modifiedCellsCount, addToast]);
+
+  const handleConfirmBatchAdjust = useCallback(async () => {
+    setBatchPreviewLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+    try {
+      for (const preview of batchPreviews) {
+        const res = await applyEstablishmentChange(
+          preview.establishmentId,
+          preview.newValue,
+          'business_expansion',
+          `批量调整：${preview.oldValue} → ${preview.newValue}`
+        );
+        if (res.code === 0) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+      if (failCount === 0) {
+        addToast(`批量调整申请已提交，等待审批（${successCount}项）`, 'success');
+      } else {
+        addToast(`提交完成：成功${successCount}项，失败${failCount}项`, 'info');
+      }
+      setBatchPreviewOpen(false);
+      setBatchEditMode(false);
+      setModifiedCells({});
+    } finally {
+      setBatchPreviewLoading(false);
+    }
+  }, [batchPreviews, addToast]);
+
+  const handleBatchImport = useCallback(async (data: any[]) => {
+    // 将 CSV 数据转换为 API 需要的格式
+    // CSV 列: 部门, 职位, 年份, 月份, 编制名额, 调整原因, 调整说明
+    const processedData = data
+      .map((item) => {
+        // 部门名称转 ID（这里简化处理，实际应通过部门服务查找）
+        const deptName = item['部门'];
+        const posName = item['职位'];
+        const year = parseInt(item['年份'], 10);
+        const month = parseInt(item['月份'], 10);
+        const quota = parseInt(item['编制名额'], 10);
+        const reason = (item['调整原因'] as 'business_expansion' | 'business_contraction' | 'natural_turnover' | 'other') || 'business_expansion';
+        const remark = item['调整说明'];
+
+        // 简单校验
+        if (!deptName || !posName || isNaN(year) || isNaN(month) || isNaN(quota)) {
+          return null;
+        }
+
+        return {
+          departmentId: deptName, // 简化：实际需要根据名称查 ID
+          positionId: posName,
+          year,
+          month,
+          quota,
+          reason,
+          remark,
+        };
+      })
+      .filter(Boolean);
+
+    // 由于 mock 数据中没有按名称查找 ID 的服务，暂时模拟导入
+    // 实际生产环境需要先解析 departmentId 和 positionId
+    const result = await batchCreateEstablishment(processedData as any[]);
+    return result;
+  }, []);
+
+  const handleCreateSuccess = useCallback(() => {
+    setCreateModalOpen(false);
+    loadMatrix();
+    addToast('创建申请已提交，等待审批', 'success');
+  }, [loadMatrix, addToast]);
+
+  return {
+    // 状态
+    currentYear,
+    setCurrentYear,
+    departmentTree,
+    selectedDepartmentId,
+    matrixData,
+    loading,
+    searchKeyword,
+    autoExpandAll,
+    highlightNodeIds,
+    pendingApprovalCounts,
+    applyModalOpen,
+    setApplyModalOpen,
+    applyModalMode,
+    setApplyModalMode,
+    applyCell,
+    setApplyCell,
+    historyPanelVisible,
+    setHistoryPanelVisible,
+    selectedEstablishmentId,
+    setSelectedEstablishmentId,
+    selectedEstablishmentInfo,
+    setSelectedEstablishmentInfo,
+    historyModalVisible,
+    setHistoryModalVisible,
+    historyModalData,
+    setHistoryModalData,
+    approvalRecordsModalVisible,
+    setApprovalRecordsModalVisible,
+    unlockModalOpen,
+    setUnlockModalOpen,
+    unlockCell,
+    setUnlockCell,
+    lockModalOpen,
+    setLockModalOpen,
+    lockCell,
+    setLockCell,
+    selectingCellForLock,
+    setSelectingCellForLock,
+    batchSelectMode,
+    setBatchSelectMode,
+    selectedEstablishmentIds,
+    setSelectedEstablishmentIds,
+    batchLockModalOpen,
+    setBatchLockModalOpen,
+    batchLockModalMode,
+    setBatchLockModalMode,
+    batchModalOpen,
+    setBatchModalOpen,
+    batchModalType,
+    setBatchModalType,
+    createModalOpen,
+    setCreateModalOpen,
+    batchEditMode,
+    modifiedCells,
+    modifiedCellsCount,
+    batchPreviewOpen,
+    setBatchPreviewOpen,
+    batchPreviewLoading,
+    toasts,
+    // 计算属性
+    yearOptions,
+    selectedDepartmentName,
+    batchPreviews,
+    // 事件处理
+    loadMatrix,
+    handleSearch,
+    handleSelectDepartment,
+    handleEdit,
+    handleCreate,
+    handleViewHistory,
+    handleRowClick,
+    handleApplySuccess,
+    handleOpenCreate,
+    handleOpenBatchAdjust,
+    handleCancelBatchEdit,
+    handleCellValueChange,
+    handleSubmitBatchAdjust,
+    handleConfirmBatchAdjust,
+    handleBatchImport,
+    handleCreateSuccess,
+    removeToast,
+  };
+};

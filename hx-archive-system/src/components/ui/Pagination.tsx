@@ -6,6 +6,8 @@ interface PaginationProps {
   pageSize: number;
   total: number;
   onChange: (page: number) => void;
+  pageSizeOptions?: number[];
+  onPageSizeChange?: (size: number) => void;
   className?: string;
 }
 
@@ -14,11 +16,13 @@ export function Pagination({
   pageSize,
   total,
   onChange,
+  pageSizeOptions,
+  onPageSizeChange,
   className,
 }: PaginationProps) {
   const totalPages = Math.ceil(total / pageSize);
 
-  if (totalPages <= 1) return null;
+  if (totalPages <= 1 && !pageSizeOptions?.length) return null;
 
   const getPages = () => {
     const pages: (number | '...')[] = [];
@@ -46,9 +50,24 @@ export function Pagination({
 
   return (
     <div className={cn('flex items-center justify-between', className)}>
-      <p className="text-sm text-text-secondary">
-        共 {total} 条记录，第 {current}/{totalPages} 页
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-sm text-text-secondary">
+          共 {total} 条记录，第 {current}/{totalPages} 页
+        </p>
+        {pageSizeOptions && onPageSizeChange && (
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="px-2 py-1 border border-[var(--color-border)] rounded text-sm"
+          >
+            {pageSizeOptions.map((size) => (
+              <option key={size} value={size}>
+                {size}条/页
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
 
       <div className="flex items-center gap-1">
         <button
