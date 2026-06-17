@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { List, Network, Download, Upload, SearchIcon } from 'lucide-react';
+import { List, Network, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Empty } from '@/components/ui/Empty';
 import { DepartmentTree, DepartmentMindMap, DepartmentFormModal, DepartmentDetailPanel, ImportModal } from '../components';
@@ -259,11 +259,11 @@ export const DepartmentPage = () => {
       {/* 搜索栏 */}
       <div className="px-6 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface-bg)]">
         <div className="w-[320px]">
-          <Input
+          <SearchInput
             placeholder="搜索部门..."
-            prefixIcon={<SearchIcon className="w-4 h-4" />}
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
+            onSearch={(val) => setSearchKeyword(val)}
           />
         </div>
       </div>

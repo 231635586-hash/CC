@@ -1,6 +1,7 @@
-import { SearchIcon, ChevronDown, Plus, Upload, Edit3, Lock } from 'lucide-react';
+import { Plus, Upload, Edit3, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { Select } from '@/components/ui/Select';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Empty } from '@/components/ui/Empty';
 import { ToastContainer, showToast } from '@/components/ui/Toast';
@@ -55,12 +56,11 @@ export const EstablishmentPage = () => {
     setLockModalOpen,
     lockCell,
     setLockCell,
-    selectingCellForLock,
-    setSelectingCellForLock,
     batchSelectMode,
     setBatchSelectMode,
     selectedEstablishmentIds,
     setSelectedEstablishmentIds,
+    batchSelectionInfo,
     batchLockModalOpen,
     setBatchLockModalOpen,
     batchLockModalMode,
@@ -92,6 +92,7 @@ export const EstablishmentPage = () => {
     handleOpenCreate,
     handleOpenBatchAdjust,
     handleCancelBatchEdit,
+    handleCellSelect,
     handleCellValueChange,
     handleSubmitBatchAdjust,
     handleConfirmBatchAdjust,
@@ -115,20 +116,12 @@ export const EstablishmentPage = () => {
 
         <div className={styles.pageHeaderRight}>
           {/* 年份选择 */}
-          <div className={styles.yearSelectWrapper}>
-            <select
-              value={currentYear}
-              onChange={(e) => setCurrentYear(Number(e.target.value))}
-              className={styles.yearSelect}
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}年
-                </option>
-              ))}
-            </select>
-            <ChevronDown className={styles.yearSelectIcon} />
-          </div>
+          <Select
+            options={yearOptions.map((year) => ({ value: String(year), label: `${year}年` }))}
+            value={String(currentYear)}
+            onChange={(e) => setCurrentYear(Number(e.target.value))}
+            className="w-[100px]"
+          />
 
           <Button variant="secondary" onClick={loadMatrix}>
             刷新
@@ -154,37 +147,19 @@ export const EstablishmentPage = () => {
               </Button>
               <Button onClick={handleSubmitBatchAdjust}>提交调整</Button>
             </>
-          ) : (
+          ) : batchSelectMode ? (
             <>
-              {/* 审批记录 */}
-              <Button variant="secondary" onClick={() => setApprovalRecordsModalVisible(true)}>
-                审批记录
-              </Button>
+              <div className={styles.batchEditBanner}>
+                <span className={styles.batchEditTip}>
+                  批量选择模式 - 点击单元格选择，已锁定和锁定中的单元格不可选
+                </span>
+              </div>
+              <span className={styles.batchEditCount}>
+                已选 {batchSelectionInfo.total} 项
+              </span>
 
-              {/* 锁定编制 */}
-              <Button
-                variant={selectingCellForLock ? 'primary' : 'secondary'}
-                onClick={() => setSelectingCellForLock(!selectingCellForLock)}
-              >
-                <Lock className="w-4 h-4 mr-2" />
-                {selectingCellForLock ? '选择中...' : '锁定编制'}
-              </Button>
-
-              {/* 批量选择 */}
-              <Button
-                variant={batchSelectMode ? 'primary' : 'secondary'}
-                onClick={() => {
-                  setBatchSelectMode(!batchSelectMode);
-                  if (batchSelectMode) {
-                    setSelectedEstablishmentIds(new Set());
-                  }
-                }}
-              >
-                {batchSelectMode ? `已选${selectedEstablishmentIds.size}项` : '批量选择'}
-              </Button>
-
-              {/* 批量锁定 */}
-              {batchSelectMode && selectedEstablishmentIds.size > 0 && (
+              {/* 批量操作按钮：根据选中状态显示 */}
+              {batchSelectionInfo.hasUnlocked && (
                 <Button
                   variant="secondary"
                   onClick={() => {
@@ -195,9 +170,7 @@ export const EstablishmentPage = () => {
                   批量锁定
                 </Button>
               )}
-
-              {/* 批量解锁 */}
-              {batchSelectMode && selectedEstablishmentIds.size > 0 && (
+              {batchSelectionInfo.hasLocked && (
                 <Button
                   variant="secondary"
                   onClick={() => {
@@ -208,6 +181,29 @@ export const EstablishmentPage = () => {
                   批量解锁
                 </Button>
               )}
+
+              <Button variant="secondary" onClick={() => {
+                setBatchSelectMode(false);
+                setSelectedEstablishmentIds(new Set());
+              }}>
+                取消
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* 审批记录 */}
+              <Button variant="secondary" onClick={() => setApprovalRecordsModalVisible(true)}>
+                审批记录
+              </Button>
+
+              {/* 批量操作 */}
+              <Button
+                variant="secondary"
+                onClick={() => setBatchSelectMode(true)}
+              >
+                <CheckSquare className="w-4 h-4 mr-2" />
+                批量操作
+              </Button>
 
               {/* 导入编制 */}
               <Button
@@ -275,11 +271,12 @@ export const EstablishmentPage = () => {
         {/* 左侧部门树 */}
         <div className={styles.leftPanel}>
           <div className={styles.leftPanelSearch}>
-            <Input
+            <SearchInput
               placeholder="搜索部门..."
-              prefixIcon={<SearchIcon className="w-4 h-4" />}
               value={searchKeyword}
               onChange={(e) => handleSearch(e.target.value)}
+              onSearch={handleSearch}
+              className="w-[200px]"
             />
           </div>
           <div className={styles.leftPanelTree}>
@@ -321,6 +318,9 @@ export const EstablishmentPage = () => {
                   onViewHistory={handleViewHistory}
                   onRowClick={handleRowClick}
                   onCellChange={handleCellValueChange}
+                  batchSelectMode={batchSelectMode}
+                  selectedCellIds={selectedEstablishmentIds}
+                  onCellSelect={handleCellSelect}
                 />
               )}
             </CardBody>

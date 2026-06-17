@@ -51,14 +51,14 @@ export function Pagination({
   return (
     <div className={cn('flex items-center justify-between', className)}>
       <div className="flex items-center gap-2">
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-[var(--color-text-secondary)]">
           共 {total} 条记录，第 {current}/{totalPages} 页
         </p>
         {pageSizeOptions && onPageSizeChange && (
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="px-2 py-1 border border-[var(--color-border)] rounded text-sm"
+            className="px-2 py-1 border border-[var(--color-border)] rounded text-sm text-[var(--color-text-primary)] bg-[var(--color-surface-card)]"
           >
             {pageSizeOptions.map((size) => (
               <option key={size} value={size}>
@@ -76,8 +76,8 @@ export function Pagination({
           className={cn(
             'w-8 h-8 flex items-center justify-center rounded-md transition-colors',
             current === 1
-              ? 'text-text-disabled cursor-not-allowed'
-              : 'text-text-secondary hover:bg-surface-bg hover:text-text-primary'
+              ? 'text-[var(--color-text-disabled)] cursor-not-allowed'
+              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-bg)] hover:text-[var(--color-text-primary)]'
           )}
         >
           <ChevronLeftIcon className="w-4 h-4" />
@@ -85,7 +85,7 @@ export function Pagination({
 
         {getPages().map((page, index) =>
           page === '...' ? (
-            <span key={`ellipsis-${index}`} className="w-8 h-8 flex items-center justify-center text-text-disabled">
+            <span key={`ellipsis-${index}`} className="w-8 h-8 flex items-center justify-center text-[var(--color-text-disabled)]">
               ...
             </span>
           ) : (
@@ -95,8 +95,8 @@ export function Pagination({
               className={cn(
                 'w-8 h-8 flex items-center justify-center text-sm rounded-md transition-colors',
                 page === current
-                  ? 'bg-brand text-white'
-                  : 'text-text-secondary hover:bg-surface-bg hover:text-text-primary'
+                  ? 'bg-[var(--color-brand)] text-white'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-bg)] hover:text-[var(--color-text-primary)]'
               )}
             >
               {page}
@@ -110,8 +110,8 @@ export function Pagination({
           className={cn(
             'w-8 h-8 flex items-center justify-center rounded-md transition-colors',
             current === totalPages
-              ? 'text-text-disabled cursor-not-allowed'
-              : 'text-text-secondary hover:bg-surface-bg hover:text-text-primary'
+              ? 'text-[var(--color-text-disabled)] cursor-not-allowed'
+              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-bg)] hover:text-[var(--color-text-primary)]'
           )}
         >
           <ChevronRightIcon className="w-4 h-4" />

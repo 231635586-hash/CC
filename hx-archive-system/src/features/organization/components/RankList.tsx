@@ -36,9 +36,9 @@ export const RankList = ({
   // 渲染序列Badge
   const renderTrackBadge = (track: string) => {
     const colors: Record<string, string> = {
-      admin: 'bg-blue-100 text-blue-700',
-      tech: 'bg-green-100 text-green-700',
-      factory: 'bg-orange-100 text-orange-700',
+      admin: 'bg-[var(--color-brand-bg)] text-[var(--color-brand)]',
+      tech: 'bg-[var(--color-status-success-bg)] text-[var(--color-status-success)]',
+      factory: 'bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)]',
     };
     return (
       <Badge variant="neutral" className={colors[track] || ''}>
@@ -50,9 +50,9 @@ export const RankList = ({
   // 渲染职层Badge
   const renderLevelBadge = (level: string) => {
     const colors: Record<string, string> = {
-      high: 'bg-purple-100 text-purple-700',
-      middle: 'bg-yellow-100 text-yellow-700',
-      low: 'bg-gray-100 text-gray-700',
+      high: 'bg-purple-50 text-purple-700',
+      middle: 'bg-yellow-50 text-yellow-700',
+      low: 'bg-gray-50 text-gray-700',
     };
     return (
       <Badge variant="neutral" className={colors[level] || ''}>

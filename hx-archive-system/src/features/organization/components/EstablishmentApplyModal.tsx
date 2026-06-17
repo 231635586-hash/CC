@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { showToast } from '@/components/ui/Toast';
 import { applyEstablishmentChange, createEstablishment } from '../services/api';
 import type { EstablishmentFormData } from '../types';
@@ -131,12 +133,11 @@ export const EstablishmentApplyModal = ({
           <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
             {isCreate ? '编制名额' : '调整后名额'} <span className="text-red-500">*</span>
           </label>
-          <input
+          <Input
             type="number"
             min={0}
             value={form.newQuota}
             onChange={(e) => setForm({ ...form, newQuota: Number(e.target.value) })}
-            className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm"
             placeholder={isCreate ? '请输入编制名额' : ''}
           />
           {!isCreate && diff !== 0 && (
@@ -155,20 +156,14 @@ export const EstablishmentApplyModal = ({
           <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
             调整原因 <span className="text-red-500">*</span>
           </label>
-          <select
+          <Select
+            options={REASON_OPTIONS}
             value={form.reason}
             onChange={(e) => setForm({
               ...form,
               reason: e.target.value as EstablishmentFormData['reason'],
             })}
-            className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm"
-          >
-            {REASON_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         {/* 调整说明 */}

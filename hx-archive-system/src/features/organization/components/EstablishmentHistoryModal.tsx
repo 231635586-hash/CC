@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Download, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
 import { showToast } from '@/components/ui/Toast';
@@ -174,42 +175,45 @@ export const EstablishmentHistoryModal = ({
           </div>
           <div className="flex items-center gap-2">
             {/* 时间范围 */}
-            <select
+            <Select
+              options={[
+                { value: 'all', label: '全部时间' },
+                { value: '1month', label: '近1个月' },
+                { value: '3months', label: '近3个月' },
+                { value: '6months', label: '近6个月' },
+              ]}
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as DateRange)}
-              className="px-3 py-1.5 border border-[var(--color-border)] rounded-md text-sm bg-white"
-            >
-              <option value="all">全部时间</option>
-              <option value="1month">近1个月</option>
-              <option value="3months">近3个月</option>
-              <option value="6months">近6个月</option>
-            </select>
+              className="w-[120px]"
+            />
           </div>
         </div>
 
         {/* 筛选条件 */}
         <div className="flex items-center gap-3 p-4 bg-[var(--color-surface-bg)] rounded-lg">
-          <select
+          <Select
+            options={[
+              { value: 'all', label: '全部状态' },
+              { value: 'pending', label: '待审批' },
+              { value: 'approved', label: '已通过' },
+              { value: 'rejected', label: '已驳回' },
+            ]}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as HistoryStatus)}
-            className="px-3 py-1.5 border border-[var(--color-border)] rounded-md text-sm bg-white"
-          >
-            <option value="all">全部状态</option>
-            <option value="pending">待审批</option>
-            <option value="approved">已通过</option>
-            <option value="rejected">已驳回</option>
-          </select>
-          <select
+            className="w-[120px]"
+          />
+          <Select
+            options={[
+              { value: 'all', label: '全部原因' },
+              { value: 'business_expansion', label: '业务扩张' },
+              { value: 'business_contraction', label: '业务收缩' },
+              { value: 'natural_turnover', label: '自然流动' },
+              { value: 'other', label: '其他' },
+            ]}
             value={reasonFilter}
             onChange={(e) => setReasonFilter(e.target.value as HistoryReason)}
-            className="px-3 py-1.5 border border-[var(--color-border)] rounded-md text-sm bg-white"
-          >
-            <option value="all">全部原因</option>
-            <option value="business_expansion">业务扩张</option>
-            <option value="business_contraction">业务收缩</option>
-            <option value="natural_turnover">自然流动</option>
-            <option value="other">其他</option>
-          </select>
+            className="w-[120px]"
+          />
           <Button variant="secondary" size="sm" onClick={handleReset}>
             重置
           </Button>

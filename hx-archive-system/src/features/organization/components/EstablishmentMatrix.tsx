@@ -1,5 +1,5 @@
 import { memo, useState, useCallback } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
   EstablishmentMatrixRow,
@@ -24,12 +24,12 @@ interface EstablishmentMatrixProps {
 
 // 状态颜色映射
 const STATUS_COLORS = {
-  normal: 'bg-green-50 text-green-700 border-green-200',
-  warning: 'bg-orange-50 text-orange-700 border-orange-200',
-  danger: 'bg-red-50 text-red-700 border-red-200',
-  empty: 'bg-gray-50 border-dashed border-gray-300 text-gray-400',
-  locking: 'bg-orange-50 text-orange-700 border-orange-400 border-dashed',
-  locked: 'bg-red-50 text-red-700 border-red-400',
+  normal: 'bg-[var(--color-status-success-bg)] text-[var(--color-status-success)] border-[var(--color-status-success)]',
+  warning: 'bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]',
+  danger: 'bg-[var(--color-status-danger-bg)] text-[var(--color-status-danger)] border-[var(--color-status-danger)]',
+  empty: 'bg-[var(--color-surface-bg)] border-dashed border-[var(--color-border)] text-[var(--color-text-disabled)]',
+  locking: 'bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)] border-dashed',
+  locked: 'bg-[var(--color-status-danger-bg)] text-[var(--color-status-danger)] border-[var(--color-status-danger)]',
 };
 
 // 状态文本
@@ -55,6 +55,9 @@ const MatrixCell = memo(({
   onCreate,
   onViewHistory,
   onCellChange,
+  batchSelectMode,
+  selectedCellIds,
+  onCellSelect,
 }: {
   cell: EstablishmentMatrixCell;
   monthLabel: string;
@@ -78,8 +81,15 @@ const MatrixCell = memo(({
   const displayValue = isModified ? modifiedValue : cell.quota;
   const valueChanged = isModified && modifiedValue !== cell.quota;
 
+  // 锁定状态：锁定中和已锁定的单元格不可选择
+  const isLockedOrLocking = cell.lockStatus === 'locked' || cell.lockStatus === 'locking';
+  // 是否可选（批量选择模式下：非空、非锁定状态才可选）
+  const isSelectable = batchSelectMode && !isEmpty && !isLockedOrLocking;
+  // 是否已选中
+  const isSelected = selectedCellIds?.has(cell.establishmentId) || false;
+
   const handleDoubleClick = () => {
-    if (batchEditMode) return;
+    if (batchEditMode || batchSelectMode) return;
     if (isEmpty) {
       onCreate?.(cell, monthLabel, row);
     } else {
@@ -88,7 +98,7 @@ const MatrixCell = memo(({
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    if (batchEditMode) return;
+    if (batchEditMode || batchSelectMode) return;
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
@@ -123,25 +133,44 @@ const MatrixCell = memo(({
     handleCloseContextMenu();
   };
 
+  // 批量选择模式下的点击处理
+  const handleCellClick = () => {
+    if (batchSelectMode && isSelectable && cell.establishmentId) {
+      onCellSelect?.(cell);
+    }
+  };
+
   return (
     <>
       <div
         className={cn(
           'px-2 py-2 text-center transition-colors relative',
-          'hover:ring-2 hover:ring-[var(--color-brand)] hover:ring-inset',
           'border-r border-[var(--color-border)] last:border-r-0',
-          !batchEditMode && (cell.lockStatus === 'locked' || cell.lockStatus === 'locking') ? 'cursor-not-allowed' : 'cursor-pointer',
+          // 批量选择模式样式
+          batchSelectMode && isSelectable && !isSelected && 'hover:ring-2 hover:ring-[var(--color-brand)] hover:ring-inset cursor-pointer',
+          batchSelectMode && isSelected && 'ring-2 ring-[var(--color-brand)] bg-[var(--color-brand-bg)]',
+          batchSelectMode && !isSelectable && 'cursor-not-allowed opacity-50',
+          // 非批量选择模式样式
+          !batchSelectMode && !batchEditMode && !isLockedOrLocking && 'hover:ring-2 hover:ring-[var(--color-brand)] hover:ring-inset cursor-pointer',
+          !batchSelectMode && !batchEditMode && isLockedOrLocking && 'cursor-not-allowed',
+          // 批量编辑模式样式
+          batchEditMode && 'cursor-pointer',
           isModified && valueChanged
-            ? 'bg-yellow-50 ring-2 ring-yellow-400 border-yellow-400 border-dashed'
-            : STATUS_COLORS[cell.status]
+            ? 'bg-[var(--color-status-warning-bg)] ring-2 ring-[var(--color-status-warning)] border-[var(--color-status-warning)] border-dashed'
+            : !batchSelectMode && !isSelected && STATUS_COLORS[cell.status]
         )}
+        onClick={handleCellClick}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
         title={isEmpty ? "双击创建新编制，右键查看更多选项" : cell.lockStatus === 'locked' ? "双击申请解锁，右键查看更多选项" : cell.lockStatus === 'locking' ? "锁定申请审批中，请等待" : "双击发起编制调整申请，右键查看调整历史"}
       >
         {/* 修改指示器 */}
         {isModified && valueChanged && (
-          <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+          <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-[var(--color-status-warning)] rounded-full animate-pulse" />
+        )}
+        {/* 选中指示器 */}
+        {batchSelectMode && isSelected && (
+          <span className="absolute top-0.5 left-0.5 w-2 h-2 bg-[var(--color-brand)] rounded-full" />
         )}
         {batchEditMode ? (
           // 批量编辑模式：显示输入框
@@ -174,7 +203,7 @@ const MatrixCell = memo(({
           <>
             <div className="text-sm font-medium flex items-center justify-center gap-1">
               {(cell.status === 'locking' || cell.status === 'locked') && (
-                <span className="text-base">🔒</span>
+                <Lock className="w-3 h-3" />
               )}
               {displayValue}/{cell.occupied}
             </div>
@@ -262,6 +291,9 @@ export const EstablishmentMatrix = ({
   onViewHistory,
   onRowClick,
   onCellChange,
+  batchSelectMode,
+  selectedCellIds,
+  onCellSelect,
 }: EstablishmentMatrixProps) => {
   if (rows.length === 0) {
     return (
@@ -330,6 +362,9 @@ export const EstablishmentMatrix = ({
                     onCreate={onCreate}
                     onViewHistory={onViewHistory}
                     onCellChange={onCellChange}
+                    batchSelectMode={batchSelectMode}
+                    selectedCellIds={selectedCellIds}
+                    onCellSelect={onCellSelect}
                   />
                 </td>
               ))}

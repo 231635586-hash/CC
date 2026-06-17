@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Download, RefreshCw, Users, Briefcase, Building2, ClipboardList, CheckCircle, Clock, XCircle, SearchIcon } from 'lucide-react';
+import { Download, RefreshCw, Users, Briefcase, Building2, ClipboardList, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Empty } from '@/components/ui/Empty';
 import { StatusBadge, Badge } from '@/components/ui/Badge';
 import { Pagination } from '@/components/ui/Pagination';
-import { DepartmentTree, EstablishmentHistoryModal } from '../components';
+import { DepartmentTree, EstablishmentHistoryModal, EmployeeDetailPanel } from '../components';
 import {
   getDepartmentTree,
   getDepartmentAndDescendantIds,
@@ -16,8 +15,8 @@ import {
   getDepartmentChangeRecords,
   getDepartmentEstablishmentHistories,
   getDepartmentEstablishmentSummary,
+  getEmployeeRoster,
 } from '../services/api';
-import { fetchArchiveList } from '@/services/api';
 import type {
   DepartmentTreeNode,
   EmployeeRosterItem,
@@ -82,7 +81,6 @@ const getHighlightedNodeIds = (
 const PAGE_SIZE = 10;
 
 export const DepartmentArchivePage = () => {
-  const navigate = useNavigate();
   const [departmentTree, setDepartmentTree] = useState<DepartmentTreeNode[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>();
   const [autoExpandAll] = useState(true);
@@ -117,6 +115,8 @@ export const DepartmentArchivePage = () => {
   // 变更记录状态
   const [establishmentHistories, setEstablishmentHistories] = useState<EstablishmentHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const HISTORY_PAGE_SIZE = 10;
 
   // 编制汇总状态
   const [establishmentSummary, setEstablishmentSummary] = useState({
@@ -132,6 +132,10 @@ export const DepartmentArchivePage = () => {
     departmentName: string;
     positionName: string;
   } | null>(null);
+
+  // 员工详情滑出面板状态
+  const [employeeDetailVisible, setEmployeeDetailVisible] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
   // 加载部门树
   useEffect(() => {
@@ -157,61 +161,81 @@ export const DepartmentArchivePage = () => {
     return getDepartmentAndDescendantIds(selectedDepartmentId);
   }, [selectedDepartmentId]);
 
+  // 获取选中部门及其子部门的名称列表
+  const allDepartmentNames = useMemo(() => {
+    if (!selectedDepartmentId) return [];
+    // 从部门树中获取所有匹配的部门名称
+    const names: string[] = [];
+    const collectNames = (nodes: DepartmentTreeNode[]) => {
+      nodes.forEach((node) => {
+        if (allDepartmentIds.includes(node.id)) {
+          names.push(node.name);
+        }
+        if (node.children) {
+          collectNames(node.children);
+        }
+      });
+    };
+    collectNames(departmentTree);
+    return names;
+  }, [allDepartmentIds, departmentTree]);
+
   // 加载花名册数据
   const loadRosterData = useCallback(async () => {
     if (!selectedDepartmentId) return;
     setRosterLoading(true);
 
     try {
-      let status = rosterStatus === 'all' ? undefined : rosterStatus;
-      if (rosterStatus === 'probation') {
-        status = 'active';
-      }
+      const res = await getEmployeeRoster(
+        allDepartmentNames,
+        rosterSearchText.trim() || undefined
+      );
 
-      const res = await fetchArchiveList({
-        departmentId: selectedDepartmentId,
-        status,
-        searchText: rosterSearchText.trim() || undefined,
-        page: rosterPage,
-        pageSize: PAGE_SIZE,
-      });
+      if (res.code === 0 && res.data) {
+        // 按状态筛选
+        let filteredData = res.data;
+        if (rosterStatus === 'active') {
+          filteredData = filteredData.filter((e) => e.status === 'active');
+        } else if (rosterStatus === 'probation') {
+          // 试用期员工筛选：需要调用详情API判断是否有试用期记录（简化处理：status=active且入职30天内视为试用期）
+          filteredData = filteredData.filter((e) => {
+            if (e.status !== 'active') return false;
+            const entryDate = new Date(e.entryDate);
+            const now = new Date();
+            const daysDiff = (now.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24);
+            return daysDiff <= 90; // 入职90天内视为试用期
+          });
+        } else if (rosterStatus === 'archived') {
+          filteredData = filteredData.filter((e) => e.status === 'archived');
+        }
 
-      if (res.list) {
-        setRosterList(
-          res.list.map((e) => ({
-            id: e.id,
-            employeeNo: e.employeeNo,
-            name: e.name,
-            positionName: e.positionName,
-            entryDate: e.entryDate,
-            status: e.status,
-            phone: e.phone,
-            departmentName: e.departmentName,
-          }))
-        );
-        setRosterTotal(res.total);
+        // 分页
+        const start = (rosterPage - 1) * PAGE_SIZE;
+        const end = start + PAGE_SIZE;
+        const paginatedData = filteredData.slice(start, end);
+
+        setRosterList(paginatedData);
+        setRosterTotal(filteredData.length);
       }
     } catch (error) {
       console.error('加载花名册失败', error);
     } finally {
       setRosterLoading(false);
     }
-  }, [selectedDepartmentId, allDepartmentIds, rosterStatus, rosterSearchText, rosterPage]);
+  }, [selectedDepartmentId, allDepartmentNames, rosterStatus, rosterSearchText, rosterPage]);
 
   // 加载总员工数（用于组织信息Tab）
   const loadTotalEmployeeCount = useCallback(async () => {
     if (!allDepartmentIds.length) return;
     try {
-      const res = await fetchArchiveList({
-        departmentId: selectedDepartmentId,
-        page: 1,
-        pageSize: 1,
-      });
-      setTotalEmployeeCount(res.total);
+      const res = await getEmployeeRoster(allDepartmentNames);
+      if (res.code === 0 && res.data) {
+        setTotalEmployeeCount(res.data.length);
+      }
     } catch (error) {
       console.error('加载员工总数失败', error);
     }
-  }, [allDepartmentIds]);
+  }, [allDepartmentNames]);
 
   // 加载变动记录
   const loadChangeRecords = useCallback(async () => {
@@ -275,14 +299,15 @@ export const DepartmentArchivePage = () => {
 
   // Tab切换时加载数据
   useEffect(() => {
-    if (activeTab === 'roster' && selectedDepartmentId) {
+    if (!selectedDepartmentId) return;
+    if (activeTab === 'roster') {
       loadRosterData();
-    } else if (activeTab === 'changes' && selectedDepartmentId) {
+    } else if (activeTab === 'changes') {
       loadChangeRecords();
-    } else if (activeTab === 'history' && selectedDepartmentId) {
+    } else if (activeTab === 'history') {
       loadEstablishmentHistories();
     }
-  }, [activeTab, selectedDepartmentId]);
+  }, [activeTab, selectedDepartmentId, loadRosterData, loadChangeRecords, loadEstablishmentHistories]);
 
   // 搜索条件变化时重新加载
   useEffect(() => {
@@ -380,6 +405,19 @@ export const DepartmentArchivePage = () => {
     }
   }, [filteredChangeRecords.length, changePage]);
 
+  // 分页后的变更记录
+  const paginatedHistoryRecords = useMemo(() => {
+    const start = (historyPage - 1) * HISTORY_PAGE_SIZE;
+    return establishmentHistories.slice(start, start + HISTORY_PAGE_SIZE);
+  }, [establishmentHistories, historyPage]);
+
+  // 变更记录总数变化时重置页码
+  useEffect(() => {
+    if (historyPage > Math.ceil(establishmentHistories.length / HISTORY_PAGE_SIZE)) {
+      setHistoryPage(1);
+    }
+  }, [establishmentHistories.length, historyPage]);
+
   // 花名册状态筛选
   const rosterStatusOptions: { key: EmployeeRosterStatus; label: string }[] = [
     { key: 'all', label: '全部' },
@@ -407,9 +445,10 @@ export const DepartmentArchivePage = () => {
     { key: 'history', label: '变更记录' },
   ];
 
-  // 跳转到人员详情
+  // 打开员工详情面板
   const handleRowClick = (id: string) => {
-    navigate(`/archive/${id}`);
+    setSelectedEmployeeId(id);
+    setEmployeeDetailVisible(true);
   };
 
   // 刷新数据
@@ -431,38 +470,66 @@ export const DepartmentArchivePage = () => {
     setRosterPage(1);
   };
 
-  // 导出花名册
-  const handleExportRoster = () => {
-    if (rosterList.length === 0) {
-      alert('暂无数据可导出');
-      return;
+  // 导出花名册（导出全部筛选后的数据）
+  const handleExportRoster = async () => {
+    try {
+      // 先获取全部数据
+      const res = await getEmployeeRoster(allDepartmentNames, rosterSearchText.trim() || undefined);
+      if (res.code !== 0 || !res.data || res.data.length === 0) {
+        alert('暂无数据可导出');
+        return;
+      }
+
+      // 按状态筛选
+      let filteredData = res.data;
+      if (rosterStatus === 'active') {
+        filteredData = filteredData.filter((e) => e.status === 'active');
+      } else if (rosterStatus === 'probation') {
+        filteredData = filteredData.filter((e) => {
+          if (e.status !== 'active') return false;
+          const entryDate = new Date(e.entryDate);
+          const now = new Date();
+          const daysDiff = (now.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24);
+          return daysDiff <= 90;
+        });
+      } else if (rosterStatus === 'archived') {
+        filteredData = filteredData.filter((e) => e.status === 'archived');
+      }
+
+      if (filteredData.length === 0) {
+        alert('暂无数据可导出');
+        return;
+      }
+
+      // 构建CSV内容
+      const headers = ['姓名', '工号', '职位', '入职日期', '状态', '联系方式', '部门'];
+      const rows = filteredData.map((emp) => [
+        emp.name,
+        emp.employeeNo,
+        emp.positionName,
+        emp.entryDate,
+        emp.status === 'active' ? '在职' : '已离职',
+        emp.phone,
+        emp.departmentName,
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+      ].join('\n');
+
+      // 创建下载
+      const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `花名册_${selectedDepartment?.name || '全部'}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('导出失败', error);
+      alert('导出失败');
     }
-
-    // 构建CSV内容
-    const headers = ['姓名', '工号', '职位', '入职日期', '状态', '联系方式', '部门'];
-    const rows = rosterList.map((emp) => [
-      emp.name,
-      emp.employeeNo,
-      emp.positionName,
-      emp.entryDate,
-      emp.status === 'active' ? '在职' : '已离职',
-      emp.phone,
-      emp.departmentName,
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-    ].join('\n');
-
-    // 创建下载
-    const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `花名册_${selectedDepartment?.name || '全部'}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
   };
 
   // 上级部门点击跳转
@@ -526,12 +593,12 @@ export const DepartmentArchivePage = () => {
         <div className="w-[280px] border-r border-[var(--color-border)] bg-[var(--color-surface-card)] overflow-hidden flex flex-col">
           {/* 搜索框 */}
           <div className="px-3 py-2 border-b border-[var(--color-border)]">
-            <Input
+            <SearchInput
               placeholder="搜索部门..."
-              prefixIcon={<SearchIcon className="w-4 h-4" />}
               value={treeSearchKeyword}
               onChange={(e) => setTreeSearchKeyword(e.target.value)}
-              className="!h-8 text-sm"
+              onSearch={(val) => setTreeSearchKeyword(val)}
+              className="!h-8 text-sm w-full"
             />
           </div>
           <div className="flex-1 overflow-auto">
@@ -564,9 +631,6 @@ export const DepartmentArchivePage = () => {
                   }`}
                 >
                   {tab.label}
-                  {activeTab === tab.key && (
-                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4/5 h-0.5 bg-[var(--color-brand)] rounded-full" />
-                  )}
                 </button>
               ))}
             </div>
@@ -674,9 +738,9 @@ export const DepartmentArchivePage = () => {
 
             {/* 花名册 Tab */}
             {activeTab === 'roster' && (
-              <div className="space-y-4">
+              <div className="flex flex-col h-full">
                 {/* 筛选栏 */}
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4 mb-4">
                   <div className="flex gap-2">
                     {rosterStatusOptions.map((opt) => (
                       <button
@@ -696,11 +760,11 @@ export const DepartmentArchivePage = () => {
                     ))}
                   </div>
                   <div className="flex items-center gap-3 ml-auto">
-                    <Input
+                    <SearchInput
                       placeholder="搜索姓名/工号/手机号"
-                      prefixIcon={<SearchIcon className="w-4 h-4" />}
                       value={rosterSearchText}
                       onChange={(e) => handleRosterSearch(e.target.value)}
+                      onSearch={(val) => handleRosterSearch(val)}
                       className="w-[200px]"
                     />
                     <span className="text-sm text-[var(--color-text-secondary)] shrink-0">共 {rosterTotal} 人</span>
@@ -708,18 +772,18 @@ export const DepartmentArchivePage = () => {
                 </div>
 
                 {/* 表格 */}
-                <Card>
-                  <CardBody className="p-0">
+                <Card className="flex-1 flex flex-col">
+                  <CardBody className="p-0 flex-1 flex flex-col">
                     {rosterLoading ? (
-                      <div className="flex items-center justify-center h-64">
+                      <div className="flex items-center justify-center flex-1">
                         <div className="text-[var(--color-text-secondary)]">加载中...</div>
                       </div>
                     ) : rosterList.length === 0 ? (
                       <Empty title="暂无花名册数据" description="该部门暂无在职员工" />
                     ) : (
-                      <div className="overflow-auto">
+                      <div className="overflow-auto flex-1">
                         <table className="w-full">
-                          <thead className="bg-[var(--color-surface-bg)] border-b border-[var(--color-border)]">
+                          <thead className="bg-[var(--color-surface-bg)] border-b border-[var(--color-border)] shrink-0">
                             <tr>
                               <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
                                 姓名
@@ -766,28 +830,29 @@ export const DepartmentArchivePage = () => {
                         </table>
                       </div>
                     )}
+                    {/* 花名册分页 */}
+                    {rosterTotal > 0 && (
+                      <div className="px-6 py-3 border-t border-[var(--color-border)] shrink-0">
+                        <Pagination
+                          current={rosterPage}
+                          pageSize={PAGE_SIZE}
+                          total={rosterTotal}
+                          onChange={setRosterPage}
+                          pageSizeOptions={[10, 20, 50, 100]}
+                          onPageSizeChange={() => setRosterPage(1)}
+                        />
+                      </div>
+                    )}
                   </CardBody>
                 </Card>
-
-                {/* 分页 */}
-                {rosterTotal > 0 && (
-                  <div className="flex justify-end">
-                    <Pagination
-                      current={rosterPage}
-                      pageSize={PAGE_SIZE}
-                      total={rosterTotal}
-                      onChange={setRosterPage}
-                    />
-                  </div>
-                )}
               </div>
             )}
 
             {/* 变动记录 Tab */}
             {activeTab === 'changes' && (
-              <div className="space-y-4">
+              <div className="flex flex-col h-full">
                 {/* 筛选栏 */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-4">
                   {changeTypeOptions.map((opt) => (
                     <button
                       key={opt.key}
@@ -804,18 +869,22 @@ export const DepartmentArchivePage = () => {
                 </div>
 
                 {/* 变动记录列表 */}
-                <Card>
-                  <CardBody className="p-0">
+                <Card className="flex-1 flex flex-col">
+                  <CardBody className="p-0 flex-1 flex flex-col overflow-hidden">
                     {changeLoading ? (
-                      <div className="flex items-center justify-center h-64">
+                      <div className="flex items-center justify-center flex-1">
                         <div className="text-[var(--color-text-secondary)]">加载中...</div>
                       </div>
                     ) : paginatedChangeRecords.length === 0 ? (
                       <Empty title="暂无变动记录" description="该部门暂无人员变动记录" />
                     ) : (
-                      <div className="divide-y divide-[var(--color-border)]">
+                      <div className="divide-y divide-[var(--color-border)] overflow-auto flex-1">
                         {paginatedChangeRecords.map((record) => (
-                          <div key={record.id} className="px-4 py-4 hover:bg-[var(--color-surface-bg)]">
+                          <div
+                            key={record.id}
+                            className="px-4 py-4 hover:bg-[var(--color-surface-bg)] cursor-pointer transition-colors"
+                            onClick={() => handleRowClick(record.employeeId)}
+                          >
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
@@ -862,96 +931,112 @@ export const DepartmentArchivePage = () => {
                         ))}
                       </div>
                     )}
+                    {/* 变动记录分页 */}
+                    {filteredChangeRecords.length > 0 && (
+                      <div className="px-6 py-3 border-t border-[var(--color-border)] shrink-0">
+                        <Pagination
+                          current={changePage}
+                          pageSize={CHANGE_PAGE_SIZE}
+                          total={filteredChangeRecords.length}
+                          onChange={setChangePage}
+                          pageSizeOptions={[10, 20, 50, 100]}
+                          onPageSizeChange={() => setChangePage(1)}
+                        />
+                      </div>
+                    )}
                   </CardBody>
                 </Card>
-
-                {/* 变动记录分页 */}
-                {filteredChangeRecords.length > CHANGE_PAGE_SIZE && (
-                  <div className="flex justify-end mt-4">
-                    <Pagination
-                      current={changePage}
-                      pageSize={CHANGE_PAGE_SIZE}
-                      total={filteredChangeRecords.length}
-                      onChange={setChangePage}
-                    />
-                  </div>
-                )}
               </div>
             )}
 
             {/* 变更记录 Tab */}
             {activeTab === 'history' && (
-              <Card>
-                <CardBody className="p-0">
-                  {historyLoading ? (
-                    <div className="flex items-center justify-center h-64">
-                      <div className="text-[var(--color-text-secondary)]">加载中...</div>
-                    </div>
-                  ) : establishmentHistories.length === 0 ? (
-                    <Empty title="暂无变更记录" description="该部门暂无编制变更记录" />
-                  ) : (
-                    <div className="overflow-auto">
-                      <table className="w-full">
-                        <thead className="bg-[var(--color-surface-bg)] border-b border-[var(--color-border)]">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
-                              申请时间
-                            </th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
-                              申请人
-                            </th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
-                              调整原因
-                            </th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
-                              原名额 → 新名额
-                            </th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
-                              状态
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {establishmentHistories.map((history) => (
-                            <tr
-                              key={history.id}
-                              className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-bg)] cursor-pointer"
-                              onClick={() => handleViewHistoryDetail(history)}
-                            >
-                              <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                                {new Date(history.createdAt).toLocaleDateString('zh-CN')}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-[var(--color-text-primary)]">
-                                {history.applicantName}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                                {history.reason === 'business_expansion' && '业务扩张'}
-                                {history.reason === 'business_contraction' && '业务收缩'}
-                                {history.reason === 'natural_turnover' && '自然流动'}
-                                {history.reason === 'other' && '其他'}
-                                {history.remark && `（${history.remark}）`}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                                {history.oldQuota} → {history.newQuota}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  {renderStatusIcon(history.status)}
-                                  <span className="text-sm">
-                                    {history.status === 'pending' && '待审批'}
-                                    {history.status === 'approved' && '已通过'}
-                                    {history.status === 'rejected' && '已驳回'}
-                                  </span>
-                                </div>
-                              </td>
+              <div className="flex flex-col h-full">
+                <Card className="flex-1 flex flex-col">
+                  <CardBody className="p-0 flex-1 flex flex-col">
+                    {historyLoading ? (
+                      <div className="flex items-center justify-center flex-1">
+                        <div className="text-[var(--color-text-secondary)]">加载中...</div>
+                      </div>
+                    ) : establishmentHistories.length === 0 ? (
+                      <Empty title="暂无变更记录" description="该部门暂无编制变更记录" />
+                    ) : (
+                      <div className="overflow-auto flex-1">
+                        <table className="w-full">
+                          <thead className="bg-[var(--color-surface-bg)] border-b border-[var(--color-border)] shrink-0">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
+                                申请时间
+                              </th>
+                              <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
+                                申请人
+                              </th>
+                              <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
+                                调整原因
+                              </th>
+                              <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
+                                原名额 → 新名额
+                              </th>
+                              <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-secondary)]">
+                                状态
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </CardBody>
-              </Card>
+                          </thead>
+                          <tbody>
+                            {paginatedHistoryRecords.map((history) => (
+                              <tr
+                                key={history.id}
+                                className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-bg)] cursor-pointer"
+                                onClick={() => handleViewHistoryDetail(history)}
+                              >
+                                <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+                                  {new Date(history.createdAt).toLocaleDateString('zh-CN')}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-[var(--color-text-primary)]">
+                                  {history.applicantName}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+                                  {history.reason === 'business_expansion' && '业务扩张'}
+                                  {history.reason === 'business_contraction' && '业务收缩'}
+                                  {history.reason === 'natural_turnover' && '自然流动'}
+                                  {history.reason === 'other' && '其他'}
+                                  {history.remark && `（${history.remark}）`}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+                                  {history.oldQuota} → {history.newQuota}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    {renderStatusIcon(history.status)}
+                                    <span className="text-sm">
+                                      {history.status === 'pending' && '待审批'}
+                                      {history.status === 'approved' && '已通过'}
+                                      {history.status === 'rejected' && '已驳回'}
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {/* 变更记录分页 */}
+                    {establishmentHistories.length > 0 && (
+                      <div className="px-6 py-3 border-t border-[var(--color-border)] shrink-0">
+                        <Pagination
+                          current={historyPage}
+                          pageSize={HISTORY_PAGE_SIZE}
+                          total={establishmentHistories.length}
+                          onChange={setHistoryPage}
+                          pageSizeOptions={[10, 20, 50, 100]}
+                          onPageSizeChange={() => setHistoryPage(1)}
+                        />
+                      </div>
+                    )}
+                  </CardBody>
+                </Card>
+              </div>
             )}
 
             {/* 变更记录详情弹窗 */}
@@ -961,6 +1046,16 @@ export const DepartmentArchivePage = () => {
               establishmentId={historyModalData?.establishmentId}
               departmentName={historyModalData?.departmentName}
               positionName={historyModalData?.positionName}
+            />
+
+            {/* 员工详情滑出面板 */}
+            <EmployeeDetailPanel
+              visible={employeeDetailVisible}
+              employeeId={selectedEmployeeId}
+              onClose={() => {
+                setEmployeeDetailVisible(false);
+                setSelectedEmployeeId(null);
+              }}
             />
             </div>
           </div>

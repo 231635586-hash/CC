@@ -225,10 +225,10 @@ export const DepartmentMindMap = ({ data, selectedId, onNodeDoubleClick, onNodeC
                   height={NODE_HEIGHT}
                   rx={8}
                   ry={8}
-                  fill={isSelected ? 'var(--color-brand-bg)' : 'white'}
+                  fill={isSelected ? 'var(--color-brand-light)' : 'white'}
                   stroke={isSelected ? 'var(--color-brand)' : isRoot ? 'var(--color-brand)' : 'var(--color-border)'}
                   strokeWidth={isSelected ? 2 : isRoot ? 2 : 1}
-                  className="drop-shadow-sm"
+                  style={isSelected ? { filter: 'drop-shadow(0 4px 16px oklch(48% 0.14 235 / 0.2))' } : undefined}
                 />
                 <text
                   x={NODE_WIDTH / 2}

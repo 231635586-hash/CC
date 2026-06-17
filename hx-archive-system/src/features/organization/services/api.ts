@@ -13,7 +13,9 @@ import type {
   Rank,
   RankTrackType,
   RankLevelType,
+  EmployeeRosterItem,
 } from '../types';
+import type { ArchiveDetail } from '@/types';
 import {
   mockDepartments,
   mockPositions,
@@ -30,7 +32,7 @@ import {
   getDepartmentIdByPath,
   getPositionName,
 } from './mockData';
-import { mockArchiveDetails } from '@/services/mockData';
+import { mockArchiveDetails, mockEmployees } from '@/services/mockData';
 
 // 重新导出工具函数
 export {
@@ -1261,4 +1263,84 @@ const mockApprovalRecords: ApprovalRecord[] = [
 export const getApprovalRecords = async (): Promise<ApiResponse<ApprovalRecord[]>> => {
   await delay(100);
   return { code: 0, data: mockApprovalRecords };
+};
+
+// ==================== 花名册 API ====================
+
+// 获取花名册列表（按部门名称匹配）
+export const getEmployeeRoster = async (
+  departmentNames: string[],
+  searchText?: string
+): Promise<ApiResponse<EmployeeRosterItem[]>> => {
+  await delay(200);
+
+  // 从 mockEmployees 筛选（按部门名称匹配）
+  let filtered = mockEmployees.filter((e) => {
+    // 如果没有指定部门名称，返回所有员工
+    if (departmentNames.length === 0) return true;
+    // 检查员工是否属于目标部门（按名称匹配）
+    return departmentNames.some((name) => e.departmentName.includes(name) || name.includes(e.departmentName));
+  });
+
+  // 关键字搜索
+  if (searchText && searchText.trim()) {
+    const keyword = searchText.toLowerCase();
+    filtered = filtered.filter(
+      (e) =>
+        e.name.toLowerCase().includes(keyword) ||
+        e.employeeNo.toLowerCase().includes(keyword) ||
+        e.phone.includes(keyword)
+    );
+  }
+
+  // 转换为 EmployeeRosterItem
+  const rosterItems: EmployeeRosterItem[] = filtered.map((e) => ({
+    id: e.id,
+    employeeNo: e.employeeNo,
+    name: e.name,
+    positionName: e.positionName,
+    rankLevelCode: e.rankLevel,
+    entryDate: e.entryDate,
+    status: e.status,
+    phone: e.phone,
+    departmentName: e.departmentName,
+  }));
+
+  // 按入职日期倒序
+  rosterItems.sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
+
+  return { code: 0, data: rosterItems };
+};
+
+// 获取花名册员工详情（含完整档案信息）
+export const getEmployeeRosterDetail = async (
+  employeeId: string
+): Promise<ApiResponse<ArchiveDetail | null>> => {
+  await delay(200);
+
+  // 从 mockArchiveDetails 获取完整档案
+  const archiveDetail = mockArchiveDetails[employeeId];
+  if (archiveDetail) {
+    return {
+      code: 0,
+      data: archiveDetail,
+    };
+  }
+
+  // 从 mockEmployees 查找
+  const employee = mockEmployees.find((e) => e.id === employeeId);
+  if (!employee) {
+    return { code: 40401, message: '员工不存在' };
+  }
+
+  return {
+    code: 0,
+    data: {
+      employee,
+      transfers: [],
+      resignations: [],
+      approvalRecords: [],
+      contracts: [],
+    },
+  };
 };

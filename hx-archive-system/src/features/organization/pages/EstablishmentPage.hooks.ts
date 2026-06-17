@@ -156,6 +156,33 @@ export const useEstablishment = () => {
     }).filter((p) => p.row && p.establishmentId) as BatchPreview[];
   }, [modifiedCells, matrixData]);
 
+  // 分析批量选择的状态（用于决定显示哪些操作按钮）
+  const batchSelectionInfo = useMemo(() => {
+    if (selectedEstablishmentIds.size === 0) {
+      return { hasLocked: false, hasUnlocked: false, hasLocking: false, total: 0 };
+    }
+
+    let hasLocked = false;
+    let hasUnlocked = false;
+    let hasLocking = false;
+
+    selectedEstablishmentIds.forEach((id) => {
+      // 在 matrixData 中查找对应的单元格
+      for (const row of matrixData.rows) {
+        for (const cell of row.cells) {
+          if (cell.establishmentId === id) {
+            if (cell.lockStatus === 'locked') hasLocked = true;
+            else if (cell.lockStatus === 'locking') hasLocking = true;
+            else hasUnlocked = true;
+            break;
+          }
+        }
+      }
+    });
+
+    return { hasLocked, hasUnlocked, hasLocking, total: selectedEstablishmentIds.size };
+  }, [selectedEstablishmentIds, matrixData]);
+
   // ==================== 数据加载 ====================
 
   const loadMatrix = useCallback(async () => {
@@ -336,6 +363,20 @@ export const useEstablishment = () => {
     setModifiedCells({});
   }, []);
 
+  // 批量选择单元格
+  const handleCellSelect = useCallback((cell: EstablishmentMatrixCell) => {
+    if (!cell.establishmentId) return;
+    setSelectedEstablishmentIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(cell.establishmentId!)) {
+        newSet.delete(cell.establishmentId!);
+      } else {
+        newSet.add(cell.establishmentId!);
+      }
+      return newSet;
+    });
+  }, []);
+
   const handleCellValueChange = useCallback(
     (rowIndex: number, cellIndex: number, newValue: number) => {
       const key = `${rowIndex}-${cellIndex}`;
@@ -491,6 +532,7 @@ export const useEstablishment = () => {
     yearOptions,
     selectedDepartmentName,
     batchPreviews,
+    batchSelectionInfo,
     // 事件处理
     loadMatrix,
     handleSearch,
@@ -503,6 +545,7 @@ export const useEstablishment = () => {
     handleOpenCreate,
     handleOpenBatchAdjust,
     handleCancelBatchEdit,
+    handleCellSelect,
     handleCellValueChange,
     handleSubmitBatchAdjust,
     handleConfirmBatchAdjust,

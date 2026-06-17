@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, RefreshCw, Search, X } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Empty } from '@/components/ui/Empty';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { Select } from '@/components/ui/Select';
 import { Pagination } from '@/components/ui/Pagination';
 import { ToastContainer, useToast } from '@/components/ui/Toast';
 import { RankList, RankFormModal } from '../components';
@@ -138,11 +140,6 @@ export const RankPage = () => {
     setEditRank(null);
   }, []);
 
-  // 清除搜索
-  const handleClearSearch = useCallback(() => {
-    setSearchKeyword('');
-  }, []);
-
   // 分页变化时调整页码
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
@@ -181,55 +178,34 @@ export const RankPage = () => {
       <div className="px-6 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface-bg)]">
         <div className="flex items-center gap-4">
           {/* 搜索框 */}
-          <div className="relative flex items-center">
-            <Search className="absolute left-3 w-4 h-4 text-[var(--color-text-disabled)]" />
-            <input
-              type="text"
-              placeholder="搜索职级代码或职务名称"
-              value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
-              className="w-[200px] pl-9 pr-8 py-1.5 text-sm border border-[var(--color-border)] rounded-md bg-[var(--color-surface-card)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)] focus:border-[var(--color-brand)]"
-            />
-            {searchKeyword && (
-              <button
-                onClick={handleClearSearch}
-                className="absolute right-2 p-1 hover:bg-[var(--color-surface-bg)] rounded"
-              >
-                <X className="w-3.5 h-3.5 text-[var(--color-text-disabled)]" />
-              </button>
-            )}
-          </div>
+          <SearchInput
+            placeholder="搜索职级代码或职务名称"
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
+            onSearch={(val) => setSearchKeyword(val)}
+            className="w-[200px]"
+          />
 
           {/* 职务划分筛选 */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-[var(--color-text-secondary)]">职务划分:</span>
-            <select
+            <span className="text-sm text-[var(--color-text-secondary)] shrink-0">职务序列:</span>
+            <Select
+              options={trackOptions}
               value={trackFilter}
               onChange={(e) => setTrackFilter(e.target.value as RankTrackType | 'all')}
-              className="px-2 py-1.5 text-sm border border-[var(--color-border)] rounded-md bg-[var(--color-surface-card)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]"
-            >
-              {trackOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              className="w-[140px]"
+            />
           </div>
 
           {/* 职层筛选 */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-[var(--color-text-secondary)]">职层:</span>
-            <select
+            <span className="text-sm text-[var(--color-text-secondary)] shrink-0">职层:</span>
+            <Select
+              options={levelOptions}
               value={levelFilter}
               onChange={(e) => setLevelFilter(e.target.value as RankLevelType | 'all')}
-              className="px-2 py-1.5 text-sm border border-[var(--color-border)] rounded-md bg-[var(--color-surface-card)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]"
-            >
-              {levelOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              className="w-[140px]"
+            />
           </div>
         </div>
       </div>

@@ -38,9 +38,9 @@ const menuItems: MenuItem[] = [
     children: [
       { key: 'department', label: '部门管理', path: '/organization/department' },
       { key: 'position', label: '职位管理', path: '/organization/position' },
+      { key: 'rank', label: '职级管理', path: '/organization/rank' },
       { key: 'headcount', label: '编制管理', path: '/organization/headcount' },
       { key: 'department-archive', label: '部门档案', path: '/organization/department-archive' },
-      { key: 'rank', label: '职级管理', path: '/organization/rank' },
     ],
   },
   {

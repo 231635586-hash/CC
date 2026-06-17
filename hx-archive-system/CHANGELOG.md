@@ -17,9 +17,11 @@
 
 | 一级菜单 | 二级菜单 | 路由 | 状态 |
 |----------|----------|------|------|
-| **组织管理** | 部门管理 | /organization/department | 建设中 |
-|  | 职位管理 | /organization/position | 建设中 |
-|  | 编制管理 | /organization/headcount | 建设中 |
+| **组织管理** | 部门管理 | /organization/department | 已开发 |
+|  | 职位管理 | /organization/position | 已开发 |
+|  | 职级管理 | /organization/rank | 已开发 |
+|  | 编制管理 | /organization/headcount | 已开发 |
+|  | 部门档案 | /organization/department-archive | 已开发 |
 | **员工档案** | 人员档案 | /archive | 已开发 |
 |  | 薪资档案 | /salary | 已开发 |
 |  | 薪资模版 | /salary-template | 建设中 |
@@ -30,6 +32,36 @@
 ---
 
 ## 版本记录
+
+### v1.0.3 - 组织管理模块完善 + UI优化
+
+**日期**: 2026-06-17
+
+**更新内容**:
+
+1. **部门档案模块完善**
+   - 花名册/变动记录/变更记录 Tab 添加分页功能
+   - 分页组件样式标准化（匹配职级管理）
+   - 修复变动记录数据为空的问题（departmentId 映射修正）
+   - 列表页滚动与分页显示正常
+
+2. **菜单结构调整**
+   - 职级管理菜单移至职位管理下方
+   - 组织管理子菜单顺序：部门管理 > 职位管理 > 职级管理 > 编制管理 > 部门档案
+
+3. **架构图选中样式优化**
+   - 采用浅品牌背景（var(--color-brand-light)）替代深色背景
+   - 增加选中阴影效果，提升层次感
+   - 文字与边框使用品牌蓝色，形成清晰视觉反馈
+
+**涉及文件**:
+- src/components/layout/AppSider.tsx - 菜单顺序调整
+- src/features/organization/pages/DepartmentArchivePage.tsx - 分页功能
+- src/features/organization/components/DepartmentMindMap.tsx - 选中样式
+- src/components/ui/Pagination.tsx - 分页组件标准化
+- src/services/mockData.ts - departmentId 映射修正
+
+---
 
 ### v1.0.2 - 菜单选中bug + 报工审批编辑功能
 

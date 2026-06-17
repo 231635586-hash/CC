@@ -1,4 +1,5 @@
-import { X, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -74,11 +75,11 @@ const changelogItems = [
 const renderStatusIcon = (status: string) => {
   switch (status) {
     case 'completed':
-      return <CheckCircle className="w-4 h-4 text-green-500" />;
+      return <CheckCircle className="w-4 h-4 text-[var(--color-status-success)]" />;
     case 'in_progress':
-      return <Clock className="w-4 h-4 text-orange-500" />;
+      return <Clock className="w-4 h-4 text-[var(--color-status-warning)]" />;
     case 'pending':
-      return <AlertCircle className="w-4 h-4 text-gray-400" />;
+      return <AlertCircle className="w-4 h-4 text-[var(--color-text-disabled)]" />;
     default:
       return null;
   }
@@ -87,19 +88,17 @@ const renderStatusIcon = (status: string) => {
 const renderTypeBadge = (type: string) => {
   switch (type) {
     case 'feature':
-      return <Badge variant="neutral" className="bg-blue-100 text-blue-700">新增</Badge>;
+      return <Badge variant="neutral" className="bg-[var(--color-brand-bg)] text-[var(--color-brand)]">新增</Badge>;
     case 'fix':
-      return <Badge variant="neutral" className="bg-red-100 text-red-700">修复</Badge>;
+      return <Badge variant="neutral" className="bg-[var(--color-status-danger-bg)] text-[var(--color-status-danger)]">修复</Badge>;
     case 'optimize':
-      return <Badge variant="neutral" className="bg-purple-100 text-purple-700">优化</Badge>;
+      return <Badge variant="neutral" className="bg-purple-50 text-purple-700">优化</Badge>;
     default:
       return null;
   }
 };
 
 export const ChangelogModal = ({ open, onClose }: ChangelogModalProps) => {
-  if (!open) return null;
-
   // 按日期分组
   const groupedByDate = changelogItems.reduce((acc, item) => {
     if (!acc[item.date]) {
@@ -110,59 +109,44 @@ export const ChangelogModal = ({ open, onClose }: ChangelogModalProps) => {
   }, {} as Record<string, typeof changelogItems>);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* 遮罩 */}
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-
-      {/* 弹窗 */}
-      <div className="relative w-[800px] max-h-[80vh] bg-[var(--color-surface-card)] rounded-lg shadow-xl flex flex-col">
-        {/* 头部 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
-          <div className="flex items-center gap-3">
-            <FileText className="w-5 h-5 text-[var(--color-brand)]" />
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">开发优化记录</h2>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* 内容 */}
-        <div className="flex-1 overflow-auto p-6">
-          {Object.entries(groupedByDate).map(([date, items]) => (
-            <div key={date} className="mb-6">
-              <div className="text-sm font-medium text-[var(--color-text-secondary)] mb-3">{date}</div>
-              <div className="space-y-4">
-                {items.map((item, idx) => (
-                  <Card key={idx}>
-                    <CardBody className="p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="neutral" className="bg-[var(--color-brand-light)] text-[var(--color-brand)]">
-                          {item.module}
-                        </Badge>
-                      </div>
-                      <div className="space-y-2">
-                        {item.changes.map((change, cIdx) => (
-                          <div key={cIdx} className="flex items-center gap-3">
-                            {renderStatusIcon(change.status)}
-                            {renderTypeBadge(change.type)}
-                            <span className="text-sm text-[var(--color-text-primary)]">{change.text}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardBody>
-                  </Card>
-                ))}
-              </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="开发优化记录"
+      size="lg"
+    >
+      <div className="max-h-[60vh] overflow-auto">
+        {Object.entries(groupedByDate).map(([date, items]) => (
+          <div key={date} className="mb-6">
+            <div className="text-sm font-medium text-[var(--color-text-secondary)] mb-3">{date}</div>
+            <div className="space-y-4">
+              {items.map((item, idx) => (
+                <Card key={idx}>
+                  <CardBody className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="neutral" className="bg-[var(--color-brand-light)] text-[var(--color-brand)]">
+                        {item.module}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {item.changes.map((change, cIdx) => (
+                        <div key={cIdx} className="flex items-center gap-3">
+                          {renderStatusIcon(change.status)}
+                          {renderTypeBadge(change.type)}
+                          <span className="text-sm text-[var(--color-text-primary)]">{change.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardBody>
+                </Card>
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* 底部 */}
-        <div className="px-6 py-4 border-t border-[var(--color-border)]">
-          <Button variant="secondary" onClick={onClose}>关闭</Button>
-        </div>
+          </div>
+        ))}
       </div>
-    </div>
+      <div className="flex justify-end pt-4 border-t border-[var(--color-border)] mt-4">
+        <Button variant="secondary" onClick={onClose}>关闭</Button>
+      </div>
+    </Modal>
   );
 };

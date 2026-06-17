@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { SearchIcon, Download, Upload, Plus } from 'lucide-react';
+import { Download, Upload, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Empty } from '@/components/ui/Empty';
 import { Pagination } from '@/components/ui/Pagination';
@@ -291,11 +291,11 @@ export const PositionPage = () => {
       {/* 搜索栏 */}
       <div className="px-6 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface-bg)]">
         <div className="w-[320px]">
-          <Input
+          <SearchInput
             placeholder="搜索职位..."
-            prefixIcon={<SearchIcon className="w-4 h-4" />}
             value={searchKeyword}
             onChange={(e) => handleSearchChange(e.target.value)}
+            onSearch={(val) => handleSearchChange(val)}
           />
         </div>
       </div>

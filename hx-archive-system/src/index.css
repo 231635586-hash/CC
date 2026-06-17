@@ -431,6 +431,93 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ========================================
+   Search Box (搜索框)
+   ======================================== */
+
+.search-box-wrap {
+  display: flex;
+  width: 100%; /* 填满父容器，配合 w-full 类使用 */
+}
+
+.search-group {
+  display: flex;
+  height: 36px;
+  position: relative;
+  width: 100%;
+}
+
+.search-group-input {
+  flex: 1;
+  padding: 0 90px 0 12px; /* 右侧留出足够空间给按钮和清除按钮 */
+  border: 1px solid var(--color-border);
+  border-right: none;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-card);
+  transition: all 150ms ease;
+  min-width: 0; /* 防止 flex 子元素溢出 */
+}
+
+.search-group-input::placeholder {
+  color: var(--color-text-disabled);
+}
+
+.search-group-input:hover {
+  border-color: var(--color-border-strong);
+}
+
+.search-group-input:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px var(--color-brand-light);
+  outline: none;
+}
+
+.search-group-btn {
+  width: 72px;
+  flex-shrink: 0; /* 防止按钮被压缩 */
+  border: none;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--color-brand);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.search-group-btn:hover {
+  background: var(--color-brand-hover);
+}
+
+.search-clear {
+  position: absolute;
+  right: 76px; /* 紧贴按钮左侧，留4px间距 */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  text-align: center;
+  line-height: 18px;
+  cursor: pointer;
+  display: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.search-clear:hover {
+  background: var(--color-text-disabled);
+}
+
+.search-box-wrap.active .search-clear {
+  display: block;
+}
+
+/* ========================================
    Skeleton Loading
    ======================================== */
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Building2, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import type { DepartmentTreeNode } from '../types';
 import { getDepartmentFullPath } from '../services/api';
@@ -80,13 +81,13 @@ export const DepartmentDetailPanel = ({
   const getChangeTypeStyle = (type: string) => {
     switch (type) {
       case 'info':
-        return 'bg-blue-50 text-blue-600 border-blue-200';
+        return 'bg-[var(--color-brand-bg)] text-[var(--color-brand)] border-[var(--color-brand)]';
       case 'position':
-        return 'bg-purple-50 text-purple-600 border-purple-200';
+        return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'establishment':
-        return 'bg-green-50 text-green-600 border-green-200';
+        return 'bg-[var(--color-status-success-bg)] text-[var(--color-status-success)] border-[var(--color-status-success)]';
       default:
-        return 'bg-gray-50 text-gray-600 border-gray-200';
+        return 'bg-[var(--color-surface-bg)] text-[var(--color-text-secondary)] border-[var(--color-border)]';
     }
   };
 
@@ -113,12 +114,9 @@ export const DepartmentDetailPanel = ({
               </span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-[var(--color-surface-bg)] rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-[var(--color-text-secondary)]" />
-          </button>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* Tab切换 */}

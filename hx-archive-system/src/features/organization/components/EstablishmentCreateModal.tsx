@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { showToast } from '@/components/ui/Toast';
 import { getPositions, createEstablishment } from '../services/api';
 import type { Position } from '../types';
@@ -154,33 +155,21 @@ export const EstablishmentCreateModal = ({
             <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
               年份
             </label>
-            <select
-              value={form.year}
+            <Select
+              options={Array.from({ length: 11 }, (_, i) => ({ value: String(currentYear - 5 + i), label: `${currentYear - 5 + i}年` }))}
+              value={String(form.year)}
               onChange={(e) => setForm((prev) => ({ ...prev, year: Number(e.target.value) }))}
-              className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm"
-            >
-              {Array.from({ length: 11 }, (_, i) => currentYear - 5 + i).map((year) => (
-                <option key={year} value={year}>
-                  {year}年
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="flex-1">
             <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
               月份
             </label>
-            <select
-              value={form.month}
+            <Select
+              options={Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }))}
+              value={String(form.month)}
               onChange={(e) => setForm((prev) => ({ ...prev, month: Number(e.target.value) }))}
-              className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm"
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                <option key={month} value={month}>
-                  {month}月
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
 
@@ -189,12 +178,11 @@ export const EstablishmentCreateModal = ({
           <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
             编制名额 <span className="text-red-500">*</span>
           </label>
-          <input
+          <Input
             type="number"
             min={1}
             value={form.quota || ''}
             onChange={(e) => setForm((prev) => ({ ...prev, quota: Number(e.target.value) || 0 }))}
-            className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm"
             placeholder="请输入编制名额"
           />
         </div>

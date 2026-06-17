@@ -2,6 +2,7 @@ export { DepartmentTree } from './DepartmentTree';
 export { DepartmentMindMap } from './DepartmentMindMap';
 export { DepartmentFormModal } from './DepartmentFormModal';
 export { DepartmentDetailPanel } from './DepartmentDetailPanel';
+export { EmployeeDetailPanel } from './EmployeeDetailPanel';
 export { PositionList } from './PositionList';
 export { PositionFormModal } from './PositionFormModal';
 export { PositionEmployeeModal } from './PositionEmployeeModal';
