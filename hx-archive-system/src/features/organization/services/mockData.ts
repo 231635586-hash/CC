@@ -288,6 +288,45 @@ export const mockEstablishments: Establishment[] = [
 
   // 正常-紧张：销售部-销售经理 2026/07（紧张状态，用于对比）
   ...generateEstablishmentData('dept-xsb', 'pos-004', currentYear, 7, 6, 5),
+
+  // ========== V1.3 临时编制测试数据 ==========
+  // 情况一：研发部-前端工程师 8月新增3临时(2026-08-01 ~ 2026-10-30)
+  //        + 9月新增3正式编制
+  ...generateTempEstablishmentData('dept-qdz', 'pos-001', currentYear, 8, 3, 1, '2026-08-01', '2026-10-30'),
+  ...generateEstablishmentData('dept-qdz', 'pos-001', currentYear, 9, 18, 11),
+
+  // 情况二：销售部-销售经理 8月新增3临时(2026-08-01 ~ 2026-08-30)
+  ...generateTempEstablishmentData('dept-xsb', 'pos-004', currentYear, 8, 3, 1, '2026-08-01', '2026-08-30'),
+
+  // 情况三：产品部-产品经理 8月新增3临时(2026-08-01 ~ 2026-08-20，月中到期)
+  ...generateTempEstablishmentData('dept-cpb', 'pos-003', currentYear, 8, 3, 1, '2026-08-01', '2026-08-20'),
+
+  // 已失效示例（用于测试红色警示）：研发一部-前端工程师 6月新增2临时(已过期)
+  ...generateTempEstablishmentData('dept-yfb', 'pos-001', currentYear, 6, 2, 1, '2026-06-01', '2026-06-15'),
+
+  // ========== V1.4 临时编制补充数据（覆盖 5 部门 + 4 种状态）==========
+  // ⚠️ 注意：必须避开已有 formal 数据的月份（buildEstablishmentMatrix 会吞第二条记录）
+  // 安全月份：前端组 10-12、后端组/产品部/销售部 9-12、质量部 8-12
+
+  // 前端组/pos-001 月 10：临时编制 active（生效中，剩 73 天）
+  // 2026-06-10 ~ 2026-08-31（今天 2026-06-19 在生效期内）
+  ...generateTempEstablishmentData('dept-qdz', 'pos-001', currentYear, 10, 2, 1, '2026-06-10', '2026-08-31'),
+
+  // 后端组/pos-002 月 9：临时编制 expiring（即将到期，剩 13 天）
+  // 2026-06-15 ~ 2026-07-02（距离到期 13 天，≤ 14 天触发 expiring 状态）
+  ...generateTempEstablishmentData('dept-bdz', 'pos-002', currentYear, 9, 2, 1, '2026-06-15', '2026-07-02'),
+
+  // 产品部/pos-003 月 9：临时编制 pending（待生效，差 26 天）
+  // 2026-07-15 ~ 2026-09-30（今天 2026-06-19 早于 startDate）
+  ...generateTempEstablishmentData('dept-cpb', 'pos-003', currentYear, 9, 2, 0, '2026-07-15', '2026-09-30'),
+
+  // 销售部/pos-004 月 9：临时编制 pending（待生效，差 12 天）
+  // 2026-07-01 ~ 2026-12-31（今天 2026-06-19 早于 startDate）
+  ...generateTempEstablishmentData('dept-xsb', 'pos-004', currentYear, 9, 3, 0, '2026-07-01', '2026-12-31'),
+
+  // 质量部/pos-006 月 9：临时编制 expiring（即将到期，剩 6 天）
+  // 2026-06-05 ~ 2026-06-25（今天 2026-06-19 在生效期内，距离到期 6 天）
+  ...generateTempEstablishmentData('dept-zlb', 'pos-006', currentYear, 9, 2, 1, '2026-06-05', '2026-06-25'),
 ];
 
 function generateEstablishmentData(
@@ -349,6 +388,89 @@ function generateEstablishmentDataWithLock(
     },
   ];
 }
+
+// ==================== V1.3 临时编制生成器 ====================
+
+/**
+ * 计算临时编制的当前生命周期状态
+ * - pending：当前日期 < startDate
+ * - active：startDate <= 当前日期 <= endDate
+ * - expired：当前日期 > endDate
+ */
+export function calcTempStatus(startDate: string, endDate: string): 'pending' | 'active' | 'expired' {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  if (today < startDate) return 'pending';
+  if (today > endDate) return 'expired';
+  return 'active';
+}
+
+/**
+ * 生成临时编制数据（V1.3 新增）
+ */
+function generateTempEstablishmentData(
+  departmentId: string,
+  positionId: string,
+  year: number,
+  month: number,
+  quota: number,
+  occupied: number,
+  startDate: string,
+  endDate: string
+): Establishment[] {
+  // 临时编制 ID 包含 type 和日期段，便于同月内多段共存
+  const id = `est-temp-${departmentId}-${positionId}-${year}-${month}-${startDate}`;
+  establishmentOccupiedMap.set(id, occupied);
+
+  return [
+    {
+      id,
+      departmentId,
+      positionId,
+      year,
+      month,
+      quota,
+      tenantId: 'tenant-001',
+      createdAt: `${startDate} 00:00:00`,
+      updatedAt: `${startDate} 00:00:00`,
+      lockStatus: 'none',
+      type: 'temp',
+      startDate,
+      endDate,
+      tempStatus: calcTempStatus(startDate, endDate),
+    },
+  ];
+}
+
+// V1.3 临时编制场景验证集（不破坏现有数据，独立命名空间）
+export const SCENARIO_FIXTURES = {
+  scenario1_crossMonth: {
+    name: '情况一：8月新增3临时(10.30到期) + 9月新增3正式',
+    expectedDisplay: {
+      '研发部-前端工程师-2026-7': '10',
+      '研发部-前端工程师-2026-8': '13 (临时+3)',
+      '研发部-前端工程师-2026-9': '16 (正式+3)',
+      '研发部-前端工程师-2026-10': '16 (临时未到期)',
+      '研发部-前端工程师-2026-11': '13 (临时10.30到期)',
+    },
+  },
+  scenario2_sameMonth: {
+    name: '情况二：8月新增3临时(8.30到期)',
+    expectedDisplay: {
+      '销售部-销售经理-2026-7': '6 (紧张)',
+      '销售部-销售经理-2026-8': '9 (含临时3)',
+      '销售部-销售经理-2026-9': '6 (临时8.30到期)',
+    },
+  },
+  scenario3_midMonth: {
+    name: '情况三：8月新增3临时(8.20到期，月中到期)',
+    expectedDisplay: {
+      '产品部-产品经理-2026-7': '5',
+      '产品部-产品经理-2026-8': '上段8/1-8/20: 8 / 下段8/21-8/31: 5 (Phase 2)',
+      '产品部-产品经理-2026-9': '5',
+    },
+  },
+};
 
 // 获取已占用数
 export const getEstablishmentOccupied = (establishmentId: string): number => {
@@ -439,6 +561,24 @@ export const mockEstablishmentHistories: EstablishmentHistory[] = [
 
   // 后端组-后端开发工程师 2026/08（已锁定，需要先有approved记录才能显示）
   { id: 'hist-041', establishmentId: 'est-dept-bdz-pos-002-2026-8', oldQuota: 10, newQuota: 12, reason: 'business_expansion', remark: '8月后端扩编', applicantId: 'user-001', applicantName: '张三', approverId: 'user-002', approverName: '李四', status: 'approved', tenantId: 'tenant-001', createdAt: '2026-06-01 09:00:00', approvedAt: '2026-06-01 10:00:00' },
+
+  // ========== V1.4 临时编制补充数据的 approved 历史 ==========
+  // 矩阵图只显示 approved 状态的历史对应的 establishment；新加的 5 条临时编制必须有对应 approved 记录
+
+  // 前端组/pos-001 月 10：临时编制 active（生效中）
+  { id: 'hist-temp-qdz-10', establishmentId: 'est-temp-dept-qdz-pos-001-2026-10-2026-06-10', oldQuota: 0, newQuota: 2, reason: 'business_expansion', remark: 'Q4前端项目攻坚', applicantId: 'user-001', applicantName: '张三', approverId: 'user-002', approverName: '李四', status: 'approved', tenantId: 'tenant-001', createdAt: '2026-06-05 09:00:00', approvedAt: '2026-06-08 10:00:00' },
+
+  // 后端组/pos-002 月 9：临时编制 expiring（即将到期）
+  { id: 'hist-temp-bdz-9', establishmentId: 'est-temp-dept-bdz-pos-002-2026-9-2026-06-15', oldQuota: 0, newQuota: 2, reason: 'business_expansion', remark: '短期项目支援', applicantId: 'user-001', applicantName: '张三', approverId: 'user-002', approverName: '李四', status: 'approved', tenantId: 'tenant-001', createdAt: '2026-06-10 09:00:00', approvedAt: '2026-06-12 10:00:00' },
+
+  // 产品部/pos-003 月 9：临时编制 pending（待生效）
+  { id: 'hist-temp-cpb-9', establishmentId: 'est-temp-dept-cpb-pos-003-2026-9-2026-07-15', oldQuota: 0, newQuota: 2, reason: 'business_expansion', remark: '新产品线筹备', applicantId: 'user-003', applicantName: '王五', approverId: 'user-002', approverName: '李四', status: 'approved', tenantId: 'tenant-001', createdAt: '2026-06-08 09:00:00', approvedAt: '2026-06-10 11:00:00' },
+
+  // 销售部/pos-004 月 9：临时编制 pending（待生效）
+  { id: 'hist-temp-xsb-9', establishmentId: 'est-temp-dept-xsb-pos-004-2026-9-2026-07-01', oldQuota: 0, newQuota: 3, reason: 'business_expansion', remark: 'Q3销售旺季补员', applicantId: 'user-004', applicantName: '赵六', approverId: 'user-002', approverName: '李四', status: 'approved', tenantId: 'tenant-001', createdAt: '2026-06-09 09:00:00', approvedAt: '2026-06-11 14:00:00' },
+
+  // 质量部/pos-006 月 9：临时编制 expiring（即将到期）
+  { id: 'hist-temp-zlb-9', establishmentId: 'est-temp-dept-zlb-pos-006-2026-9-2026-06-05', oldQuota: 0, newQuota: 2, reason: 'business_expansion', remark: '审计期支援', applicantId: 'user-006', applicantName: '周八', approverId: 'user-002', approverName: '李四', status: 'approved', tenantId: 'tenant-001', createdAt: '2026-06-01 09:00:00', approvedAt: '2026-06-03 11:00:00' },
 ];
 
 // 将部门列表转换为树形结构

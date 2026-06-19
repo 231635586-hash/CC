@@ -6,13 +6,21 @@ import { Select } from '@/components/ui/Select';
 import { Pagination } from '@/components/ui/Pagination';
 import { Badge } from '@/components/ui/Badge';
 import { showToast } from '@/components/ui/Toast';
-import { getEstablishmentHistory } from '../services/api';
+import { getEstablishmentHistory, getEstablishmentHistoryByPosition } from '../services/api';
 import type { EstablishmentHistory } from '../types';
 
 interface EstablishmentHistoryModalProps {
   open: boolean;
   onClose: () => void;
+  /** V1.4 扩展：byCell = 单编制单元；byPosition = 部门-职位-全年 */
+  mode?: 'byCell' | 'byPosition';
+  /** byCell 模式必填 */
   establishmentId?: string;
+  /** byPosition 模式必填 */
+  departmentId?: string;
+  positionId?: string;
+  year?: number;
+  /** 展示用 */
   departmentName?: string;
   positionName?: string;
 }
@@ -39,7 +47,11 @@ const PAGE_SIZE = 10;
 export const EstablishmentHistoryModal = ({
   open,
   onClose,
+  mode = 'byCell',
   establishmentId,
+  departmentId,
+  positionId,
+  year,
   departmentName,
   positionName,
 }: EstablishmentHistoryModalProps) => {
@@ -54,16 +66,30 @@ export const EstablishmentHistoryModal = ({
 
   // 加载历史记录
   useEffect(() => {
-    if (open && establishmentId) {
-      loadHistory();
+    if (!open) return;
+    if (mode === 'byCell' && establishmentId) {
+      loadHistoryByCell(establishmentId);
+    } else if (mode === 'byPosition' && departmentId && positionId && year !== undefined) {
+      loadHistoryByPosition(departmentId, positionId, year);
     }
-  }, [open, establishmentId]);
+  }, [open, mode, establishmentId, departmentId, positionId, year]);
 
-  const loadHistory = async () => {
-    if (!establishmentId) return;
+  const loadHistoryByCell = async (estId: string) => {
     setLoading(true);
     try {
-      const res = await getEstablishmentHistory(establishmentId);
+      const res = await getEstablishmentHistory(estId);
+      if (res.code === 0 && res.data) {
+        setHistories(res.data);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadHistoryByPosition = async (deptId: string, posId: string, yr: number) => {
+    setLoading(true);
+    try {
+      const res = await getEstablishmentHistoryByPosition(deptId, posId, yr);
       if (res.code === 0 && res.data) {
         setHistories(res.data);
       }
@@ -146,7 +172,7 @@ export const EstablishmentHistoryModal = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `编制变更历史_${departmentName}_${positionName}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.csv`;
+    link.download = `${mode === 'byPosition' ? '编制变更历史(全年)' : '编制变更历史'}_${departmentName}_${positionName}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -168,9 +194,15 @@ export const EstablishmentHistoryModal = ({
           <div>
             <div className="text-sm font-medium text-[var(--color-text-primary)]">
               {departmentName} / {positionName}
+              {mode === 'byPosition' && year !== undefined && (
+                <span className="ml-2 text-xs px-2 py-0.5 bg-[var(--color-brand-bg)] text-[var(--color-brand)] rounded">
+                  {year}年全年
+                </span>
+              )}
             </div>
             <div className="text-xs text-[var(--color-text-secondary)] mt-1">
               共 {filteredHistories.length} 条变更记录
+              {mode === 'byPosition' && '（含该职位所有月份）'}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -243,7 +275,7 @@ export const EstablishmentHistoryModal = ({
               return (
                 <div
                   key={history.id}
-                  className="p-4 rounded-lg border border-[var(--color-border)] bg-white hover:bg-[var(--color-surface-bg)]"
+                  className="p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-card)] hover:bg-[var(--color-surface-bg)]"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">

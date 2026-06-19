@@ -23,7 +23,7 @@
 |  | 编制管理 | /organization/headcount | 已开发 |
 |  | 部门档案 | /organization/department-archive | 已开发 |
 | **员工档案** | 人员档案 | /archive | 已开发 |
-|  | 薪资档案 | /salary | 已开发 |
+|  | 薪资档案 | /salary | 建设中 |
 |  | 薪资模版 | /salary-template | 建设中 |
 | **报工管理** | 报工记录 | /report-work | 已开发 |
 |  | 报工审批 | /report-work/approve | 已开发 |
@@ -32,6 +32,134 @@
 ---
 
 ## 版本记录
+
+### v1.0.6 - 编制详情 Drawer + 临时编制续约
+
+**日期**: 2026-06-19
+
+**更新内容**:
+
+1. **编制详情 Drawer（V1.4 重大新增）**
+   - 点击职位行 → 右侧滑出 520px Drawer（参照 DepartmentDetailPanel 风格）
+   - **块 A 全年汇总**：编制总数 / 已占用 / 剩余 / 占用率 4 个指标卡 + 正式/临时编制分项
+   - **块 B 临时编制明细**：每条卡片展示状态徽标（待生效/生效中/即将到期/已失效）、起止日期、人数、剩余天数、所在月份
+   - **块 C 变更历史摘要**：近 5 条记录 +「查看全部」按钮跳转扩展版 EstablishmentHistoryModal（按职位维度）
+   - 切换部门自动关闭 Drawer，ESC 关闭，body 锁滚动
+   - 客户端自聚合 12 个月 cell，零额外请求
+
+2. **临时编制数据补充（mockData）**
+   - 覆盖 5 个核心部门（前端/后端/产品/销售/质量）
+   - 覆盖 4 种状态：active / expiring / pending / expired
+   - 后端组（dept-bdz/pos-002）新增 9 月 expiring 临时编制（剩 13 天）
+   - 质量部（dept-zlb/pos-006）新增 9 月 expiring 临时编制（剩 6 天）
+   - 前端组（dept-qdz/pos-001）新增 10 月 active 临时编制（剩 73 天）
+   - 产品部（dept-cpb/pos-003）新增 9 月 pending 临时编制
+   - 销售部（dept-xsb/pos-004）新增 9 月 pending 临时编制
+   - 配套 5 条 approved 历史记录，保证矩阵可见
+
+3. **临时编制续约功能（V1.4 新增核心交互）**
+   - 仅【即将到期】（≤14天）的临时编制卡片显示【续约】按钮（amber 边框提示）
+   - 点击按钮 → 居中 Modal 弹窗，含当前信息 + 新 endDate（DatePicker）+ 续约原因 + 备注
+   - 新 endDate 默认 = 当前 endDate + 90 天，可自由调整
+   - 实时显示「原日期 → 新日期（续约 N 天）」对比
+   - **走审批流**：仅生成 pending 历史（`changeType: 'temp_extend'`），endDate 不立即变更
+   - 校验：新 endDate 必须 > 当前 endDate + 续约原因必填
+   - 提交后 Toast「续约申请已提交，待审批」+ Drawer 块 C 出现新 pending 记录
+
+4. **service 层扩展**
+   - 新增 `getEstablishmentHistoryByPosition(deptId, posId, year)`：按职位维度聚合历史
+   - 新增 `applyTempExtend(establishmentId, newEndDate, reason, remark?)`：仅生成 pending，不改数据
+   - 现有 `extendTempEstablishment` 保留作为 admin 直接生效接口
+
+5. **EstablishmentHistoryModal 扩展**
+   - props 新增 `mode?: 'byCell' | 'byPosition'`
+   - 按 mode 走不同 service、标题显示年份徽标、CSV 文件名区分
+   - 老调用点零修改（mode 默认 'byCell'）
+
+**涉及文件**:
+- `package.json` - 版本号 1.0.5 → 1.0.6
+- `src/features/organization/services/api.ts` - 新增 2 个 service
+- `src/features/organization/services/mockData.ts` - 补充 5 条 temp establishment + 5 条 history
+- `src/features/organization/components/EstablishmentDetailDrawer.tsx` - **新建**
+- `src/features/organization/components/EstablishmentExtendModal.tsx` - **新建**
+- `src/features/organization/components/EstablishmentHistoryModal.tsx` - 扩展 mode
+- `src/features/organization/components/index.ts` - 导出 2 个新组件
+- `src/features/organization/pages/EstablishmentPage.hooks.ts` - state + 4 个回调
+- `src/features/organization/pages/EstablishmentPage.tsx` - 挂载 2 个新组件
+
+---
+
+### v1.0.5 - 报工管理模块 UI 优化 + 薪资档案调整
+
+**日期**: 2026-06-17
+
+**更新内容**:
+
+1. **报工记录页面优化**
+   - 调用 impeccable-skill 进行 UI 优化
+   - 页面仅允许查看，移除补报操作入口
+   - 日期筛选调整至状态筛选之后
+
+2. **报工审批列表页优化**
+   - 调用 impeccable-skill 进行 UI 优化
+   - 移除批量勾选功能
+   - 操作栏新增通过/驳回按钮，点击弹窗审批
+   - 按钮样式统一（variant="secondary"）
+
+3. **报工审批详情页优化**
+   - 删除编辑按钮
+   - 内容全宽展示，符合 Web 端用户习惯
+   - 审批按钮调整为较小尺寸（size="sm"）
+
+4. **报工记录详情页优化**
+   - 删除编辑按钮
+
+5. **薪资档案模块调整**
+   - 薪资档案列表页/详情页调整为「正在开发中」页面
+
+**涉及文件**:
+- src/features/report-work/pages/ReportWorkListPage.tsx - 日期筛选调整
+- src/features/report-work/pages/ReportWorkDetailPage.tsx - 删除编辑按钮
+- src/features/report-work/pages/ApproveListPage.tsx - 审批按钮+弹窗
+- src/features/report-work/pages/ApproveDetailPage.tsx - 全宽布局+删除编辑
+- src/App.tsx - 薪资档案路由调整
+
+---
+
+### v1.0.4 - 编制管理模块优化 + 细节完善
+
+**日期**: 2026-06-17
+
+**更新内容**:
+
+1. **职级管理页面优化**
+   - 搜索框 placeholder 修改为「搜索职级」
+   - 搜索框外层容器统一（w-[280px] 包裹）
+   - 列表列顺序调整：职层/职务划分互换
+   - 职务序列提示词修改为「职务划分」
+
+2. **编制管理页面优化**
+   - 矩阵内添加职位搜索框
+   - 添加汇总统计栏（总编制/已占用/剩余/占用率）
+   - 空状态优化：未选部门时显示「请选择部门」
+   - 图例改为可折叠面板，简化显示
+   - 矩阵月份表头固定（横向滚动时保持可见）
+   - 按钮文字防止换行（Button 组件添加 whitespace-nowrap）
+   - 批量调整模式：锁定状态单元格不可编辑，显示锁定图标
+   - 批量操作禁用「批量调整」入口
+   - 按钮更名：「批量操作」→「批量锁定/解锁」
+   - 批量选择模式新增「全选」按钮
+   - 「审批记录」→「审批流程」，并添加 History 图标
+
+**涉及文件**:
+- src/features/organization/pages/RankPage.tsx - 搜索框和列顺序调整
+- src/features/organization/components/RankList.tsx - 列表列顺序
+- src/features/organization/pages/EstablishmentPage.tsx - 全面优化
+- src/features/organization/pages/EstablishmentPage.hooks.ts - 全选功能
+- src/features/organization/components/EstablishmentMatrix.tsx - 表头固定、锁定不可编辑
+- src/components/ui/Button.tsx - whitespace-nowrap
+
+---
 
 ### v1.0.3 - 组织管理模块完善 + UI优化
 

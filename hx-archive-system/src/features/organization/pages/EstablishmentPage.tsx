@@ -1,10 +1,11 @@
-import { Plus, Upload, Edit3, CheckSquare } from 'lucide-react';
+import { Plus, Upload, CheckSquare, ChevronDown, ChevronRight, History } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Empty } from '@/components/ui/Empty';
 import { ToastContainer, showToast } from '@/components/ui/Toast';
+import { useState } from 'react';
 import {
   DepartmentTree,
   EstablishmentMatrix,
@@ -14,6 +15,8 @@ import {
   EstablishmentCreateModal,
   BatchPreviewModal,
   EstablishmentHistoryModal,
+  EstablishmentDetailDrawer,
+  EstablishmentExtendModal,
   ApprovalRecordsModal,
   UnlockApplyModal,
   LockApplyModal,
@@ -48,6 +51,22 @@ export const EstablishmentPage = () => {
     historyModalData,
     approvalRecordsModalVisible,
     setApprovalRecordsModalVisible,
+    // V1.4 编制详情 Drawer
+    establishmentDetailVisible,
+    setEstablishmentDetailVisible,
+    establishmentDetailRow,
+    // V1.4 按职位维度历史
+    historyByPositionVisible,
+    setHistoryByPositionVisible,
+    historyByPositionData,
+    handleViewAllHistory,
+    // V1.4 临时编制续约
+    extendModalOpen,
+    setExtendModalOpen,
+    extendContext,
+    setExtendContext,
+    handleExtendClick,
+    handleExtendSuccess,
     unlockModalOpen,
     setUnlockModalOpen,
     unlockCell,
@@ -82,6 +101,10 @@ export const EstablishmentPage = () => {
     selectedDepartmentName,
     batchPreviews,
     loadMatrix,
+    filteredRows,
+    summaryStats,
+    positionSearchKeyword,
+    setPositionSearchKeyword,
     handleSearch,
     handleSelectDepartment,
     handleEdit,
@@ -90,9 +113,9 @@ export const EstablishmentPage = () => {
     handleRowClick,
     handleApplySuccess,
     handleOpenCreate,
-    handleOpenBatchAdjust,
     handleCancelBatchEdit,
     handleCellSelect,
+    handleSelectAll,
     handleCellValueChange,
     handleSubmitBatchAdjust,
     handleConfirmBatchAdjust,
@@ -100,6 +123,9 @@ export const EstablishmentPage = () => {
     handleCreateSuccess,
     removeToast,
   } = useEstablishment();
+
+  // 图例折叠状态
+  const [legendCollapsed, setLegendCollapsed] = useState(false);
 
   return (
     <div className="h-full flex flex-col">
@@ -188,12 +214,16 @@ export const EstablishmentPage = () => {
               }}>
                 取消
               </Button>
+              <Button variant="secondary" onClick={handleSelectAll}>
+                全选
+              </Button>
             </>
           ) : (
             <>
               {/* 审批记录 */}
               <Button variant="secondary" onClick={() => setApprovalRecordsModalVisible(true)}>
-                审批记录
+                <History className="w-4 h-4 mr-2" />
+                审批流程
               </Button>
 
               {/* 批量操作 */}
@@ -202,7 +232,7 @@ export const EstablishmentPage = () => {
                 onClick={() => setBatchSelectMode(true)}
               >
                 <CheckSquare className="w-4 h-4 mr-2" />
-                批量操作
+                批量锁定/解锁
               </Button>
 
               {/* 导入编制 */}
@@ -217,12 +247,6 @@ export const EstablishmentPage = () => {
                 导入编制
               </Button>
 
-              {/* 批量调整 */}
-              <Button variant="secondary" onClick={handleOpenBatchAdjust}>
-                <Edit3 className="w-4 h-4 mr-2" />
-                批量调整
-              </Button>
-
               {/* 新增编制 */}
               <Button variant="secondary" onClick={handleOpenCreate}>
                 <Plus className="w-4 h-4 mr-2" />
@@ -233,36 +257,51 @@ export const EstablishmentPage = () => {
         </div>
       </div>
 
-      {/* 说明信息 */}
+      {/* 说明信息 - 可折叠 */}
       <div className={styles.legendBar}>
-        <div className={styles.legendItems}>
-          <div className={styles.legendItem}>
-            <span className={`${styles.legendDot} ${styles.legendDotNormal}`} />
-            <span className="text-[var(--color-text-secondary)]">充足（剩余 &gt; 20%）</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setLegendCollapsed(!legendCollapsed)}
+              className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            >
+              {legendCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              图例
+            </button>
+            {!legendCollapsed && (
+              <>
+                <div className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.legendDotNormal}`} />
+                  <span className="text-[var(--color-text-secondary)]">充足（剩余 &gt; 20%）</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.legendDotWarning}`} />
+                  <span className="text-[var(--color-text-secondary)]">紧张（剩余 ≤ 20%）</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.legendDotDanger}`} />
+                  <span className="text-[var(--color-text-secondary)]">满编（剩余 ≤ 0）</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.legendDotEmpty}`} />
+                  <span className="text-[var(--color-text-secondary)]">无数据</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.legendDotLocking}`} />
+                  <span className="text-[var(--color-text-secondary)]">锁定中（待审批）</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.legendDotLocked}`} />
+                  <span className="text-[var(--color-text-secondary)]">已锁定（审批通过）</span>
+                </div>
+              </>
+            )}
           </div>
-          <div className={styles.legendItem}>
-            <span className={`${styles.legendDot} ${styles.legendDotWarning}`} />
-            <span className="text-[var(--color-text-secondary)]">紧张（剩余 ≤ 20%）</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={`${styles.legendDot} ${styles.legendDotDanger}`} />
-            <span className="text-[var(--color-text-secondary)]">满编（剩余 ≤ 0）</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={`${styles.legendDot} ${styles.legendDotEmpty}`} />
-            <span className="text-[var(--color-text-secondary)]">无数据（虚线框）</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={`${styles.legendDot} ${styles.legendDotLocking}`} />
-            <span className="text-[var(--color-text-secondary)]">锁定中（待审批）</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={`${styles.legendDot} ${styles.legendDotLocked}`} />
-            <span className="text-[var(--color-text-secondary)]">已锁定（审批通过）</span>
-          </div>
-          <div className={styles.legendTip}>
-            提示：双击单元格调整或创建编制，右键查看更多选项
-          </div>
+          {!legendCollapsed && (
+            <span className="text-xs text-[var(--color-text-disabled)]">
+              提示：双击单元格调整或创建编制，右键查看更多选项
+            </span>
+          )}
         </div>
       </div>
 
@@ -300,6 +339,11 @@ export const EstablishmentPage = () => {
             <CardBody className="p-0">
               {loading ? (
                 <div className={styles.loadingState}>加载中...</div>
+              ) : !selectedDepartmentId ? (
+                <Empty
+                  title="请选择部门"
+                  description="从左侧部门树选择一个部门查看编制信息"
+                />
               ) : matrixData.rows.length === 0 ? (
                 <Empty
                   title="暂无编制数据"
@@ -308,20 +352,62 @@ export const EstablishmentPage = () => {
                   onAction={handleOpenCreate}
                 />
               ) : (
-                <EstablishmentMatrix
-                  headers={matrixData.headers}
-                  rows={matrixData.rows}
-                  batchEditMode={batchEditMode}
-                  modifiedCells={modifiedCells}
-                  onEdit={handleEdit}
-                  onCreate={handleCreate}
-                  onViewHistory={handleViewHistory}
-                  onRowClick={handleRowClick}
-                  onCellChange={handleCellValueChange}
-                  batchSelectMode={batchSelectMode}
-                  selectedCellIds={selectedEstablishmentIds}
-                  onCellSelect={handleCellSelect}
-                />
+                <>
+                  {/* 汇总统计栏 */}
+                  {!batchEditMode && !batchSelectMode && (
+                    <div className="flex items-center gap-6 px-4 py-3 bg-[var(--color-surface-bg)] border-b border-[var(--color-border)]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-[var(--color-text-secondary)]">总编制</span>
+                        <span className="text-sm font-semibold text-[var(--color-text-primary)]">{summaryStats.totalQuota}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-[var(--color-text-secondary)]">已占用</span>
+                        <span className="text-sm font-semibold text-[var(--color-status-warning)]">{summaryStats.totalOccupied}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-[var(--color-text-secondary)]">剩余</span>
+                        <span className="text-sm font-semibold text-[var(--color-status-success)]">{summaryStats.totalRemaining}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-[var(--color-text-secondary)]">占用率</span>
+                        <span className={`text-sm font-semibold ${summaryStats.occupancyRate >= 90 ? 'text-[var(--color-status-danger)]' : summaryStats.occupancyRate >= 70 ? 'text-[var(--color-status-warning)]' : 'text-[var(--color-status-success)]'}`}>
+                          {summaryStats.occupancyRate}%
+                        </span>
+                      </div>
+                      {/* 职位搜索 */}
+                      <div className="ml-auto">
+                        <SearchInput
+                          placeholder="搜索职位..."
+                          value={positionSearchKeyword}
+                          onChange={(e) => setPositionSearchKeyword(e.target.value)}
+                          onSearch={(val) => setPositionSearchKeyword(val)}
+                          className="w-[160px]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {filteredRows.length === 0 && positionSearchKeyword ? (
+                    <Empty
+                      title="未找到匹配的职位"
+                      description={`没有职位名称包含"${positionSearchKeyword}"的记录`}
+                    />
+                  ) : (
+                    <EstablishmentMatrix
+                      headers={matrixData.headers}
+                      rows={filteredRows}
+                      batchEditMode={batchEditMode}
+                      modifiedCells={modifiedCells}
+                      onEdit={handleEdit}
+                      onCreate={handleCreate}
+                      onViewHistory={handleViewHistory}
+                      onRowClick={handleRowClick}
+                      onCellChange={handleCellValueChange}
+                      batchSelectMode={batchSelectMode}
+                      selectedCellIds={selectedEstablishmentIds}
+                      onCellSelect={handleCellSelect}
+                    />
+                  )}
+                </>
               )}
             </CardBody>
           </Card>
@@ -377,13 +463,57 @@ export const EstablishmentPage = () => {
         loading={batchPreviewLoading}
       />
 
-      {/* 编制变更历史记录弹窗 */}
+      {/* 编制变更历史记录弹窗（单编制单元模式 - 右键菜单触发）*/}
       <EstablishmentHistoryModal
         open={historyModalVisible}
         onClose={() => setHistoryModalVisible(false)}
+        mode="byCell"
         establishmentId={historyModalData?.establishmentId}
         departmentName={historyModalData?.departmentName}
         positionName={historyModalData?.positionName}
+      />
+
+      {/* V1.4 编制详情 Drawer（点击职位行触发）*/}
+      <EstablishmentDetailDrawer
+        visible={establishmentDetailVisible}
+        row={establishmentDetailRow}
+        year={currentYear}
+        onClose={() => setEstablishmentDetailVisible(false)}
+        onViewAllHistory={handleViewAllHistory}
+        onExtend={handleExtendClick}
+      />
+
+      {/* V1.4 临时编制续约弹窗（Drawer 块 B 的【续约】按钮触发）*/}
+      {extendModalOpen && extendContext && (
+        <EstablishmentExtendModal
+          open={extendModalOpen}
+          establishmentId={extendContext.establishmentId}
+          departmentName={extendContext.departmentName}
+          positionName={extendContext.positionName}
+          currentEndDate={extendContext.currentEndDate}
+          currentStartDate={extendContext.currentStartDate}
+          quota={extendContext.quota}
+          occupied={extendContext.occupied}
+          month={extendContext.month}
+          year={currentYear}
+          onClose={() => {
+            setExtendModalOpen(false);
+            setExtendContext(null);
+          }}
+          onSuccess={handleExtendSuccess}
+        />
+      )}
+
+      {/* V1.4 按职位维度查看历史（Drawer 内"查看全部"按钮触发）*/}
+      <EstablishmentHistoryModal
+        open={historyByPositionVisible}
+        onClose={() => setHistoryByPositionVisible(false)}
+        mode="byPosition"
+        departmentId={historyByPositionData?.departmentId}
+        positionId={historyByPositionData?.positionId}
+        year={historyByPositionData?.year}
+        departmentName={historyByPositionData?.departmentName}
+        positionName={historyByPositionData?.positionName}
       />
 
       {/* 审批记录弹窗 */}

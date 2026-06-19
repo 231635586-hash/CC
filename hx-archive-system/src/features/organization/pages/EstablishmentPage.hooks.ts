@@ -66,6 +66,7 @@ export const useEstablishment = () => {
 
   // 搜索相关
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [positionSearchKeyword, setPositionSearchKeyword] = useState('');
   const [autoExpandAll, setAutoExpandAll] = useState(false);
   const [highlightNodeIds, setHighlightNodeIds] = useState<Set<string>>(new Set());
 
@@ -89,6 +90,20 @@ export const useEstablishment = () => {
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [historyModalData, setHistoryModalData] = useState<HistoryModalData | null>(null);
 
+  // V1.4 编制详情 Drawer
+  const [establishmentDetailVisible, setEstablishmentDetailVisible] = useState(false);
+  const [establishmentDetailRow, setEstablishmentDetailRow] = useState<EstablishmentMatrixRow | null>(null);
+
+  // V1.4 按职位维度查看历史（Drawer 内"查看全部"按钮跳转目标）
+  const [historyByPositionVisible, setHistoryByPositionVisible] = useState(false);
+  const [historyByPositionData, setHistoryByPositionData] = useState<{
+    departmentId: string;
+    positionId: string;
+    year: number;
+    departmentName: string;
+    positionName: string;
+  } | null>(null);
+
   // 审批记录弹窗
   const [approvalRecordsModalVisible, setApprovalRecordsModalVisible] = useState(false);
 
@@ -99,6 +114,19 @@ export const useEstablishment = () => {
   // 锁定申请弹窗
   const [lockModalOpen, setLockModalOpen] = useState(false);
   const [lockCell, setLockCell] = useState<ApplyCell | null>(null);
+
+  // V1.4 临时编制续约弹窗（仅 expiring 状态触发）
+  const [extendModalOpen, setExtendModalOpen] = useState(false);
+  const [extendContext, setExtendContext] = useState<{
+    establishmentId: string;
+    currentEndDate: string;
+    currentStartDate: string;
+    quota: number;
+    occupied: number;
+    month: number;
+    departmentName: string;
+    positionName: string;
+  } | null>(null);
 
   // 选择单元格模式（用于锁定操作）
   const [selectingCellForLock, setSelectingCellForLock] = useState(false);
@@ -129,6 +157,34 @@ export const useEstablishment = () => {
   // ==================== 计算属性 ====================
 
   const modifiedCellsCount = useMemo(() => Object.keys(modifiedCells).length, [modifiedCells]);
+
+  // 职位搜索过滤后的行数据
+  const filteredRows = useMemo(() => {
+    if (!positionSearchKeyword.trim()) return matrixData.rows;
+    const keyword = positionSearchKeyword.toLowerCase();
+    return matrixData.rows.filter(
+      (row) =>
+        row.positionName.toLowerCase().includes(keyword) ||
+        row.departmentName.toLowerCase().includes(keyword)
+    );
+  }, [matrixData.rows, positionSearchKeyword]);
+
+  // 汇总统计
+  const summaryStats = useMemo(() => {
+    let totalQuota = 0;
+    let totalOccupied = 0;
+    matrixData.rows.forEach((row) => {
+      row.cells.forEach((cell) => {
+        if (cell.status !== 'empty') {
+          totalQuota += cell.quota;
+          totalOccupied += cell.occupied;
+        }
+      });
+    });
+    const totalRemaining = totalQuota - totalOccupied;
+    const occupancyRate = totalQuota > 0 ? Math.round((totalOccupied / totalQuota) * 100) : 0;
+    return { totalQuota, totalOccupied, totalRemaining, occupancyRate };
+  }, [matrixData.rows]);
 
   const yearOptions = useMemo(
     () => Array.from({ length: YEAR_RANGE }, (_, i) => currentYear - 5 + i),
@@ -220,6 +276,14 @@ export const useEstablishment = () => {
       loadMatrix();
     }
   }, [selectedDepartmentId, loadMatrix]);
+
+  // V1.4 切换部门时关闭编制详情 Drawer + 重置按职位历史 state
+  useEffect(() => {
+    setEstablishmentDetailVisible(false);
+    setEstablishmentDetailRow(null);
+    setHistoryByPositionVisible(false);
+    setHistoryByPositionData(null);
+  }, [selectedDepartmentId]);
 
   // ==================== 事件处理 ====================
 
@@ -326,22 +390,68 @@ export const useEstablishment = () => {
 
   const handleRowClick = useCallback(
     (row: EstablishmentMatrixRow) => {
-      const firstValidCell = row.cells.find(
-        (c) => c.status !== 'empty' && c.establishmentId
-      );
-      if (!firstValidCell) {
-        addToast('该部门/职位暂无编制记录，无法查看历史', 'info');
-        return;
-      }
-      setHistoryModalData({
-        establishmentId: firstValidCell.establishmentId,
-        departmentName: row.departmentName,
-        positionName: row.positionName,
-      });
-      setHistoryModalVisible(true);
+      // V1.4 改造：点击职位行 → 打开编制详情 Drawer（不再打开历史弹窗）
+      setEstablishmentDetailRow(row);
+      setEstablishmentDetailVisible(true);
     },
-    [addToast]
+    []
   );
+
+  /**
+   * V1.4 新增：编制详情 Drawer 内"查看全部"按钮回调
+   * 跳转到 EstablishmentHistoryModal（mode='byPosition'）展示该职位全量历史
+   */
+  const handleViewAllHistory = useCallback(
+    (
+      departmentId: string,
+      positionId: string,
+      year: number,
+      departmentName: string,
+      positionName: string,
+    ) => {
+      setHistoryByPositionData({
+        departmentId,
+        positionId,
+        year,
+        departmentName,
+        positionName,
+      });
+      setHistoryByPositionVisible(true);
+    },
+    [],
+  );
+
+  /**
+   * V1.4 续约申请触发：Drawer 块 B 的【续约】按钮回调
+   */
+  const handleExtendClick = useCallback(
+    (params: {
+      establishmentId: string;
+      currentEndDate: string;
+      currentStartDate: string;
+      quota: number;
+      occupied: number;
+      month: number;
+      departmentName: string;
+      positionName: string;
+    }) => {
+      setExtendContext(params);
+      setExtendModalOpen(true);
+    },
+    [],
+  );
+
+  /**
+   * V1.4 续约申请提交成功：刷新矩阵 + Drawer 自动通过 re-render 重新拉历史
+   * 注：service 端只生成 pending 历史，endDate 不会改变，所以 matrix 无需 reload，
+   * 但 Drawer 块 C 的"近 5 条"会因为历史新增而自动多一条
+   */
+  const handleExtendSuccess = useCallback(() => {
+    setExtendModalOpen(false);
+    setExtendContext(null);
+    // 主动刷新 matrix 以保证其他模块（如矩阵 tooltip）能立即看到 pending 历史
+    loadMatrix();
+  }, [loadMatrix]);
 
   const handleApplySuccess = useCallback(() => {
     setApplyModalOpen(false);
@@ -376,6 +486,24 @@ export const useEstablishment = () => {
       return newSet;
     });
   }, []);
+
+  // 全选所有可选择的单元格
+  const handleSelectAll = useCallback(() => {
+    const allSelectableIds = new Set<string>();
+    matrixData.rows.forEach((row) => {
+      row.cells.forEach((cell) => {
+        if (
+          cell.establishmentId &&
+          cell.status !== 'empty' &&
+          cell.lockStatus !== 'locked' &&
+          cell.lockStatus !== 'locking'
+        ) {
+          allSelectableIds.add(cell.establishmentId);
+        }
+      });
+    });
+    setSelectedEstablishmentIds(allSelectableIds);
+  }, [matrixData.rows]);
 
   const handleCellValueChange = useCallback(
     (rowIndex: number, cellIndex: number, newValue: number) => {
@@ -426,9 +554,9 @@ export const useEstablishment = () => {
 
   const handleBatchImport = useCallback(async (data: any[]) => {
     // 将 CSV 数据转换为 API 需要的格式
-    // CSV 列: 部门, 职位, 年份, 月份, 编制名额, 调整原因, 调整说明
+    // CSV 列: 部门, 职位, 年份, 月份, 编制名额, 调整原因, 调整说明, 编制类型, 起效日期, 失效日期
     const processedData = data
-      .map((item) => {
+      .map((item, rowNum) => {
         // 部门名称转 ID（这里简化处理，实际应通过部门服务查找）
         const deptName = item['部门'];
         const posName = item['职位'];
@@ -438,9 +566,25 @@ export const useEstablishment = () => {
         const reason = (item['调整原因'] as 'business_expansion' | 'business_contraction' | 'natural_turnover' | 'other') || 'business_expansion';
         const remark = item['调整说明'];
 
+        // V1.3 扩展：解析编制类型与起止日期
+        const typeRaw = (item['编制类型'] || '正式编制').trim();
+        const type: 'formal' | 'temp' = typeRaw === '临时编制' ? 'temp' : 'formal';
+        const startDate = (item['起效日期'] || '').trim();
+        const endDate = (item['失效日期'] || '').trim();
+
         // 简单校验
         if (!deptName || !posName || isNaN(year) || isNaN(month) || isNaN(quota)) {
           return null;
+        }
+
+        // 临时编制校验
+        if (type === 'temp') {
+          if (!startDate || !endDate) {
+            return { _error: `第${rowNum}行：临时编制必须填写起效日期和失效日期` };
+          }
+          if (endDate < startDate) {
+            return { _error: `第${rowNum}行：失效日期必须晚于起效日期` };
+          }
         }
 
         return {
@@ -451,9 +595,16 @@ export const useEstablishment = () => {
           quota,
           reason,
           remark,
+          type,
+          startDate: type === 'temp' ? startDate : undefined,
+          endDate: type === 'temp' ? endDate : undefined,
         };
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((item): item is NonNullable<typeof item> => {
+        // 过滤掉错误行
+        return !(item as any)?._error;
+      });
 
     // 由于 mock 数据中没有按名称查找 ID 的服务，暂时模拟导入
     // 实际生产环境需要先解析 departmentId 和 positionId
@@ -497,6 +648,22 @@ export const useEstablishment = () => {
     setHistoryModalData,
     approvalRecordsModalVisible,
     setApprovalRecordsModalVisible,
+    // V1.4 编制详情 Drawer
+    establishmentDetailVisible,
+    setEstablishmentDetailVisible,
+    establishmentDetailRow,
+    // V1.4 按职位维度历史
+    historyByPositionVisible,
+    setHistoryByPositionVisible,
+    historyByPositionData,
+    handleViewAllHistory,
+    // V1.4 临时编制续约
+    extendModalOpen,
+    setExtendModalOpen,
+    extendContext,
+    setExtendContext,
+    handleExtendClick,
+    handleExtendSuccess,
     unlockModalOpen,
     setUnlockModalOpen,
     unlockCell,
@@ -533,6 +700,11 @@ export const useEstablishment = () => {
     selectedDepartmentName,
     batchPreviews,
     batchSelectionInfo,
+    filteredRows,
+    summaryStats,
+    // 搜索
+    positionSearchKeyword,
+    setPositionSearchKeyword,
     // 事件处理
     loadMatrix,
     handleSearch,
@@ -546,6 +718,7 @@ export const useEstablishment = () => {
     handleOpenBatchAdjust,
     handleCancelBatchEdit,
     handleCellSelect,
+    handleSelectAll,
     handleCellValueChange,
     handleSubmitBatchAdjust,
     handleConfirmBatchAdjust,

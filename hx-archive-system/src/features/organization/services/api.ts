@@ -31,6 +31,7 @@ import {
   getDepartmentFullPath,
   getDepartmentIdByPath,
   getPositionName,
+  calcTempStatus,
 } from './mockData';
 import { mockArchiveDetails, mockEmployees } from '@/services/mockData';
 
@@ -412,7 +413,7 @@ export const deletePosition = async (id: string): Promise<ApiResponse<null>> => 
 
 // ==================== 编制管理 API ====================
 
-// 获取编制矩阵（可按部门筛选）
+// 获取编制矩阵（可按部门筛选）（V1.3 扩展：返回 typeBreakdown）
 export const getEstablishmentMatrix = async (
   year: number,
   departmentId?: string
@@ -440,13 +441,73 @@ export const getEstablishmentMatrix = async (
   // 传入可变的数据副本，确保新增的职位/部门能被正确查找
   const data = buildEstablishmentMatrix(filteredEstablishments, year, positions, departments);
 
+  // V1.3: 为每个单元格补充 typeBreakdown（正式/临时编制分项）
+  // 注意：buildEstablishmentMatrix 已按 dept+pos+month 分组（同一 (dept,pos,month) 可能有多条临时编制）
+  // 这里做一次额外的 enrich：把同 dept+pos+month 的所有编制合并到 typeBreakdown
+  const enrichedRows = data.rows.map((row) => ({
+    ...row,
+    cells: row.cells.map((cell, cellIdx) => {
+      // 找到该 (deptId, posId, year, month) 对应的所有编制记录
+      const matchedEsts = filteredEstablishments.filter(
+        (e) => e.departmentId === row.departmentId && e.positionId === row.positionId && e.month === cellIdx + 1
+      );
+      const formalEsts = matchedEsts.filter((e) => (e.type || 'formal') === 'formal');
+      const tempEsts = matchedEsts.filter((e) => e.type === 'temp');
+
+      const formalQuota = formalEsts.reduce((sum, e) => sum + e.quota, 0);
+      const tempQuota = tempEsts.reduce((sum, e) => sum + e.quota, 0);
+      const totalOccupied = cell.occupied;
+
+      // 临时编制生命周期（按结束最早的一段展示）
+      const tempEst = tempEsts[0];
+      const tempStatus = (tempEst?.tempStatus || 'active') as 'pending' | 'active' | 'expired';
+
+      // 计算 tempBadge
+      let tempBadge: 'pending' | 'active' | 'expiring' | 'expired' | undefined;
+      if (tempEsts.length > 0) {
+        if (tempStatus === 'expired') {
+          tempBadge = 'expired';
+        } else if (tempStatus === 'pending') {
+          tempBadge = 'pending';
+        } else if (tempEst.endDate && new Date(tempEst.endDate).getTime() - Date.now() <= 14 * 24 * 60 * 60 * 1000) {
+          tempBadge = 'expiring';
+        } else {
+          tempBadge = 'active';
+        }
+      }
+
+      return {
+        ...cell,
+        typeBreakdown: {
+          formal: { quota: formalQuota, occupied: Math.min(totalOccupied, formalQuota) },
+          temp: {
+            quota: tempQuota,
+            occupied: Math.max(0, totalOccupied - formalQuota),
+            status: tempStatus,
+          },
+        },
+        hasTemp: tempEsts.length > 0,
+        tempBadge,
+        tempCount: tempEsts.length,
+        tempEstablishments: tempEsts.map((e) => ({
+          id: e.id,
+          startDate: e.startDate || '',
+          endDate: e.endDate || '',
+          quota: e.quota,
+          occupied: Math.max(0, totalOccupied - formalQuota),
+          tempStatus: (e.tempStatus || 'active') as 'pending' | 'active' | 'expired',
+        })),
+      };
+    }),
+  }));
+
   return {
     code: 0,
-    data,
+    data: { headers: data.headers, rows: enrichedRows },
   };
 };
 
-// 创建新编制
+// 创建新编制（V1.3 扩展：支持临时编制 type/startDate/endDate）
 export const createEstablishment = async (
   departmentId: string,
   positionId: string,
@@ -454,13 +515,38 @@ export const createEstablishment = async (
   month: number,
   quota: number,
   reason?: 'business_expansion' | 'business_contraction' | 'natural_turnover' | 'other',
-  remark?: string
+  remark?: string,
+  type?: 'formal' | 'temp',
+  startDate?: string,
+  endDate?: string
 ): Promise<ApiResponse<EstablishmentHistory>> => {
   await delay(300);
 
-  // 检查是否已存在
+  // 临时编制校验
+  if (type === 'temp') {
+    if (!startDate || !endDate) {
+      return {
+        code: 40002,
+        message: '临时编制必须填写起止日期',
+      };
+    }
+    if (endDate < startDate) {
+      return {
+        code: 40003,
+        message: '失效日期必须晚于生效开始日期',
+      };
+    }
+  }
+
+  // 检查是否已存在（正式编制按 dept+pos+year+month 唯一约束）
+  // 临时编制按 dept+pos+year+month+startDate 唯一约束（支持同月多段）
   const existing = establishments.find(
-    (e) => e.departmentId === departmentId && e.positionId === positionId && e.year === year && e.month === month
+    (e) =>
+      e.departmentId === departmentId &&
+      e.positionId === positionId &&
+      e.year === year &&
+      e.month === month &&
+      ((type === 'temp' && e.startDate === startDate) || (type !== 'temp' && e.type !== 'temp' && !e.startDate))
   );
   if (existing) {
     return {
@@ -469,9 +555,24 @@ export const createEstablishment = async (
     };
   }
 
+  // 计算临时编制状态
+  const calcTempStatus = (s: string, e: string): 'pending' | 'active' | 'expired' => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (today < s) return 'pending';
+    if (today > e) return 'expired';
+    return 'active';
+  };
+
   // 创建新编制记录
-  const newEstablishment = {
-    id: `est-${Date.now()}`,
+  const establishmentType = type || 'formal';
+  const tempStatus =
+    establishmentType === 'temp' && startDate && endDate ? calcTempStatus(startDate, endDate) : undefined;
+
+  const newEstablishment: Establishment = {
+    id: establishmentType === 'temp'
+      ? `est-temp-${Date.now()}`
+      : `est-${Date.now()}`,
     departmentId,
     positionId,
     year,
@@ -480,6 +581,10 @@ export const createEstablishment = async (
     tenantId: 'tenant-001',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    type: establishmentType,
+    startDate: establishmentType === 'temp' ? startDate : undefined,
+    endDate: establishmentType === 'temp' ? endDate : undefined,
+    tempStatus,
   };
   establishments.push(newEstablishment);
 
@@ -490,12 +595,16 @@ export const createEstablishment = async (
     oldQuota: 0,
     newQuota: quota,
     reason: reason || 'business_expansion',
-    remark: remark || '新创建编制',
+    remark: remark || (establishmentType === 'temp' ? '新创建临时编制' : '新创建编制'),
     applicantId: 'user-001',
     applicantName: '张三',
     status: 'pending',
     tenantId: 'tenant-001',
     createdAt: new Date().toISOString(),
+    establishmentType,
+    tempStartDate: establishmentType === 'temp' ? startDate : undefined,
+    tempEndDate: establishmentType === 'temp' ? endDate : undefined,
+    changeType: establishmentType === 'temp' ? 'temp_create' : 'create',
   };
 
   establishmentHistories.push(history);
@@ -666,14 +775,33 @@ export const applyEstablishmentUnlock = async (
   };
 };
 
-// 发起编制调整申请
+// 发起编制调整申请（V1.3 扩展：支持临时编制参数）
 export const applyEstablishmentChange = async (
   establishmentId: string,
   newQuota: number,
   reason: 'business_expansion' | 'business_contraction' | 'natural_turnover' | 'other',
-  remark?: string
+  remark?: string,
+  type?: 'formal' | 'temp',
+  startDate?: string,
+  endDate?: string
 ): Promise<ApiResponse<EstablishmentHistory>> => {
   await delay(300);
+
+  // 临时编制校验
+  if (type === 'temp') {
+    if (!startDate || !endDate) {
+      return {
+        code: 40002,
+        message: '临时编制必须填写起止日期',
+      };
+    }
+    if (endDate < startDate) {
+      return {
+        code: 40003,
+        message: '失效日期必须晚于生效开始日期',
+      };
+    }
+  }
 
   // 如果没有 establishmentId，说明是创建模式（但实际上矩阵中的空单元格应该已经通过 createEstablishment 处理）
   if (!establishmentId) {
@@ -703,6 +831,10 @@ export const applyEstablishmentChange = async (
     status: 'pending',
     tenantId: 'tenant-001',
     createdAt: new Date().toISOString(),
+    establishmentType: type,
+    tempStartDate: type === 'temp' ? startDate : undefined,
+    tempEndDate: type === 'temp' ? endDate : undefined,
+    changeType: type === 'temp' ? 'temp_extend' : 'adjust',
   };
 
   establishmentHistories.push(history);
@@ -722,6 +854,36 @@ export const getEstablishmentHistory = async (
   const histories = establishmentHistories.filter(
     (h) => h.establishmentId === establishmentId
   );
+
+  return {
+    code: 0,
+    data: histories,
+  };
+};
+
+/**
+ * V1.4 新增：按（部门+职位+年份）聚合获取变更历史
+ * 用于编制详情 Drawer 的"查看全部"按钮
+ * 逻辑：先找到该 (deptId, posId, year) 下的所有 establishment.id，
+ *       再过滤 establishmentHistories 中对应的记录，按 createdAt 倒序返回
+ */
+export const getEstablishmentHistoryByPosition = async (
+  departmentId: string,
+  positionId: string,
+  year: number
+): Promise<ApiResponse<EstablishmentHistory[]>> => {
+  await delay(300);
+
+  // 找到该 (deptId, posId, year) 下的所有 establishment.id
+  const establishmentIds = new Set(
+    establishments
+      .filter((e) => e.departmentId === departmentId && e.positionId === positionId && e.year === year)
+      .map((e) => e.id)
+  );
+
+  const histories = establishmentHistories
+    .filter((h) => establishmentIds.has(h.establishmentId))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return {
     code: 0,
@@ -766,6 +928,323 @@ export const getEstablishmentDetails = async (
       month: est.month,
     },
   };
+};
+
+// ==================== V1.3 临时编制扩展 API ====================
+
+/**
+ * V1.4 新增：临时编制续约申请（仅生成 pending 历史，不修改 endDate，等待审批）
+ * 与 extendTempEstablishment（直接生效）的区别：
+ * - applyTempExtend：用户从 Drawer 提交，仅生成 pending 记录，endDate 不变
+ * - extendTempEstablishment：admin 后台直接续期（保留原语义，不动）
+ */
+export const applyTempExtend = async (
+  establishmentId: string,
+  newEndDate: string,
+  reason: 'business_expansion' | 'business_contraction' | 'natural_turnover' | 'other',
+  remark?: string
+): Promise<ApiResponse<EstablishmentHistory>> => {
+  await delay(300);
+
+  const est = establishments.find((e) => e.id === establishmentId);
+  if (!est) {
+    return { code: 40401, message: '编制记录不存在' };
+  }
+
+  if (est.type !== 'temp') {
+    return { code: 40004, message: '仅临时编制支持续约' };
+  }
+
+  if (!est.endDate) {
+    return { code: 40006, message: '临时编制缺少失效日期' };
+  }
+
+  if (newEndDate <= est.endDate) {
+    return { code: 40005, message: '新失效日期必须晚于当前失效日期' };
+  }
+
+  // ⚠️ 关键：仅生成 pending 历史，**不修改 establishments 数组**
+  // 审批通过后再由 admin 调用 extendTempEstablishment 实际更新数据
+  const history: EstablishmentHistory = {
+    id: `hist-ext-apply-${Date.now()}`,
+    establishmentId,
+    oldQuota: est.quota,
+    newQuota: est.quota,
+    reason,
+    remark: remark || `临时编制续约至 ${newEndDate}`,
+    applicantId: 'user-001',
+    applicantName: '张三',
+    status: 'pending',
+    tenantId: 'tenant-001',
+    createdAt: new Date().toISOString(),
+    establishmentType: 'temp',
+    tempStartDate: est.startDate,
+    tempEndDate: newEndDate,
+    changeType: 'temp_extend',
+  };
+  establishmentHistories.push(history);
+
+  return { code: 0, data: history };
+};
+
+/**
+ * 临时编制续期（仅延长 end_date）
+ */
+export const extendTempEstablishment = async (
+  establishmentId: string,
+  newEndDate: string,
+  reason?: string
+): Promise<ApiResponse<Establishment>> => {
+  await delay(300);
+
+  const idx = establishments.findIndex((e) => e.id === establishmentId);
+  if (idx === -1) {
+    return { code: 40401, message: '编制记录不存在' };
+  }
+
+  const est = establishments[idx];
+  if (est.type !== 'temp') {
+    return { code: 40004, message: '仅临时编制支持续期' };
+  }
+
+  if (!est.endDate || newEndDate <= est.endDate) {
+    return { code: 40005, message: '新失效日期必须晚于当前失效日期' };
+  }
+
+  const updated: Establishment = {
+    ...est,
+    endDate: newEndDate,
+    tempStatus: calcTempStatus(est.startDate || '', newEndDate),
+    updatedAt: new Date().toISOString(),
+  };
+  establishments[idx] = updated;
+
+  // 生成续期历史
+  const history: EstablishmentHistory = {
+    id: `hist-ext-${Date.now()}`,
+    establishmentId,
+    oldQuota: est.quota,
+    newQuota: est.quota,
+    reason: 'other',
+    remark: reason || `临时编制续期至 ${newEndDate}`,
+    applicantId: 'user-001',
+    applicantName: '张三',
+    status: 'pending',
+    tenantId: 'tenant-001',
+    createdAt: new Date().toISOString(),
+    establishmentType: 'temp',
+    tempStartDate: est.startDate,
+    tempEndDate: newEndDate,
+    changeType: 'temp_extend',
+  };
+  establishmentHistories.push(history);
+
+  return { code: 0, data: updated };
+};
+
+/**
+ * 临时编制转正式编制
+ * - 创建对应 (dept,pos,year,month) 的正式编制
+ * - 标记原临时编制为"已转正"（保留历史）
+ */
+export const convertTempToFormal = async (
+  establishmentId: string,
+  reason?: string
+): Promise<ApiResponse<Establishment>> => {
+  await delay(300);
+
+  const idx = establishments.findIndex((e) => e.id === establishmentId);
+  if (idx === -1) {
+    return { code: 40401, message: '编制记录不存在' };
+  }
+
+  const tempEst = establishments[idx];
+  if (tempEst.type !== 'temp') {
+    return { code: 40006, message: '仅临时编制支持转正式' };
+  }
+
+  // 检查该 (dept,pos,year,month) 是否已存在正式编制
+  const hasFormal = establishments.some(
+    (e) =>
+      e.id !== establishmentId &&
+      e.departmentId === tempEst.departmentId &&
+      e.positionId === tempEst.positionId &&
+      e.year === tempEst.year &&
+      e.month === tempEst.month &&
+      (e.type || 'formal') === 'formal'
+  );
+  if (hasFormal) {
+    return { code: 40007, message: '该月份该岗位已存在正式编制，无法转换' };
+  }
+
+  // 创建正式编制
+  const formalEst: Establishment = {
+    id: `est-${Date.now()}`,
+    departmentId: tempEst.departmentId,
+    positionId: tempEst.positionId,
+    year: tempEst.year,
+    month: tempEst.month,
+    quota: tempEst.quota,
+    tenantId: 'tenant-001',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    type: 'formal',
+  };
+  establishments.push(formalEst);
+
+  // 标记原临时编制为已转换（tempStatus 保持原状，记录在历史中）
+  const history: EstablishmentHistory = {
+    id: `hist-c2f-${Date.now()}`,
+    establishmentId: tempEst.id,
+    oldQuota: tempEst.quota,
+    newQuota: tempEst.quota,
+    reason: 'other',
+    remark: reason || `临时编制转正式编制（已创建正式编制 ${formalEst.id}）`,
+    applicantId: 'user-001',
+    applicantName: '张三',
+    status: 'approved',
+    approverId: 'user-002',
+    approverName: '李四',
+    tenantId: 'tenant-001',
+    createdAt: new Date().toISOString(),
+    approvedAt: new Date().toISOString(),
+    establishmentType: 'temp',
+    tempStartDate: tempEst.startDate,
+    tempEndDate: tempEst.endDate,
+    changeType: 'temp_to_formal',
+  };
+  establishmentHistories.push(history);
+
+  return { code: 0, data: formalEst };
+};
+
+/**
+ * 获取 14 天内即将到期的临时编制
+ */
+export const getExpiringTempEstablishments = async (): Promise<
+  ApiResponse<Array<{
+    id: string;
+    departmentId: string;
+    departmentName: string;
+    positionId: string;
+    positionName: string;
+    endDate: string;
+    daysRemaining: number;
+    quota: number;
+    occupied: number;
+  }>>
+> => {
+  await delay(200);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const expiring = establishments
+    .filter((e) => e.type === 'temp' && e.tempStatus === 'active' && e.endDate)
+    .map((e) => {
+      const endDate = new Date(e.endDate!);
+      const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+      return { est: e, daysRemaining };
+    })
+    .filter((item) => item.daysRemaining >= 0 && item.daysRemaining <= 14)
+    .sort((a, b) => a.daysRemaining - b.daysRemaining)
+    .map(({ est, daysRemaining }) => ({
+      id: est.id,
+      departmentId: est.departmentId,
+      departmentName: getDepartmentFullPath(est.departmentId),
+      positionId: est.positionId,
+      positionName: getPositionName(est.positionId),
+      endDate: est.endDate!,
+      daysRemaining,
+      quota: est.quota,
+      occupied: getEstablishmentOccupied(est.id),
+    }));
+
+  return { code: 0, data: expiring };
+};
+
+/**
+ * 模拟"立即扫描失效编制"（Mock 定时任务）
+ * - 将所有到期未失效的临时编制状态改为 expired
+ * - 返回扫描结果
+ */
+export const scanExpiredTempEstablishments = async (): Promise<
+  ApiResponse<{
+    scanned: number;
+    expired: number;
+    details: Array<{ id: string; departmentName: string; positionName: string; endDate: string }>;
+  }>
+> => {
+  await delay(300);
+
+  let expired = 0;
+  const details: Array<{ id: string; departmentName: string; positionName: string; endDate: string }> = [];
+
+  establishments.forEach((e, idx) => {
+    if (e.type === 'temp' && e.tempStatus !== 'expired' && e.endDate) {
+      const newStatus = calcTempStatus(e.startDate || '', e.endDate);
+      if (newStatus === 'expired') {
+        establishments[idx] = { ...e, tempStatus: 'expired' };
+        expired++;
+        details.push({
+          id: e.id,
+          departmentName: getDepartmentFullPath(e.departmentId),
+          positionName: getPositionName(e.positionId),
+          endDate: e.endDate,
+        });
+      }
+    }
+  });
+
+  return {
+    code: 0,
+    data: {
+      scanned: establishments.filter((e) => e.type === 'temp').length,
+      expired,
+      details,
+    },
+  };
+};
+
+/**
+ * 获取所有临时编制（用于"即将到期"Tab）
+ */
+export const getAllTempEstablishments = async (): Promise<
+  ApiResponse<Array<{
+    id: string;
+    departmentId: string;
+    departmentName: string;
+    positionId: string;
+    positionName: string;
+    year: number;
+    month: number;
+    quota: number;
+    occupied: number;
+    startDate: string;
+    endDate: string;
+    tempStatus: 'pending' | 'active' | 'expired';
+  }>>
+> => {
+  await delay(200);
+
+  const temps = establishments
+    .filter((e) => e.type === 'temp')
+    .map((e) => ({
+      id: e.id,
+      departmentId: e.departmentId,
+      departmentName: getDepartmentFullPath(e.departmentId),
+      positionId: e.positionId,
+      positionName: getPositionName(e.positionId),
+      year: e.year,
+      month: e.month,
+      quota: e.quota,
+      occupied: getEstablishmentOccupied(e.id),
+      startDate: e.startDate || '',
+      endDate: e.endDate || '',
+      tempStatus: (e.tempStatus || 'active') as 'pending' | 'active' | 'expired',
+    }));
+
+  return { code: 0, data: temps };
 };
 
 // 审批编制调整
