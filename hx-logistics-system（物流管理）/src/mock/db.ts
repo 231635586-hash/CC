@@ -6,6 +6,7 @@
 import {
   mockDispatches,
   mockCompanies,
+  mockYards,
   mockVehicles,
   mockVehicleLocations,
   mockUsers,
@@ -22,6 +23,7 @@ import type {
   Role,
   DingtalkBot,
   DingtalkTemplate,
+  Yard,
 } from '@/types'
 
 const STORAGE_KEY = 'HX_LOGISTICS_MOCK_DB'
@@ -29,6 +31,7 @@ const STORAGE_KEY = 'HX_LOGISTICS_MOCK_DB'
 interface MockDB {
   dispatches: Dispatch[]
   companies: LogisticsCompany[]
+  yards: Yard[]
   vehicles: Vehicle[]
   vehicleLocations: VehicleLocation[]
   users: User[]
@@ -40,6 +43,7 @@ interface MockDB {
 const initialDB: MockDB = {
   dispatches: mockDispatches,
   companies: mockCompanies,
+  yards: mockYards,
   vehicles: mockVehicles,
   vehicleLocations: mockVehicleLocations,
   users: mockUsers,
@@ -113,6 +117,23 @@ export const mockDB = {
   deleteCompany: async (id: string): Promise<void> => {
     const db = readDB()
     db.companies = db.companies.filter((c) => c.id !== id)
+    writeDB(db)
+    return delay(undefined)
+  },
+
+  // ----- 园区 -----
+  listYards: async (): Promise<Yard[]> => delay(readDB().yards),
+  saveYard: async (item: Yard): Promise<Yard> => {
+    const db = readDB()
+    const idx = db.yards.findIndex((y) => y.id === item.id)
+    if (idx >= 0) db.yards[idx] = item
+    else db.yards.unshift(item)
+    writeDB(db)
+    return delay(item)
+  },
+  deleteYard: async (id: string): Promise<void> => {
+    const db = readDB()
+    db.yards = db.yards.filter((y) => y.id !== id)
     writeDB(db)
     return delay(undefined)
   },

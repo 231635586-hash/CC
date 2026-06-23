@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Table, Button, Space, Tag, Popconfirm, message } from 'antd'
-import { PlusOutlined, EditOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, StopOutlined, CheckCircleOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons'
+import * as XLSX from 'xlsx'
 import { PageContainer } from '@/components'
 import { useCustomerStore } from '@/stores'
 import { CUSTOMER_STATUS_LABEL, CUSTOMER_STATUS_COLOR } from '@/types/customer'
 import type { Customer } from '@/types/customer'
 import { CustomerFormDrawer } from './CustomerFormDrawer'
+import { CustomerImportDrawer } from './CustomerImportDrawer'
 import styles from './CustomerListPage.module.css'
 
 export function CustomerListPage() {
@@ -14,6 +16,7 @@ export function CustomerListPage() {
   const [searchStatus, setSearchStatus] = useState<string>('')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editing, setEditing] = useState<Customer | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   useEffect(() => {
     loadList()
@@ -40,6 +43,41 @@ export function CustomerListPage() {
     message.success(record.status === 'active' ? '已停用' : '已启用')
   }
 
+  /** 导出当前筛选结果到 Excel */
+  const handleExport = () => {
+    if (filtered.length === 0) {
+      message.warning('当前无客户可导出')
+      return
+    }
+    const rows = filtered.map((c) => ({
+      客户编码: c.id,
+      客户名称: c.name,
+      客户地址: c.address,
+      联系人: c.contact || '',
+      联系电话: c.phone || '',
+      状态: CUSTOMER_STATUS_LABEL[c.status],
+      备注: c.remark || '',
+      创建时间: c.createdAt,
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    // 设置列宽
+    ws['!cols'] = [
+      { wch: 14 }, // 客户编码
+      { wch: 24 }, // 客户名称
+      { wch: 32 }, // 地址
+      { wch: 12 }, // 联系人
+      { wch: 14 }, // 电话
+      { wch: 8 },  // 状态
+      { wch: 20 }, // 备注
+      { wch: 20 }, // 创建时间
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '客户档案')
+    const filename = `客户档案_${new Date().toISOString().slice(0, 10)}.xlsx`
+    XLSX.writeFile(wb, filename)
+    message.success(`已导出 ${filtered.length} 条客户`)
+  }
+
   return (
     <PageContainer title="客户档案">
       <div className={styles.searchRow}>
@@ -62,6 +100,12 @@ export function CustomerListPage() {
       </div>
 
       <div className={styles.toolbar}>
+        <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>
+          批量导入
+        </Button>
+        <Button icon={<DownloadOutlined />} onClick={handleExport}>
+          批量导出
+        </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增客户
         </Button>
@@ -111,6 +155,12 @@ export function CustomerListPage() {
         open={drawerOpen}
         customer={editing}
         onClose={() => setDrawerOpen(false)}
+      />
+
+      <CustomerImportDrawer
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={loadList}
       />
     </PageContainer>
   )

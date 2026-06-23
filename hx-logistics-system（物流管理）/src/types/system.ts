@@ -27,6 +27,17 @@ export interface Role {
   createdAt: Timestamp
 }
 
+/** 园区 */
+export interface Yard {
+  id: string
+  name: string // 园区名称（如：秦壁、甘亭）
+  code: string // 园区编码
+  address?: string
+  status: EnableStatus
+  remark?: string
+  createdAt: Timestamp
+}
+
 /** 钉钉群机器人配置 */
 export interface DingtalkBot {
   id: string

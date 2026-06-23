@@ -6,6 +6,7 @@ import type {
   Role,
   DingtalkBot,
   DingtalkTemplate,
+  Yard,
 } from '@/types'
 import type { Dispatch } from '@/types/dispatch'
 
@@ -13,6 +14,30 @@ import type { Dispatch } from '@/types/dispatch'
  * Mock 种子数据
  * 注意：所有 ID 在前端用 'mock-xxx' 前缀便于识别
  */
+
+// ============== 园区 ==============
+// 当前华翔工厂仅 2 个园区：秦壁、甘亭
+// 用于调车单装货地点选择、钉钉工厂群推送范围
+export const mockYards: Yard[] = [
+  {
+    id: 'mock-yard-001',
+    name: '秦壁',
+    code: 'QB',
+    address: '山西省临汾市尧都区秦壁工业园',
+    status: 'enabled',
+    remark: '主厂区',
+    createdAt: '2026-01-01 09:00:00',
+  },
+  {
+    id: 'mock-yard-002',
+    name: '甘亭',
+    code: 'GT',
+    address: '山西省临汾市洪洞县甘亭镇工业园区',
+    status: 'enabled',
+    remark: '分厂区',
+    createdAt: '2026-01-01 09:00:00',
+  },
+]
 
 // ============== 物流公司 ==============
 export const mockCompanies: LogisticsCompany[] = [
@@ -253,24 +278,24 @@ export const mockDingtalkBots: DingtalkBot[] = [
   },
   {
     id: 'mock-bot-002',
-    name: '华翔上海工厂群',
+    name: '秦壁工厂群',
     webhookUrl: 'https://oapi.dingtalk.com/robot/send?access_token=xxxxx2',
     secret: 'SECxxxxx2',
     groupType: 'factory',
     yardId: 'mock-yard-001',
-    yardName: '华翔上海园区',
+    yardName: '秦壁',
     status: 'enabled',
     remark: '入园推送',
     createdAt: '2026-02-01 09:00:00',
   },
   {
     id: 'mock-bot-003',
-    name: '华翔苏州工厂群',
+    name: '甘亭工厂群',
     webhookUrl: 'https://oapi.dingtalk.com/robot/send?access_token=xxxxx3',
     secret: 'SECxxxxx3',
     groupType: 'factory',
     yardId: 'mock-yard-002',
-    yardName: '华翔苏州园区',
+    yardName: '甘亭',
     status: 'enabled',
     createdAt: '2026-02-01 09:00:00',
   },
@@ -314,7 +339,7 @@ export const mockDispatches: Dispatch[] = [
     companyId: 'mock-company-001',
     companyName: '顺达物流有限公司',
     yardId: 'mock-yard-001',
-    yardName: '华翔上海园区',
+    yardName: '秦壁',
     goods: [
       {
         id: 'mock-goods-001',
@@ -342,7 +367,7 @@ export const mockDispatches: Dispatch[] = [
     companyId: 'mock-company-002',
     companyName: '通远运输股份有限公司',
     yardId: 'mock-yard-001',
-    yardName: '华翔上海园区',
+    yardName: '秦壁',
     goods: [
       {
         id: 'mock-goods-002',
@@ -381,7 +406,7 @@ export const mockDispatches: Dispatch[] = [
     companyId: 'mock-company-003',
     companyName: '华运供应链管理有限公司',
     yardId: 'mock-yard-002',
-    yardName: '华翔苏州园区',
+    yardName: '甘亭',
     vehicleId: 'mock-vehicle-003',
     vehicleNo: '苏B34567',
     driverId: 'mock-driver-003',
@@ -416,7 +441,7 @@ export const mockDispatches: Dispatch[] = [
     companyId: 'mock-company-001',
     companyName: '顺达物流有限公司',
     yardId: 'mock-yard-001',
-    yardName: '华翔上海园区',
+    yardName: '秦壁',
     vehicleId: 'mock-vehicle-001',
     vehicleNo: '沪A12345',
     driverId: 'mock-driver-001',

@@ -8,10 +8,12 @@ import type {
   Role,
   DingtalkBot,
   DingtalkTemplate,
+  Yard,
 } from '@/types'
 
 interface DictState {
   companies: LogisticsCompany[]
+  yards: Yard[]
   vehicles: Vehicle[]
   vehicleLocations: VehicleLocation[]
   users: User[]
@@ -20,6 +22,7 @@ interface DictState {
   dingtalkTemplates: DingtalkTemplate[]
 
   loadCompanies: () => Promise<void>
+  loadYards: () => Promise<void>
   loadVehicles: () => Promise<void>
   loadUsers: () => Promise<void>
   loadRoles: () => Promise<void>
@@ -33,6 +36,7 @@ interface DictState {
 /** 全局字典 Store（用于下拉选项） */
 export const useDictStore = create<DictState>((set) => ({
   companies: [],
+  yards: [],
   vehicles: [],
   vehicleLocations: [],
   users: [],
@@ -41,6 +45,7 @@ export const useDictStore = create<DictState>((set) => ({
   dingtalkTemplates: [],
 
   loadCompanies: async () => set({ companies: await mockDB.listCompanies() }),
+  loadYards: async () => set({ yards: await mockDB.listYards() }),
   loadVehicles: async () => set({ vehicles: await mockDB.listVehicles() }),
   loadUsers: async () => set({ users: await mockDB.listUsers() }),
   loadRoles: async () => set({ roles: await mockDB.listRoles() }),
@@ -49,8 +54,9 @@ export const useDictStore = create<DictState>((set) => ({
   loadVehicleLocations: async () => set({ vehicleLocations: await mockDB.listVehicleLocations() }),
 
   loadAll: async () => {
-    const [companies, vehicles, vehicleLocations, users, roles, dingtalkBots, dingtalkTemplates] = await Promise.all([
+    const [companies, yards, vehicles, vehicleLocations, users, roles, dingtalkBots, dingtalkTemplates] = await Promise.all([
       mockDB.listCompanies(),
+      mockDB.listYards(),
       mockDB.listVehicles(),
       mockDB.listVehicleLocations(),
       mockDB.listUsers(),
@@ -60,6 +66,7 @@ export const useDictStore = create<DictState>((set) => ({
     ])
     set({
       companies,
+      yards,
       vehicles,
       vehicleLocations,
       users,

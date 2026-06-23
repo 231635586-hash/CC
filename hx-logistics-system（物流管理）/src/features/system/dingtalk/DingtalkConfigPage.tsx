@@ -35,14 +35,18 @@ export function DingtalkConfigPage() {
 
 // ========== 群机器人 Tab ==========
 function BotTab() {
-  const { dingtalkBots } = useDictStore()
+  const { dingtalkBots, yards, loadYards } = useDictStore()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<DingtalkBot | null>(null)
   const [form] = Form.useForm()
 
+  useEffect(() => {
+    loadYards()
+  }, [loadYards])
+
   const handleSave = async () => {
     const values = await form.validateFields()
-    const yard = values.yardId ? undefined : undefined
+    const yard = yards.find((y) => y.id === values.yardId)
     const item: DingtalkBot = {
       id: editing?.id || genId('bot'),
       name: values.name,
@@ -195,7 +199,11 @@ function BotTab() {
             {() =>
               form.getFieldValue('groupType') === 'factory' ? (
                 <Form.Item name="yardId" label="关联园区" rules={[{ required: true }]}>
-                  <Select options={[]} />
+                  <Select
+                    options={yards
+                      .filter((y) => y.status === 'enabled')
+                      .map((y) => ({ value: y.id, label: y.name }))}
+                  />
                 </Form.Item>
               ) : null
             }
