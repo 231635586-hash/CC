@@ -130,7 +130,18 @@ function delay<T>(data: T): Promise<T> {
 
 export const mockDB = {
   // ----- 调车单 -----
-  listDispatches: async (): Promise<Dispatch[]> => delay(readDB().dispatches),
+  listDispatches: async (): Promise<Dispatch[]> => {
+    const db = readDB()
+    // 出口兜底：无论 localStorage 中存什么 yardName，都按 yardId 重新匹配
+    const yardMap = new Map(db.yards.map((y) => [y.id, y.name]))
+    const dispatches = db.dispatches.map((d) => {
+      if (d.yardId && yardMap.has(d.yardId) && d.yardName !== yardMap.get(d.yardId)) {
+        return { ...d, yardName: yardMap.get(d.yardId)! }
+      }
+      return d
+    })
+    return delay(dispatches)
+  },
   saveDispatch: async (dispatch: Dispatch): Promise<Dispatch> => {
     const db = readDB()
     const idx = db.dispatches.findIndex((d) => d.id === dispatch.id)
@@ -235,7 +246,18 @@ export const mockDB = {
   },
 
   // ----- 钉钉群机器人 -----
-  listDingtalkBots: async (): Promise<DingtalkBot[]> => delay(readDB().dingtalkBots),
+  listDingtalkBots: async (): Promise<DingtalkBot[]> => {
+    const db = readDB()
+    // 出口兜底：按 yardId 实时修正 yardName
+    const yardMap = new Map(db.yards.map((y) => [y.id, y.name]))
+    const bots = db.dingtalkBots.map((b) => {
+      if (b.yardId && yardMap.has(b.yardId) && b.yardName !== yardMap.get(b.yardId)) {
+        return { ...b, yardName: yardMap.get(b.yardId)! }
+      }
+      return b
+    })
+    return delay(bots)
+  },
   saveDingtalkBot: async (item: DingtalkBot): Promise<DingtalkBot> => {
     const db = readDB()
     const idx = db.dingtalkBots.findIndex((b) => b.id === item.id)
