@@ -14,7 +14,7 @@ export function DispatchListPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { list, load, save, remove, loading } = useDispatchStore()
-  const { loadCompanies, loadYards } = useDictStore()
+  const { loadCompanies } = useDictStore()
   const currentUser = useAuthStore((s) => s.currentUser)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editing, setEditing] = useState<Dispatch | null>(null)
@@ -24,8 +24,7 @@ export function DispatchListPage() {
   useEffect(() => {
     load()
     loadCompanies()
-    loadYards()
-  }, [load, loadCompanies, loadYards])
+  }, [load, loadCompanies])
 
   // 从 URL 参数识别"库存关联"入口
   useEffect(() => {

@@ -36,7 +36,7 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
   const [goodsForm] = Form.useForm()
   const save = useDispatchStore((s) => s.save)
   const companies = useDictStore((s) => s.companies)
-  const yards = useDictStore((s) => s.yards)
+  const yards: { id: string; name: string }[] = []
   const currentUser = useAuthStore((s) => s.currentUser)
   const { getById, lock } = useInventoryStore()
 

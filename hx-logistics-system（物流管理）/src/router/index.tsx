@@ -12,13 +12,7 @@ import { CustomerListPage } from '@/features/marketing/customer'
 import { DispatchSchedulePage } from '@/features/logistics/dispatch/DispatchSchedulePage'
 import { CompanyListPage } from '@/features/logistics/company/CompanyListPage'
 import { VehicleListPage } from '@/features/logistics/vehicle/VehicleListPage'
-import { DriverListPage } from '@/features/logistics/driver/DriverListPage'
-import { DispatcherListPage } from '@/features/logistics/dispatcher/DispatcherListPage'
-import { YardListPage } from '@/features/logistics/yard/YardListPage'
 import { LocationListPage } from '@/features/logistics/location/LocationListPage'
-
-// 门禁模块
-import { GateConfigPage } from '@/features/gate/GateConfigPage'
 
 // 系统管理
 import { UserListPage } from '@/features/system/user/UserListPage'
@@ -57,15 +51,7 @@ export function AppRouter() {
         <Route path="logistics">
           <Route path="dispatch" element={<DispatchSchedulePage />} />
           <Route path="vehicles" element={<VehicleListPage />} />
-          <Route path="drivers" element={<DriverListPage />} />
-          <Route path="dispatchers" element={<DispatcherListPage />} />
-          <Route path="yards" element={<YardListPage />} />
           <Route path="locations" element={<LocationListPage />} />
-        </Route>
-
-        {/* 门禁管理 */}
-        <Route path="security">
-          <Route path="config" element={<GateConfigPage />} />
         </Route>
 
         {/* 占位模块 */}

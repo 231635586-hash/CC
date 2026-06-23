@@ -3,7 +3,6 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   ShopOutlined,
   TruckOutlined,
-  SafetyOutlined,
   CalculatorOutlined,
   HomeOutlined,
   FileProtectOutlined,
@@ -48,19 +47,7 @@ export function MainLayout() {
       children: [
         { key: '/logistics/dispatch', label: '派车调度' },
         { key: '/logistics/vehicles', label: '车辆档案' },
-        { key: '/logistics/drivers', label: '司机档案' },
-        { key: '/logistics/dispatchers', label: '调车员' },
-        { key: '/logistics/yards', label: '园区档案' },
         { key: '/logistics/locations', label: '车辆位置' },
-      ],
-    },
-    {
-      key: '/security',
-      icon: <SafetyOutlined />,
-      label: '门禁管理',
-      children: [
-        { key: '/security/config', label: '门禁配置' },
-        { key: '/security/records', label: '门禁记录', disabled: true },
       ],
     },
     {
