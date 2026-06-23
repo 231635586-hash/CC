@@ -1,0 +1,24 @@
+.toolbar {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.searchRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.searchItem {
+  width: 180px;
+}
+
+.statsRow {
+  margin-bottom: 16px;
+}
+
+.statCard {
+  text-align: center;
+}
