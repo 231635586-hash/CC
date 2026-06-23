@@ -31,6 +31,12 @@ export default defineConfig({
     port: 5175,
     host: '0.0.0.0',
     open: true,
+    headers: {
+      // 强制所有响应不缓存（解决浏览器拿到旧 dist 的问题）
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    },
   },
   build: {
     // 生产部署：文件名不带 hash 后缀（如 assets/index.js 而非 assets/index-abc123.js）
