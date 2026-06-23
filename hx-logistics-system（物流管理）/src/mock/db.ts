@@ -52,7 +52,48 @@ const initialDB: MockDB = {
   dingtalkTemplates: mockDingtalkTemplates,
 }
 
-/** 读取 DB（无则初始化） */
+/**
+ * 数据迁移：兼容旧版本 localStorage
+ * - 自动补齐新增字段（如 yards）
+ * - 修复旧 dispatch 数据中 yardName 错位（华翔上海/苏州园区 → 秦壁/甘亭）
+ */
+function migrateDB(db: MockDB): MockDB {
+  let dirty = false
+
+  // 1. 补齐 yards 字段
+  if (!db.yards || db.yards.length === 0) {
+    db.yards = mockYards
+    dirty = true
+  }
+
+  // 2. 修复旧 dispatch 数据中的 yardName（基于 yardId 重新匹配）
+  const yardMap = new Map(db.yards.map((y) => [y.id, y.name]))
+  db.dispatches.forEach((d) => {
+    if (d.yardId && yardMap.has(d.yardId)) {
+      const correctName = yardMap.get(d.yardId)!
+      if (d.yardName !== correctName) {
+        d.yardName = correctName
+        dirty = true
+      }
+    }
+  })
+
+  // 3. 修复钉钉群机器人的 yardName
+  db.dingtalkBots.forEach((b) => {
+    if (b.yardId && yardMap.has(b.yardId)) {
+      const correctName = yardMap.get(b.yardId)!
+      if (b.yardName !== correctName) {
+        b.yardName = correctName
+        dirty = true
+      }
+    }
+  })
+
+  if (dirty) writeDB(db)
+  return db
+}
+
+/** 读取 DB（无则初始化，自动迁移） */
 function readDB(): MockDB {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -60,7 +101,8 @@ function readDB(): MockDB {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(initialDB))
       return initialDB
     }
-    return JSON.parse(raw) as MockDB
+    const parsed = JSON.parse(raw) as MockDB
+    return migrateDB(parsed)
   } catch {
     return initialDB
   }
