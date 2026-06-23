@@ -37,14 +37,11 @@ export function DispatchSchedulePage() {
     try {
       const values = await form.validateFields()
       const vehicle = vehicles.find((v) => v.id === values.vehicleId)
-      const driver = undefined as { name: string; phone: string } | undefined
       await save({
         ...active,
         status: 'dispatched' as DispatchStatus,
         vehicleId: vehicle?.id,
         vehicleNo: vehicle?.plateNo,
-        driverId: driver?.id,
-        driverName: driver?.name,
         dispatcherId: values.dispatcherId,
         dispatcherName: values.dispatcherId,
         dispatchedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
