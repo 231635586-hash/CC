@@ -37,6 +37,8 @@ export function MainLayout() {
         { key: '/marketing/dispatch', label: '调车单管理' },
         { key: '/marketing/inventory', label: '库存管理' },
         { key: '/marketing/customers', label: '客户档案' },
+        { key: '/marketing/companies', label: '物流公司' },
+        { key: '/marketing/warehouse', label: '成品库管理', disabled: true },
       ],
     },
     {
@@ -45,7 +47,6 @@ export function MainLayout() {
       label: '物流管理',
       children: [
         { key: '/logistics/dispatch', label: '派车调度' },
-        { key: '/logistics/companies', label: '物流公司' },
         { key: '/logistics/vehicles', label: '车辆档案' },
         { key: '/logistics/drivers', label: '司机档案' },
         { key: '/logistics/dispatchers', label: '调车员' },
@@ -68,13 +69,6 @@ export function MainLayout() {
       label: '磅房管理',
       disabled: true,
       children: [{ key: '/weighing/main', label: 'M2 上线' }],
-    },
-    {
-      key: '/warehouse',
-      icon: <HomeOutlined />,
-      label: '成品库管理',
-      disabled: true,
-      children: [{ key: '/warehouse/main', label: 'M2 上线' }],
     },
     {
       key: '/quality',

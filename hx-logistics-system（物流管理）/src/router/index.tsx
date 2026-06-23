@@ -49,12 +49,13 @@ export function AppRouter() {
           <Route path="dispatch/:id" element={<DispatchDetailPage />} />
           <Route path="inventory" element={<InventoryListPage />} />
           <Route path="customers" element={<CustomerListPage />} />
+          <Route path="companies" element={<CompanyListPage />} />
+          <Route path="warehouse/*" element={<UnderConstruction moduleName="成品库管理" version="M2" features={['成品入库', '人员管理', '出库审核']} />} />
         </Route>
 
         {/* 物流管理 */}
         <Route path="logistics">
           <Route path="dispatch" element={<DispatchSchedulePage />} />
-          <Route path="companies" element={<CompanyListPage />} />
           <Route path="vehicles" element={<VehicleListPage />} />
           <Route path="drivers" element={<DriverListPage />} />
           <Route path="dispatchers" element={<DispatcherListPage />} />
@@ -69,7 +70,6 @@ export function AppRouter() {
 
         {/* 占位模块 */}
         <Route path="weighing/*" element={<UnderConstruction moduleName="磅房管理" version="M2" features={['过磅数据采集', '±500KG 预警', '过磅单生成']} />} />
-        <Route path="warehouse/*" element={<UnderConstruction moduleName="成品库管理" version="M2" features={['成品入库', '人员管理', '出库审核']} />} />
         <Route path="quality/*" element={<UnderConstruction moduleName="品质管理" version="M3" features={['品质报告', '品质追溯']} />} />
 
         {/* 系统管理 */}
