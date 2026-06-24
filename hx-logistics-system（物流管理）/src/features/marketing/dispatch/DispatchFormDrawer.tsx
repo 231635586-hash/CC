@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import dayjs, { Dayjs } from 'dayjs'
 import {
-  Drawer,
+  Modal,
   Form,
   Input,
   Select,
@@ -259,24 +259,19 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
   ]
 
   return (
-    <Drawer
+    <Modal
       title={dispatch ? `编辑调车单 - ${dispatch.dispatchNo}` : '新建调车单'}
       open={open}
-      onClose={handleCancel}
-      width={720}
-      extra={
-        <Space>
-          {!dispatch && (
-            <Button icon={<PlusOutlined />} onClick={() => setPickerOpen(true)}>
-              选择额外库存
-            </Button>
-          )}
-          <Button onClick={handleCancel}>取消</Button>
-          <Button type="primary" onClick={handleSubmit}>
-            保存
-          </Button>
-        </Space>
-      }
+      onCancel={handleCancel}
+      width={1100}
+      centered
+      footer={[
+        <Button key="cancel" onClick={handleCancel}>取消</Button>,
+        <Button key="submit" type="primary" onClick={handleSubmit}>
+          保存
+        </Button>,
+      ]}
+      destroyOnClose
     >
       {linkedInventory && (
         <Alert
@@ -286,7 +281,7 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
               ? `已从 ${linkedInventoryIds.length} 条库存发起`
               : `已从库存 ${linkedInventory.id} 关联`
           }
-          description="货物信息已预填，对应库存已自动锁定为「已锁定」状态。可点击【选择额外库存】继续添加。请补充物流公司、园区、装货时间等信息后保存。"
+          description="货物信息已预填，对应库存已自动锁定为「已锁定」状态。可点击【+ 从库存选择】继续添加。请补充物流公司、园区、装货时间等信息后保存。"
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
@@ -437,11 +432,23 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
         </Form.Item>
       </Form>
 
-      <Divider orientation="left">货物清单（来源于【库存管理】，可【选择额外库存】添加）</Divider>
+      <Divider orientation="left">货物清单（来源于【库存管理】）</Divider>
+
+      {!dispatch && (
+        <div style={{ marginBottom: 12 }}>
+          <Button
+            type="dashed"
+            icon={<PlusOutlined />}
+            onClick={() => setPickerOpen(true)}
+          >
+            从库存选择
+          </Button>
+        </div>
+      )}
 
       {currentGoods.length === 0 ? (
         <div style={{ textAlign: 'center', color: '#999', padding: 20 }}>
-          暂无货物，请从【库存管理】发起或点击顶部【选择额外库存】添加
+          暂无货物，请点击上方【+ 从库存选择】添加
         </div>
       ) : (
         currentGoods.map((g: DispatchGoods) => (
@@ -483,6 +490,6 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
         onClose={() => setPickerOpen(false)}
         onConfirm={handlePickerConfirm}
       />
-    </Drawer>
+    </Modal>
   )
 }
