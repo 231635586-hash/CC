@@ -10,7 +10,7 @@ import {
   Button,
   Space,
   Divider,
-  Card,
+  Table,
   Row,
   Col,
   Tag,
@@ -40,6 +40,7 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
   const [form] = Form.useForm()
   // 货物清单不再支持手动新增，仅来源于库存管理（关联库存 + 选择额外库存）
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [selectedGoodsKeys, setSelectedGoodsKeys] = useState<React.Key[]>([])
   const lockedIdsRef = useRef<Set<string>>(new Set())
   const save = useDispatchStore((s) => s.save)
   const companies = useDictStore((s) => s.companies)
@@ -221,6 +222,41 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
   const handleAddGoods = async () => {
   // 已废弃：货物清单仅来源于库存管理
 }
+
+  /** 批量删除选中的货物 */
+  const handleBatchRemoveGoods = () => {
+    if (selectedGoodsKeys.length === 0) {
+      message.warning('请先选择要删除的货物')
+      return
+    }
+    const dispatchId = dispatch?.id || 'temp'
+    const current = useDispatchStore.getState().list.find((d) => d.id === dispatchId)
+    const allGoods = current?.goods || form.getFieldValue('_pendingGoods') || []
+    const toRemoveIds = new Set(selectedGoodsKeys as string[])
+
+    // 解锁被删的库存
+    allGoods
+      .filter((g: DispatchGoods) => toRemoveIds.has(g.id))
+      .forEach((g: DispatchGoods) => {
+        if (g.inventoryId && lockedIdsRef.current.has(g.inventoryId)) {
+          unlock([g.inventoryId])
+          lockedIdsRef.current.delete(g.inventoryId)
+        }
+      })
+
+    if (current) {
+      save({ ...current, goods: current.goods.filter((g) => !toRemoveIds.has(g.id)) })
+    } else {
+      form.setFieldValue(
+        '_pendingGoods',
+        (form.getFieldValue('_pendingGoods') || []).filter(
+          (g: DispatchGoods) => !toRemoveIds.has(g.id),
+        ),
+      )
+    }
+    setSelectedGoodsKeys([])
+    message.success(`已删除 ${selectedGoodsKeys.length} 条货物`)
+  }
 
   const handleRemoveGoods = async (gid: string) => {
     const dispatchId = dispatch?.id || 'temp'
@@ -432,56 +468,97 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
         </Form.Item>
       </Form>
 
-      <Divider orientation="left">货物清单（来源于【库存管理】）</Divider>
-
-      {!dispatch && (
-        <div style={{ marginBottom: 12 }}>
-          <Button
-            type="dashed"
-            icon={<PlusOutlined />}
-            onClick={() => setPickerOpen(true)}
-          >
-            从库存选择
-          </Button>
-        </div>
-      )}
+<div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          margin: '16px 0 12px',
+          padding: '0 0 8px',
+          borderBottom: '1px solid #f0f0f0',
+        }}
+      >
+        <span style={{ fontSize: 14, fontWeight: 500 }}>
+          货物清单（来源于【库存管理】）
+          <span style={{ marginLeft: 8, color: '#999', fontWeight: 'normal' }}>
+            共 {currentGoods.length} 条
+          </span>
+        </span>
+        {!dispatch && (
+          <Space>
+            {currentGoods.length > 0 && (
+              <Button
+                danger
+                disabled={selectedGoodsKeys.length === 0}
+                onClick={handleBatchRemoveGoods}
+              >
+                批量删除{selectedGoodsKeys.length > 0 ? ` (${selectedGoodsKeys.length})` : ''}
+              </Button>
+            )}
+            <Button
+              type="dashed"
+              icon={<PlusOutlined />}
+              onClick={() => setPickerOpen(true)}
+            >
+              从库存选择
+            </Button>
+          </Space>
+        )}
+      </div>
 
       {currentGoods.length === 0 ? (
         <div style={{ textAlign: 'center', color: '#999', padding: 20 }}>
-          暂无货物，请点击上方【+ 从库存选择】添加
+          暂无货物，请点击右上【+ 从库存选择】添加
         </div>
       ) : (
-        currentGoods.map((g: DispatchGoods) => (
-          <Card
-            key={g.id}
-            size="small"
-            style={{ marginBottom: 8 }}
-            extra={
-              <Button
-                type="link"
-                danger
-                size="small"
-                icon={<DeleteOutlined />}
-                onClick={() => handleRemoveGoods(g.id)}
-              >
-                移除
-              </Button>
-            }
-          >
-            <Row gutter={8}>
-              <Col span={6}>
-                <b>{g.goodsName}</b> × {g.quantity}
-                {g.unit}
-                {g.inventoryId && (
-                  <Tag color="blue" style={{ marginLeft: 8 }}>来源 {g.inventoryId}</Tag>
-                )}
-              </Col>
-              <Col span={6}>重量：{g.weight || '-'} kg</Col>
-              <Col span={6}>客户：{g.customerName || '-'}</Col>
-              <Col span={6}>目的地：{g.destination || '-'}</Col>
-            </Row>
-          </Card>
-        ))
+        <Table<DispatchGoods>
+          rowKey="id"
+          size="small"
+          dataSource={currentGoods}
+          pagination={false}
+          rowSelection={{
+            selectedRowKeys: selectedGoodsKeys,
+            onChange: setSelectedGoodsKeys,
+            preserveSelectedRowKeys: false,
+          }}
+          columns={[
+            {
+              title: '货物',
+              dataIndex: 'goodsName',
+              render: (n: string, g: DispatchGoods) => (
+                <>
+                  <b>{n}</b> × {g.quantity}
+                  {g.unit}
+                  {g.inventoryId && (
+                    <Tag color="blue" style={{ marginLeft: 8 }}>来源 {g.inventoryId}</Tag>
+                  )}
+                </>
+              ),
+            },
+            {
+              title: '重量(kg)',
+              dataIndex: 'weight',
+              width: 100,
+              render: (w: number) => w || '-',
+            },
+            { title: '客户', dataIndex: 'customerName', width: 140, ellipsis: true },
+            { title: '目的地', dataIndex: 'destination', width: 160, ellipsis: true },
+            {
+              title: '操作',
+              width: 80,
+              render: (_, g: DispatchGoods) => (
+                <Button
+                  type="link"
+                  danger
+                  size="small"
+                  onClick={() => handleRemoveGoods(g.id)}
+                >
+                  删除
+                </Button>
+              ),
+            },
+          ]}
+        />
       )}
 
       <InventoryPickerModal
