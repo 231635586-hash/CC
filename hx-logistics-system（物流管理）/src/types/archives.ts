@@ -1,4 +1,5 @@
 import type { EnableStatus, Timestamp } from './index'
+import type { TruckSize } from './dispatch'
 
 /** 物流公司 */
 export interface LogisticsCompany {
@@ -13,7 +14,8 @@ export interface LogisticsCompany {
   remark?: string
   createdAt: Timestamp
   // —— 业务扩展字段 ——
-  vehicleTypes: ('heavy' | 'medium' | 'light')[] // 可提供车型
+  /** 可提供车型（按车长枚举，与调车单 truckSize 保持一致） */
+  vehicleTypes: TruckSize[]
   directions: string // 服务方向，逗号分隔城市，如 "杭州 / 上海"
   estimatedHours: number // 预计时长（小时，公司级单一时长）
 }

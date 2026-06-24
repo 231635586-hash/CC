@@ -107,16 +107,44 @@ function migrateDB(db: MockDB): MockDB {
 
   // 5. 物流公司新字段补齐
   db.companies.forEach((c) => {
-    if (!Array.isArray((c as LogisticsCompany).vehicleTypes)) {
-      ;(c as LogisticsCompany).vehicleTypes = []
+    const raw = c as LogisticsCompany
+    if (!Array.isArray(raw.vehicleTypes)) {
+      raw.vehicleTypes = []
+      dirty = true
+    } else {
+      // 老枚举 heavy/medium/light → TruckSize 映射
+      const TRUCK_TYPE_MAP: Record<string, string> = {
+        heavy: '13m,13.75m,17.5m', // 重型 → 全部大车尺寸
+        medium: '6.8m', // 中型 → 6.8m
+        light: '4.2m', // 轻型 → 4.2m
+      }
+      const migrated: string[] = []
+      raw.vehicleTypes.forEach((t: string) => {
+        if (TRUCK_TYPE_MAP[t]) {
+          TRUCK_TYPE_MAP[t].split(',').forEach((s) => {
+            if (!migrated.includes(s)) migrated.push(s)
+          })
+        } else if (
+          ['4.2m', '6.8m', '13m', '13.75m', '17.5m'].includes(t)
+        ) {
+          // 已是新枚举，直接保留
+          if (!migrated.includes(t)) migrated.push(t)
+        }
+      })
+      if (
+        migrated.length !== raw.vehicleTypes.length ||
+        migrated.some((s, i) => s !== raw.vehicleTypes[i])
+      ) {
+        raw.vehicleTypes = migrated as LogisticsCompany['vehicleTypes']
+        dirty = true
+      }
+    }
+    if (typeof raw.directions !== 'string') {
+      raw.directions = ''
       dirty = true
     }
-    if (typeof (c as LogisticsCompany).directions !== 'string') {
-      ;(c as LogisticsCompany).directions = ''
-      dirty = true
-    }
-    if (typeof (c as LogisticsCompany).estimatedHours !== 'number') {
-      ;(c as LogisticsCompany).estimatedHours = 8
+    if (typeof raw.estimatedHours !== 'number') {
+      raw.estimatedHours = 8
       dirty = true
     }
   })

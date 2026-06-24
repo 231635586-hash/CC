@@ -5,19 +5,18 @@ import { PageContainer, SearchForm, Empty } from '@/components'
 import { useDictStore } from '@/stores'
 import { mockDB } from '@/mock/db'
 import { genId, STATUS_LABEL, parseCities, formatCities } from '@/utils'
+import { TRUCK_SIZE_LABEL, TRUCK_SIZE_OPTIONS, BIG_TRUCK_SIZES } from '@/types/dispatch'
+import type { TruckSize } from '@/types/dispatch'
 import type { LogisticsCompany } from '@/types'
 
-const VEHICLE_TYPE_LABEL: Record<string, { label: string; color: string }> = {
-  heavy: { label: '重型', color: 'red' },
-  medium: { label: '中型', color: 'orange' },
-  light: { label: '轻型', color: 'blue' },
+/** 车型 Tag 颜色（按车长） */
+const TRUCK_SIZE_COLOR: Record<TruckSize, string> = {
+  '4.2m': 'blue',
+  '6.8m': 'cyan',
+  '13m': 'orange',
+  '13.75m': 'gold',
+  '17.5m': 'red',
 }
-
-const VEHICLE_TYPE_OPTIONS = [
-  { value: 'heavy', label: '重型' },
-  { value: 'medium', label: '中型' },
-  { value: 'light', label: '轻型' },
-]
 
 /** 物流公司档案 */
 export function CompanyListPage() {
@@ -122,16 +121,28 @@ export function CompanyListPage() {
           {
             title: '可提供车型',
             dataIndex: 'vehicleTypes',
-            width: 130,
-            render: (vt: LogisticsCompany['vehicleTypes']) => (
-              <Space size={4} wrap>
-                {(vt || []).map((t) => (
-                  <Tag key={t} color={VEHICLE_TYPE_LABEL[t]?.color}>
-                    {VEHICLE_TYPE_LABEL[t]?.label || t}
-                  </Tag>
-                ))}
-              </Space>
-            ),
+            width: 220,
+            render: (vt: LogisticsCompany['vehicleTypes']) => {
+              if (!vt?.length) return '-'
+              // 按大车 / 小车分组展示，保持与调车单一致
+              const big = vt.filter((s) => BIG_TRUCK_SIZES.includes(s))
+              const small = vt.filter((s) => !BIG_TRUCK_SIZES.includes(s))
+              return (
+                <Space size={4} wrap>
+                  {big.length > 0 && (
+                    <Tag color="red">{`大车 ${big.length} 种`}</Tag>
+                  )}
+                  {small.length > 0 && (
+                    <Tag color="orange">{`小车 ${small.length} 种`}</Tag>
+                  )}
+                  {(vt || []).map((t) => (
+                    <Tag key={t} color={TRUCK_SIZE_COLOR[t]}>
+                      {TRUCK_SIZE_LABEL[t] || t}
+                    </Tag>
+                  ))}
+                </Space>
+              )
+            },
           },
           {
             title: '服务方向',
@@ -218,12 +229,26 @@ export function CompanyListPage() {
           <Form.Item
             name="vehicleTypes"
             label="可提供车型"
+            tooltip="与调车单车型保持一致：4.2m / 6.8m 为小车，13m / 13.75m / 17.5m 为大车"
             rules={[{ required: true, message: '请至少选择一种车型' }]}
           >
             <Select
               mode="multiple"
-              placeholder="可多选：重型/中型/轻型"
-              options={VEHICLE_TYPE_OPTIONS}
+              placeholder="按车长选择（与调车单车型一致）"
+              options={[
+                {
+                  label: '小车',
+                  options: TRUCK_SIZE_OPTIONS.filter((o) =>
+                    ['4.2m', '6.8m'].includes(o.value as string),
+                  ),
+                },
+                {
+                  label: '大车',
+                  options: TRUCK_SIZE_OPTIONS.filter((o) =>
+                    ['13m', '13.75m', '17.5m'].includes(o.value as string),
+                  ),
+                },
+              ]}
             />
           </Form.Item>
           <Form.Item
