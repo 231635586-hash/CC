@@ -54,8 +54,11 @@ const initialDB: MockDB = {
 
 /**
  * 数据迁移：兼容旧版本 localStorage
- * - 自动补齐新增字段（如 yards）
+ * - 自动补齐新增字段（如 yards、物流公司 vehicleTypes/directions/estimatedHours）
  * - 修复旧 dispatch 数据中 yardName 错位（华翔上海/苏州园区 → 秦壁/甘亭）
+ * - 修复旧 dispatch.direction 字面量（east/west/north/south → 城市字符串）
+ * - 同步公司名变更（顺达→华东快运 等）
+ * - 按 companyId 兜底重算 vehicles/users/dispatches 的 companyName
  */
 function migrateDB(db: MockDB): MockDB {
   let dirty = false
@@ -88,6 +91,68 @@ function migrateDB(db: MockDB): MockDB {
       }
     }
   })
+
+  // 4. 兼容旧 dispatch.direction 字面量 → 城市字符串
+  const DIR_MAP: Record<string, string> = {
+    east: '上海',
+    west: '苏州',
+    north: '北京',
+    south: '杭州',
+  }
+  db.dispatches.forEach((d) => {
+    if (DIR_MAP[d.direction]) {
+      d.direction = DIR_MAP[d.direction]
+      dirty = true
+    }
+  })
+
+  // 5. 物流公司新字段补齐
+  db.companies.forEach((c) => {
+    if (!Array.isArray((c as LogisticsCompany).vehicleTypes)) {
+      ;(c as LogisticsCompany).vehicleTypes = []
+      dirty = true
+    }
+    if (typeof (c as LogisticsCompany).directions !== 'string') {
+      ;(c as LogisticsCompany).directions = ''
+      dirty = true
+    }
+    if (typeof (c as LogisticsCompany).estimatedHours !== 'number') {
+      ;(c as LogisticsCompany).estimatedHours = 8
+      dirty = true
+    }
+  })
+
+  // 6. 公司名迁移（id → 新名称）
+  const COMPANY_NAME_MAP: Record<string, string> = {
+    'mock-company-001': '华东快运物流有限公司',
+    'mock-company-002': '北方通远运输股份有限公司',
+    'mock-company-003': '华南华运供应链管理有限公司',
+  }
+  db.companies.forEach((c) => {
+    if (COMPANY_NAME_MAP[c.id] && c.name !== COMPANY_NAME_MAP[c.id]) {
+      c.name = COMPANY_NAME_MAP[c.id]
+      dirty = true
+    }
+  })
+
+  // 7. 按 companyId 兜底重算 companyName（dispatches/vehicles/users）
+  const companyMap = new Map(db.companies.map((c) => [c.id, c.name]))
+  const repair = (id: string | undefined, fallback: string | undefined): string => {
+    if (!id) return fallback || ''
+    return companyMap.get(id) || fallback || ''
+  }
+  const repairArr = (arr: { companyId?: string; companyName?: string }[]) => {
+    arr.forEach((x) => {
+      const n = repair(x.companyId, x.companyName)
+      if (n && x.companyName !== n) {
+        x.companyName = n
+        dirty = true
+      }
+    })
+  }
+  repairArr(db.dispatches as { companyId?: string; companyName?: string }[])
+  repairArr(db.vehicles as { companyId?: string; companyName?: string }[])
+  repairArr(db.users as { companyId?: string; companyName?: string }[])
 
   if (dirty) writeDB(db)
   return db
@@ -158,7 +223,17 @@ export const mockDB = {
   },
 
   // ----- 物流公司 -----
-  listCompanies: async (): Promise<LogisticsCompany[]> => delay(readDB().companies),
+  listCompanies: async (): Promise<LogisticsCompany[]> => {
+    const db = readDB()
+    // 出口兜底：保证 3 个新业务字段必有值
+    const safe = db.companies.map((c) => ({
+      ...c,
+      vehicleTypes: Array.isArray(c.vehicleTypes) ? c.vehicleTypes : [],
+      directions: typeof c.directions === 'string' ? c.directions : '',
+      estimatedHours: typeof c.estimatedHours === 'number' ? c.estimatedHours : 8,
+    })) as LogisticsCompany[]
+    return delay(safe)
+  },
   saveCompany: async (item: LogisticsCompany): Promise<LogisticsCompany> => {
     const db = readDB()
     const idx = db.companies.findIndex((c) => c.id === item.id)

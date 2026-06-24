@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   Drawer,
   Form,
   Input,
   Select,
+  AutoComplete,
   DatePicker,
   Button,
   Space,
@@ -18,7 +19,7 @@ import {
 import { PlusOutlined, DeleteOutlined, LinkOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useDispatchStore, useDictStore, useAuthStore, useInventoryStore } from '@/stores'
-import { genId, genDispatchNo, DIRECTION_LABEL } from '@/utils'
+import { genId, genDispatchNo, parseCities, formatCities } from '@/utils'
 import type { Dispatch, DispatchGoods } from '@/types/dispatch'
 import { ORDER_TYPE_LABEL } from '@/types/inventory'
 
@@ -40,6 +41,17 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
   const loadYards = useDictStore((s) => s.loadYards)
   const currentUser = useAuthStore((s) => s.currentUser)
   const { getById, lock } = useInventoryStore()
+
+  // 监听 direction 字段，联动筛选物流公司
+  const directionValue = Form.useWatch('direction', form)
+  const availableCompanies = useMemo(() => {
+    if (!directionValue || !directionValue.trim()) return companies
+    const cities = parseCities(directionValue)
+    return companies.filter((c) => {
+      const cCities = parseCities(c.directions)
+      return cities.some((city) => cCities.includes(city))
+    })
+  }, [companies, directionValue])
 
   useEffect(() => {
     loadYards()
@@ -219,14 +231,6 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
         </Row>
         <Row gutter={16}>
           <Col span={12}>
-            <Form.Item name="companyId" label="物流公司" rules={[{ required: true }]}>
-              <Select
-                placeholder="请选择"
-                options={companies.map((c) => ({ value: c.id, label: c.name }))}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
             <Form.Item name="yardId" label="园区" rules={[{ required: true }]}>
               <Select
                 placeholder="请选择"
@@ -234,13 +238,43 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
               />
             </Form.Item>
           </Col>
+          <Col span={12}>
+            <Form.Item name="direction" label="服务方向" rules={[{ required: true }]}>
+              <AutoComplete
+                placeholder="如：上海 / 杭州 / 苏州"
+                options={Array.from(
+                  new Set(companies.flatMap((c) => parseCities(c.directions))),
+                ).map((c) => ({ value: c }))}
+                filterOption={(input, option) =>
+                  (option?.value as string)?.toLowerCase().includes(input.toLowerCase())
+                }
+                onChange={(v) => {
+                  // 已选中的 companyId 不再匹配 → 自动清空
+                  const selectedId = form.getFieldValue('companyId')
+                  const cities = parseCities(v)
+                  const stillMatch =
+                    !selectedId ||
+                    companies.some(
+                      (c) =>
+                        c.id === selectedId &&
+                        cities.some((city) => parseCities(c.directions).includes(city)),
+                    )
+                  if (!stillMatch) form.setFieldValue('companyId', undefined)
+                }}
+              />
+            </Form.Item>
+          </Col>
         </Row>
         <Row gutter={16}>
           <Col span={12}>
-            <Form.Item name="direction" label="方向" rules={[{ required: true }]}>
+            <Form.Item name="companyId" label="物流公司" rules={[{ required: true }]}>
               <Select
-                placeholder="请选择"
-                options={Object.entries(DIRECTION_LABEL).map(([v, l]) => ({ value: v, label: l }))}
+                placeholder={availableCompanies.length ? '请选择' : '请先选择方向'}
+                disabled={availableCompanies.length === 0}
+                options={availableCompanies.map((c) => ({
+                  value: c.id,
+                  label: `${c.name}（${formatCities(parseCities(c.directions))} / 约${c.estimatedHours}h）`,
+                }))}
               />
             </Form.Item>
           </Col>

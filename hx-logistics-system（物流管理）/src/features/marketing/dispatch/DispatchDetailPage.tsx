@@ -5,7 +5,6 @@ import { ArrowLeftOutlined } from '@ant-design/icons'
 import { PageContainer } from '@/components'
 import { useDispatchStore } from '@/stores'
 import { DISPATCH_STATUS_OPTIONS, type DispatchStatus } from '@/types'
-import { DIRECTION_LABEL } from '@/utils'
 
 /** 调车单详情页 */
 export function DispatchDetailPage() {
@@ -46,7 +45,7 @@ export function DispatchDetailPage() {
               <Descriptions.Item label="状态">
                 <Tag color={statusOpt?.color}>{statusOpt?.label}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="方向">{DIRECTION_LABEL[record.direction]}</Descriptions.Item>
+              <Descriptions.Item label="服务方向">{record.direction || '-'}</Descriptions.Item>
               <Descriptions.Item label="期望装货时间">{record.expectedLoadTime}</Descriptions.Item>
               <Descriptions.Item label="物流公司">{record.companyName}</Descriptions.Item>
               <Descriptions.Item label="园区">{record.yardName}</Descriptions.Item>

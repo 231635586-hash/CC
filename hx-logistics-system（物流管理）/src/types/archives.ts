@@ -12,6 +12,10 @@ export interface LogisticsCompany {
   status: EnableStatus
   remark?: string
   createdAt: Timestamp
+  // —— 业务扩展字段 ——
+  vehicleTypes: ('heavy' | 'medium' | 'light')[] // 可提供车型
+  directions: string // 服务方向，逗号分隔城市，如 "杭州 / 上海"
+  estimatedHours: number // 预计时长（小时，公司级单一时长）
 }
 
 /** 车辆 */

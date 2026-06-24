@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
-import { Table, Button, Space, Tag, Popconfirm, message, Tooltip } from 'antd'
+import { useEffect, useState, useMemo } from 'react'
+import { Table, Button, Space, Tag, Popconfirm, message, Tooltip, AutoComplete } from 'antd'
 import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PageContainer, SearchForm, Empty } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import { DISPATCH_STATUS_OPTIONS, type DispatchStatus } from '@/types'
-import { DIRECTION_LABEL } from '@/utils'
+import { parseCities } from '@/utils'
 import type { Dispatch } from '@/types/dispatch'
 import { DispatchFormDrawer } from './DispatchFormDrawer'
 
@@ -88,10 +88,17 @@ export function DispatchListPage() {
         return false
     }
     if (filters.status && d.status !== filters.status) return false
-    if (filters.direction && d.direction !== filters.direction) return false
+    if (filters.direction && !parseCities(d.direction).includes(filters.direction as string)) return false
     if (filters.yardId && d.yardId !== filters.yardId) return false
     return true
   })
+
+  // 收集所有出现过的方向城市（用于搜索 AutoComplete）
+  const directionOptions = useMemo(() => {
+    return Array.from(
+      new Set(list.flatMap((d) => parseCities(d.direction))),
+    ).map((c) => ({ value: c }))
+  }, [list])
 
   return (
     <PageContainer
@@ -120,15 +127,23 @@ export function DispatchListPage() {
             type: 'select',
             options: DISPATCH_STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
           },
-          {
-            name: 'direction',
-            label: '方向',
-            type: 'select',
-            options: Object.entries(DIRECTION_LABEL).map(([v, l]) => ({ value: v, label: l })),
-          },
         ]}
         onSearch={setFilters}
       />
+      <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <span style={{ color: '#666' }}>方向：</span>
+        <AutoComplete
+          style={{ width: 220 }}
+          placeholder="输入城市，如：杭州"
+          allowClear
+          value={(filters.direction as string) || ''}
+          options={directionOptions}
+          onChange={(v) => setFilters((prev) => ({ ...prev, direction: v || '' }))}
+          filterOption={(input, option) =>
+            (option?.value as string)?.toLowerCase().includes(input.toLowerCase())
+          }
+        />
+      </div>
 
       <Table<Dispatch>
         rowKey="id"
@@ -147,10 +162,11 @@ export function DispatchListPage() {
             },
           },
           {
-            title: '方向',
+            title: '服务方向',
             dataIndex: 'direction',
-            width: 70,
-            render: (d: string) => DIRECTION_LABEL[d] || d,
+            width: 110,
+            ellipsis: true,
+            render: (d: string) => d || '-',
           },
           { title: '物流公司', dataIndex: 'companyName', width: 180 },
           {

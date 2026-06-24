@@ -4,7 +4,6 @@ import { TruckOutlined, ClockCircleOutlined, CheckCircleOutlined, EnvironmentOut
 import { PageContainer } from '@/components'
 import { useDispatchStore, useDictStore } from '@/stores'
 import { DISPATCH_STATUS_OPTIONS, type DispatchStatus } from '@/types'
-import { DIRECTION_LABEL } from '@/utils'
 import type { Dispatch } from '@/types/dispatch'
 
 /** 派车调度 - 按方向+时间聚类展示 */
@@ -111,7 +110,7 @@ export function DispatchSchedulePage() {
                 title={
                   <Space>
                     <Tag color="blue">{items[0].companyName}</Tag>
-                    <Tag>方向：{DIRECTION_LABEL[first.direction]}</Tag>
+                    <Tag>服务方向：{first.direction}</Tag>
                     <Tag color="cyan">时段：{first.expectedLoadTime.slice(0, 13)}:00</Tag>
                     {items.length > 1 && <Tag color="purple">拼车 {items.length} 单</Tag>}
                   </Space>
@@ -190,7 +189,7 @@ export function DispatchSchedulePage() {
             <div style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 6 }}>
               <Space wrap>
                 <Tag color="blue">{active.companyName}</Tag>
-                <Tag>{DIRECTION_LABEL[active.direction]}</Tag>
+                <Tag>{active.direction}</Tag>
                 <Tag color="cyan">{active.yardName}</Tag>
                 <Tag color="orange">{active.expectedLoadTime}</Tag>
               </Space>
