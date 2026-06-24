@@ -44,7 +44,7 @@ export interface DingtalkBot {
   name: string
   webhookUrl: string
   secret?: string
-  groupType: 'logistics' | 'factory' | 'management' // 物流群/工厂群/管理群
+  groupType: 'dispatch_group' | 'logistics' | 'factory' | 'management' // 调度群/物流群/工厂群/管理群
   yardId?: string // 关联园区（工厂群时填写）
   yardName?: string
   status: EnableStatus

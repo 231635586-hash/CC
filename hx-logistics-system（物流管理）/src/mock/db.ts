@@ -69,16 +69,16 @@ function migrateDB(db: MockDB): MockDB {
     dirty = true
   }
 
-  // 2. 修复旧 dispatch 数据中的 yardName（基于 yardId 重新匹配）
+  // 2. 修复旧 dispatch 数据中的 yardName（基于 yardId 重新匹配）— 已迁移到 yardIds 后此段失效，跳过
   const yardMap = new Map(db.yards.map((y) => [y.id, y.name]))
   db.dispatches.forEach((d) => {
-    if (d.yardId && yardMap.has(d.yardId)) {
-      const correctName = yardMap.get(d.yardId)!
-      if (d.yardName !== correctName) {
-        d.yardName = correctName
-        dirty = true
+    const raw = d as unknown as Record<string, unknown>
+    const yardIds = Array.isArray(raw.yardIds) ? (raw.yardIds as string[]) : []
+    yardIds.forEach((yid) => {
+      if (yardMap.has(yid)) {
+        // yardName 字段已移除，仅确保 yardIds 引用合法
       }
-    }
+    })
   })
 
   // 3. 修复钉钉群机器人的 yardName
@@ -154,6 +154,38 @@ function migrateDB(db: MockDB): MockDB {
   repairArr(db.vehicles as { companyId?: string; companyName?: string }[])
   repairArr(db.users as { companyId?: string; companyName?: string }[])
 
+  // 8) dispatches 新字段补齐（yardIds/primaryYardId/shippingMethod/truckSize/isCarpool/isUrgent）
+  db.dispatches.forEach((d) => {
+    const raw = d as unknown as Record<string, unknown>
+    // yardId → yardIds 迁移（老版本单值 yardId 自动转数组）
+    if (!Array.isArray(raw.yardIds)) {
+      const oldYardId = raw.yardId as string | undefined
+      raw.yardIds = oldYardId ? [oldYardId] : []
+      dirty = true
+    }
+    const yardIds = raw.yardIds as string[]
+    if (typeof raw.primaryYardId !== 'string' && yardIds.length > 0) {
+      raw.primaryYardId = yardIds[0]
+      dirty = true
+    }
+    if (!raw.shippingMethod) {
+      raw.shippingMethod = 'big_truck'
+      dirty = true
+    }
+    if (!raw.truckSize) {
+      raw.truckSize = '13m'
+      dirty = true
+    }
+    if (typeof raw.isCarpool !== 'boolean') {
+      raw.isCarpool = false
+      dirty = true
+    }
+    if (typeof raw.isUrgent !== 'boolean') {
+      raw.isUrgent = false
+      dirty = true
+    }
+  })
+
   if (dirty) writeDB(db)
   return db
 }
@@ -197,13 +229,23 @@ export const mockDB = {
   // ----- 调车单 -----
   listDispatches: async (): Promise<Dispatch[]> => {
     const db = readDB()
-    // 出口兜底：无论 localStorage 中存什么 yardName，都按 yardId 重新匹配
-    const yardMap = new Map(db.yards.map((y) => [y.id, y.name]))
+    // 出口兜底：保证新字段必有值（yardIds/primaryYardId/shippingMethod/truckSize/isCarpool/isUrgent）
     const dispatches = db.dispatches.map((d) => {
-      if (d.yardId && yardMap.has(d.yardId) && d.yardName !== yardMap.get(d.yardId)) {
-        return { ...d, yardName: yardMap.get(d.yardId)! }
-      }
-      return d
+      const raw = d as unknown as Record<string, unknown>
+      const yardIds = Array.isArray(raw.yardIds)
+        ? (raw.yardIds as string[])
+        : raw.yardId
+          ? [raw.yardId as string]
+          : []
+      return {
+        ...d,
+        yardIds,
+        primaryYardId: (raw.primaryYardId as string) || (yardIds[0] ?? ''),
+        shippingMethod: (raw.shippingMethod as Dispatch['shippingMethod']) || 'big_truck',
+        truckSize: raw.truckSize as Dispatch['truckSize'] | undefined,
+        isCarpool: Boolean(raw.isCarpool),
+        isUrgent: Boolean(raw.isUrgent),
+      } as Dispatch
     })
     return delay(dispatches)
   },

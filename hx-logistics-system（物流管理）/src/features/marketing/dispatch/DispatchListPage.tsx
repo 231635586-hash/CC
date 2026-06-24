@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PageContainer, SearchForm, Empty } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import { DISPATCH_STATUS_OPTIONS, type DispatchStatus } from '@/types'
+import { SHIPPING_METHOD_LABEL, SHIPPING_METHOD_COLOR, TRUCK_SIZE_LABEL } from '@/types/dispatch'
 import { parseCities } from '@/utils'
 import type { Dispatch } from '@/types/dispatch'
 import { DispatchFormDrawer } from './DispatchFormDrawer'
@@ -28,14 +29,18 @@ export function DispatchListPage() {
   }, [load, loadCompanies, loadYards])
 
   /**
-   * 渲染园区名称：优先按 yardId 实时查 yards 字典
-   * 这是 UI 层兜底，无论 store 中的 yardName 字段是什么值（即使是旧的"华翔上海/苏州园区"），
-   * 都能通过 yardId 实时匹配当前 yards 字典返回正确名称
+   * 渲染园区名称：优先按 yardIds 实时查 yards 字典
+   * 多园区用 / 分隔；primaryYardId 加"优先入场"标记
    */
-  const renderYardName = (yardId: string, fallback: string) => {
-    const hit = yards.find((y) => y.id === yardId)
-    if (hit) return hit.name
-    return fallback || '-'
+  const renderYardNames = (yardIds: string[] | undefined, primaryYardId?: string) => {
+    if (!yardIds || yardIds.length === 0) return '-'
+    return yardIds
+      .map((id) => {
+        const hit = yards.find((y) => y.id === id)
+        const name = hit?.name || id
+        return id === primaryYardId ? `【${name}】` : name
+      })
+      .join(' / ')
   }
 
   // 从 URL 参数识别"库存关联"入口（支持多 ID：?inventoryId=A&inventoryId=B）
@@ -83,13 +88,13 @@ export function DispatchListPage() {
       if (
         !d.dispatchNo.toLowerCase().includes(kw) &&
         !d.companyName.toLowerCase().includes(kw) &&
-        !d.yardName.toLowerCase().includes(kw)
+        !(d.yardIds || []).some((yid) => (yards.find((y) => y.id === yid)?.name || '').toLowerCase().includes(kw))
       )
         return false
     }
     if (filters.status && d.status !== filters.status) return false
     if (filters.direction && !parseCities(d.direction).includes(filters.direction as string)) return false
-    if (filters.yardId && d.yardId !== filters.yardId) return false
+    if (filters.yardId && !(d.yardIds || []).includes(filters.yardId as string)) return false
     return true
   })
 
@@ -156,9 +161,21 @@ export function DispatchListPage() {
             title: '状态',
             dataIndex: 'status',
             width: 100,
-            render: (s: DispatchStatus) => {
+            render: (s: DispatchStatus, r) => {
               const opt = DISPATCH_STATUS_OPTIONS.find((o) => o.value === s)
-              return <Tag color={opt?.color}>{opt?.label || s}</Tag>
+              return (
+                <Space size={4} wrap>
+                  <Tag color={opt?.color}>{opt?.label || s}</Tag>
+                  {r.isUrgent && <Tag color="red">紧急</Tag>}
+                  {r.isCarpool && <Tag color="purple">拼车</Tag>}
+                  {r.shippingMethod && (
+                    <Tag color={SHIPPING_METHOD_COLOR[r.shippingMethod]}>
+                      {SHIPPING_METHOD_LABEL[r.shippingMethod]}
+                    </Tag>
+                  )}
+                  {r.truckSize && <Tag>{TRUCK_SIZE_LABEL[r.truckSize]}</Tag>}
+                </Space>
+              )
             },
           },
           {
@@ -171,9 +188,9 @@ export function DispatchListPage() {
           { title: '物流公司', dataIndex: 'companyName', width: 180 },
           {
             title: '园区',
-            dataIndex: 'yardId',
-            width: 140,
-            render: (yardId: string, r) => renderYardName(yardId, r.yardName),
+            dataIndex: 'yardIds',
+            width: 200,
+            render: (yardIds: string[] | undefined, r) => renderYardNames(yardIds, r.primaryYardId),
           },
           {
             title: '货物',

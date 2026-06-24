@@ -106,6 +106,7 @@ function BotTab() {
             width: 120,
             render: (t: string) => {
               const map: Record<string, { label: string; color: string }> = {
+                dispatch_group: { label: '调度群', color: 'magenta' },
                 logistics: { label: '物流群', color: 'blue' },
                 factory: { label: '工厂群', color: 'orange' },
                 management: { label: '管理群', color: 'purple' },
@@ -189,6 +190,7 @@ function BotTab() {
           <Form.Item name="groupType" label="群类型" rules={[{ required: true }]}>
             <Select
               options={[
+                { value: 'dispatch_group', label: '调度群（所有调车单统一推送）' },
                 { value: 'logistics', label: '物流群（推送给物流公司）' },
                 { value: 'factory', label: '工厂群（推送给华翔内部）' },
                 { value: 'management', label: '管理群（推送给管理层）' },

@@ -26,6 +26,16 @@ export function DispatchSchedulePage() {
     const hit = yards.find((y) => y.id === yardId)
     return hit?.name || fallback || '-'
   }
+  const renderYardNames = (yardIds: string[] | undefined, primaryYardId?: string) => {
+    if (!yardIds || yardIds.length === 0) return '-'
+    return yardIds
+      .map((id) => {
+        const hit = yards.find((y) => y.id === id)
+        const name = hit?.name || id
+        return id === primaryYardId ? `【${name}】` : name
+      })
+      .join(' / ')
+  }
 
   // 待派车 = 已确认 + 已派车
   const pending = useMemo(() => list.filter((d) => d.status === 'confirmed'), [list])
@@ -63,7 +73,7 @@ export function DispatchSchedulePage() {
   const grouped = useMemo(() => {
     const map = new Map<string, Dispatch[]>()
     pending.forEach((d) => {
-      const key = `${d.companyId}-${d.direction}-${d.expectedLoadTime.slice(0, 13)}`
+      const key = `${d.companyId}-${d.primaryYardId || (d.yardIds?.[0] ?? '')}-${d.direction}-${d.expectedLoadTime.slice(0, 13)}`
       const arr = map.get(key) || []
       arr.push(d)
       map.set(key, arr)
@@ -124,7 +134,7 @@ export function DispatchSchedulePage() {
                   pagination={false}
                   columns={[
                     { title: '调车编号', dataIndex: 'dispatchNo', width: 150 },
-                    { title: '园区', dataIndex: 'yardId', width: 140, render: (id: string, r: Dispatch) => renderYardName(id, r.yardName) },
+                    { title: '园区', dataIndex: 'yardIds', width: 180, render: (ids: string[] | undefined, r: Dispatch) => renderYardNames(ids, r.primaryYardId) },
                     {
                       title: '货物',
                       dataIndex: 'goods',
@@ -170,7 +180,7 @@ export function DispatchSchedulePage() {
             },
             { title: '车辆', dataIndex: 'vehicleNo', width: 100 },
             { title: '司机', dataIndex: 'driverName', width: 100 },
-            { title: '园区', dataIndex: 'yardId', width: 140, render: (id: string, r: Dispatch) => renderYardName(id, r.yardName) },
+            { title: '园区', dataIndex: 'yardIds', width: 180, render: (ids: string[] | undefined, r: Dispatch) => renderYardNames(ids, r.primaryYardId) },
             { title: '派车时间', dataIndex: 'dispatchedAt', width: 160 },
           ]}
         />
@@ -190,7 +200,7 @@ export function DispatchSchedulePage() {
               <Space wrap>
                 <Tag color="blue">{active.companyName}</Tag>
                 <Tag>{active.direction}</Tag>
-                <Tag color="cyan">{active.yardName}</Tag>
+                <Tag color="cyan">{renderYardNames(active.yardIds, active.primaryYardId)}</Tag>
                 <Tag color="orange">{active.expectedLoadTime}</Tag>
               </Space>
             </div>

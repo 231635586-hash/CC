@@ -3,18 +3,21 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Descriptions, Card, Tag, Timeline, Button, Space, Table, Row, Col, Empty } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { PageContainer } from '@/components'
-import { useDispatchStore } from '@/stores'
+import { useDispatchStore, useDictStore } from '@/stores'
 import { DISPATCH_STATUS_OPTIONS, type DispatchStatus } from '@/types'
+import { SHIPPING_METHOD_LABEL, SHIPPING_METHOD_COLOR, TRUCK_SIZE_LABEL } from '@/types/dispatch'
 
 /** 调车单详情页 */
 export function DispatchDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { list, load } = useDispatchStore()
+  const { yards, loadYards } = useDictStore()
 
   useEffect(() => {
     if (!list.length) load()
-  }, [list.length, load])
+    loadYards()
+  }, [list.length, load, loadYards])
 
   const record = list.find((d) => d.id === id)
 
@@ -48,7 +51,27 @@ export function DispatchDetailPage() {
               <Descriptions.Item label="服务方向">{record.direction || '-'}</Descriptions.Item>
               <Descriptions.Item label="期望装货时间">{record.expectedLoadTime}</Descriptions.Item>
               <Descriptions.Item label="物流公司">{record.companyName}</Descriptions.Item>
-              <Descriptions.Item label="园区">{record.yardName}</Descriptions.Item>
+              <Descriptions.Item label="园区">
+                {(record.yardIds || [])
+                  .map((id) => {
+                    const name = yards.find((y) => y.id === id)?.name || id
+                    return id === record.primaryYardId ? `【${name}】` : name
+                  })
+                  .join(' / ') || '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="发运方式">
+                {record.shippingMethod ? (
+                  <Tag color={SHIPPING_METHOD_COLOR[record.shippingMethod]}>
+                    {SHIPPING_METHOD_LABEL[record.shippingMethod]}
+                    {record.truckSize && ` / ${TRUCK_SIZE_LABEL[record.truckSize]}`}
+                  </Tag>
+                ) : '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="拼车 / 紧急">
+                {record.isCarpool && <Tag color="purple">拼车</Tag>}
+                {record.isUrgent && <Tag color="red">紧急</Tag>}
+                {!record.isCarpool && !record.isUrgent && '-'}
+              </Descriptions.Item>
               <Descriptions.Item label="车辆">{record.vehicleNo || '未派车'}</Descriptions.Item>
               <Descriptions.Item label="司机">{record.driverName || '未派车'}</Descriptions.Item>
               <Descriptions.Item label="调车员">{record.dispatcherName || '-'}</Descriptions.Item>

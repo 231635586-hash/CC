@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import dayjs, { Dayjs } from 'dayjs'
 import {
   Drawer,
   Form,
@@ -14,15 +15,17 @@ import {
   Row,
   Col,
   Tag,
+  Checkbox,
   message,
   Alert,
 } from 'antd'
-import { PlusOutlined, DeleteOutlined, LinkOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
+import { PlusOutlined, DeleteOutlined, LinkOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { useDispatchStore, useDictStore, useAuthStore, useInventoryStore } from '@/stores'
 import { InventoryPickerModal } from '@/components'
 import { genId, genDispatchNo, parseCities, formatCities } from '@/utils'
-import type { Dispatch, DispatchGoods } from '@/types/dispatch'
+import { validateDispatch, needTruckSize, getAvailableTruckSizes } from '@/utils/dispatchRules'
+import type { Dispatch, DispatchGoods, ShippingMethod, TruckSize } from '@/types/dispatch'
+import { SHIPPING_METHOD_OPTIONS } from '@/types/dispatch'
 import { ORDER_TYPE_LABEL } from '@/types/inventory'
 
 interface Props {
@@ -57,6 +60,35 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
     })
   }, [companies, directionValue])
 
+  // 监听发货方式 / 车型 / 时间 / 紧急 / 园区，实时校验
+  const shippingMethodWatch = Form.useWatch('shippingMethod', form) as ShippingMethod | undefined
+  const truckSizeWatch = Form.useWatch('truckSize', form) as TruckSize | undefined
+  const expectedLoadTimeWatch = Form.useWatch('expectedLoadTime', form) as string | Dayjs | undefined
+  const isUrgentWatch = Form.useWatch('isUrgent', form) as boolean | undefined
+  const yardIdsWatch = (Form.useWatch('yardIds', form) as string[] | undefined) || []
+
+  // 系统管理员角色可勾选紧急调车
+  const isAdmin = currentUser?.roleName === '系统管理员'
+
+  /** 综合校验结果 */
+  const validation = useMemo(() => {
+    if (!shippingMethodWatch || !expectedLoadTimeWatch) return { valid: true }
+    const expected = typeof expectedLoadTimeWatch === 'string'
+      ? expectedLoadTimeWatch
+      : (expectedLoadTimeWatch as Dayjs)?.format?.('YYYY-MM-DD HH:mm:ss') || ''
+    if (!expected) return { valid: true }
+    return validateDispatch(
+      {
+        shippingMethod: shippingMethodWatch,
+        truckSize: truckSizeWatch,
+        expectedLoadTime: expected,
+        isUrgent: !!isUrgentWatch,
+      },
+      useDispatchStore.getState().list,
+      dispatch?.id,
+    )
+  }, [shippingMethodWatch, truckSizeWatch, expectedLoadTimeWatch, isUrgentWatch, dispatch?.id])
+
   useEffect(() => {
     loadYards()
   }, [loadYards])
@@ -70,6 +102,8 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
       form.setFieldsValue({
         ...dispatch,
         expectedLoadTime: dispatch.expectedLoadTime ? dayjs(dispatch.expectedLoadTime) : null,
+        isCarpool: !!dispatch.isCarpool,
+        isUrgent: !!dispatch.isUrgent,
       })
     } else {
       form.setFieldsValue({
@@ -158,8 +192,12 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
         creatorName: dispatch?.creatorName || currentUser?.realName || '',
         companyId: values.companyId,
         companyName: companies.find((c) => c.id === values.companyId)?.name || '',
-        yardId: values.yardId,
-        yardName: yards.find((y) => y.id === values.yardId)?.name || '',
+        yardIds: values.yardIds || [],
+        primaryYardId: values.primaryYardId,
+        shippingMethod: values.shippingMethod,
+        truckSize: values.truckSize,
+        isCarpool: !!values.isCarpool,
+        isUrgent: !!values.isUrgent,
         goods: existing?.goods || [],
         createdAt: existing?.createdAt || dayjs().format('YYYY-MM-DD HH:mm:ss'),
         updatedAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
@@ -304,13 +342,53 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
         </Row>
         <Row gutter={16}>
           <Col span={12}>
-            <Form.Item name="yardId" label="园区" rules={[{ required: true }]}>
+            <Form.Item name="shippingMethod" label="发运方式" rules={[{ required: true, message: '请选择发运方式' }]}>
+              <Select options={SHIPPING_METHOD_OPTIONS} placeholder="请选择" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="truckSize"
+              label="车型"
+              rules={[{ required: needTruckSize(shippingMethodWatch), message: '该发运方式必须选择车型' }]}
+            >
               <Select
-                placeholder="请选择"
+                placeholder={needTruckSize(shippingMethodWatch) ? '请选择车型' : '仅大车/小车需选车型'}
+                disabled={!needTruckSize(shippingMethodWatch)}
+                options={getAvailableTruckSizes(shippingMethodWatch).map((s) => ({ value: s, label: s }))}
+                allowClear
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item name="yardIds" label="园区（可多选）" rules={[{ required: true, message: '请至少选择一个园区' }]}>
+              <Select
+                mode="multiple"
+                placeholder="如：秦壁、甘亭"
                 options={yards.map((y) => ({ value: y.id, label: y.name }))}
               />
             </Form.Item>
           </Col>
+          <Col span={12}>
+            <Form.Item
+              name="primaryYardId"
+              label="优先入场园区"
+              rules={[{ required: true, message: '请选择优先入场园区' }]}
+            >
+              <Select
+                placeholder="请先选园区"
+                disabled={yardIdsWatch.length === 0}
+                options={yardIdsWatch.map((id) => ({
+                  value: id,
+                  label: yards.find((y) => y.id === id)?.name || id,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Row gutter={16}>
           <Col span={12}>
             <Form.Item name="direction" label="服务方向" rules={[{ required: true }]}>
               <AutoComplete
@@ -337,8 +415,6 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
               />
             </Form.Item>
           </Col>
-        </Row>
-        <Row gutter={16}>
           <Col span={12}>
             <Form.Item name="companyId" label="物流公司" rules={[{ required: true }]}>
               <Select
@@ -351,12 +427,40 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
               />
             </Form.Item>
           </Col>
+        </Row>
+        <Row gutter={16}>
           <Col span={12}>
-            <Form.Item name="expectedLoadTime" label="期望装货时间" rules={[{ required: true }]}>
+            <Form.Item
+              name="expectedLoadTime"
+              label="期望装货时间（需求到场时间）"
+              rules={[{ required: true, message: '请选择时间' }]}
+            >
               <DatePicker showTime style={{ width: '100%' }} />
             </Form.Item>
           </Col>
+          <Col span={12}>
+            <Form.Item label="其他选项">
+              <Space size={16}>
+                <Form.Item name="isCarpool" valuePropName="checked" noStyle>
+                  <Checkbox>拼车</Checkbox>
+                </Form.Item>
+                <Form.Item name="isUrgent" valuePropName="checked" noStyle>
+                  <Checkbox disabled={!isAdmin}>紧急（无视限制）</Checkbox>
+                </Form.Item>
+              </Space>
+            </Form.Item>
+          </Col>
         </Row>
+        {validation.reason && (
+          <Alert
+            icon={<ExclamationCircleOutlined />}
+            message="调度规则提示"
+            description={validation.reason}
+            type="warning"
+            showIcon
+            style={{ marginBottom: 12 }}
+          />
+        )}
         <Form.Item name="remark" label="备注">
           <Input.TextArea rows={2} placeholder="可选" />
         </Form.Item>
