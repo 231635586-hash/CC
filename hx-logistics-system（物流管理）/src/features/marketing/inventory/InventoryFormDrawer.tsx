@@ -4,7 +4,7 @@ import {
   Input,
   InputNumber,
   Select,
-  Drawer,
+  Modal,
   Button,
   Space,
   message,
@@ -18,7 +18,7 @@ import {
   STOCK_TYPE_OPTIONS,
   PACKAGING_OPTIONS,
 } from '@/types/inventory'
-import type { Inventory, MaterialCategory, StockType } from '@/types/inventory'
+import type { Inventory, StockType } from '@/types/inventory'
 import type { Customer } from '@/types/customer'
 import styles from './InventoryFormDrawer.module.css'
 
@@ -117,23 +117,31 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
   )
 
   return (
-    <Drawer
+    <Modal
       title={isView ? '查看库存' : isEdit ? '编辑库存' : '添加待调货明细'}
       open={open}
-      onClose={onClose}
+      onCancel={onClose}
       width={1100}
-      extra={
+      centered
+      destroyOnClose
+      footer={
         isView ? (
-          <Button onClick={onClose}>关闭</Button>
+          [
+            <Button key="close" onClick={onClose}>关闭</Button>,
+          ]
         ) : (
-          <Space>
-            <Button onClick={onClose}>取消</Button>
-            <Button type="primary" onClick={handleSubmit}>确定</Button>
-          </Space>
+          [
+            <Button key="cancel" onClick={onClose}>取消</Button>,
+            <Button key="submit" type="primary" onClick={handleSubmit}>确定</Button>,
+          ]
         )
       }
     >
-      <Form form={form} layout="vertical" className={styles.form} disabled={isView} requiredMark={false}>
+      <Form form={form} layout="vertical" className={styles.form} disabled={isView}>
+        {/* 必填字段说明 */}
+        <div style={{ marginBottom: 12, color: '#999', fontSize: 12 }}>
+          标注 <span style={{ color: '#ff4d4f' }}>*</span> 为必填字段
+        </div>
         {/* 基础信息（4 列） */}
         <div className={styles.formGroup}>
           <div className={styles.groupTitle}>基础信息</div>
@@ -375,6 +383,6 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
           </Row>
         </div>
       </Form>
-    </Drawer>
+    </Modal>
   )
 }
