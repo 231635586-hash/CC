@@ -10,7 +10,6 @@ import {
   Button,
   Space,
   Divider,
-  InputNumber,
   Card,
   Row,
   Col,
@@ -39,7 +38,7 @@ interface Props {
 /** 调车单新建/编辑表单（支持拼车+多园区） */
 export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose }: Props) {
   const [form] = Form.useForm()
-  const [goodsForm] = Form.useForm()
+  // 货物清单不再支持手动新增，仅来源于库存管理（关联库存 + 选择额外库存）
   const [pickerOpen, setPickerOpen] = useState(false)
   const lockedIdsRef = useRef<Set<string>>(new Set())
   const save = useDispatchStore((s) => s.save)
@@ -220,36 +219,8 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
   }
 
   const handleAddGoods = async () => {
-    try {
-      const values = await goodsForm.validateFields()
-      const dispatchId = dispatch?.id || 'temp'
-      const newGoods: DispatchGoods = {
-        id: genId('goods'),
-        dispatchId,
-        goodsName: values.goodsName,
-        quantity: values.quantity,
-        unit: values.unit || '件',
-        weight: values.weight,
-        customerName: values.customerName,
-        destination: values.destination,
-        remark: values.remark,
-      }
-      const current = useDispatchStore.getState().list.find((d) => d.id === dispatchId)
-      if (current) {
-        await save({ ...current, goods: [...current.goods, newGoods] })
-      } else {
-        // 暂存到 form（保存主体后再合并）
-        form.setFieldValue('_pendingGoods', [
-          ...(form.getFieldValue('_pendingGoods') || []),
-          newGoods,
-        ])
-      }
-      goodsForm.resetFields()
-      message.success('货物已添加')
-    } catch {
-      // 校验失败
-    }
-  }
+  // 已废弃：货物清单仅来源于库存管理
+}
 
   const handleRemoveGoods = async (gid: string) => {
     const dispatchId = dispatch?.id || 'temp'
@@ -466,37 +437,11 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
         </Form.Item>
       </Form>
 
-      <Divider orientation="left">货物清单（支持拼车：多货物同方向）</Divider>
-
-      <Card size="small" style={{ marginBottom: 12, background: '#fafafa' }}>
-        <Form form={goodsForm} layout="inline" onFinish={handleAddGoods}>
-          <Form.Item name="goodsName" rules={[{ required: true, message: '请输入' }]}>
-            <Input placeholder="货物名称" style={{ width: 140 }} />
-          </Form.Item>
-          <Form.Item name="quantity" rules={[{ required: true, message: '请输入' }]}>
-            <InputNumber placeholder="数量" min={1} style={{ width: 100 }} />
-          </Form.Item>
-          <Form.Item name="unit" initialValue="件">
-            <Input placeholder="单位" style={{ width: 80 }} />
-          </Form.Item>
-          <Form.Item name="weight">
-            <InputNumber placeholder="重量(kg)" min={0} style={{ width: 120 }} />
-          </Form.Item>
-          <Form.Item name="customerName">
-            <Input placeholder="客户" style={{ width: 120 }} />
-          </Form.Item>
-          <Form.Item name="destination">
-            <Input placeholder="目的地" style={{ width: 140 }} />
-          </Form.Item>
-          <Button type="dashed" icon={<PlusOutlined />} onClick={handleAddGoods}>
-            添加
-          </Button>
-        </Form>
-      </Card>
+      <Divider orientation="left">货物清单（来源于【库存管理】，可【选择额外库存】添加）</Divider>
 
       {currentGoods.length === 0 ? (
         <div style={{ textAlign: 'center', color: '#999', padding: 20 }}>
-          暂无货物，请在上方添加
+          暂无货物，请从【库存管理】发起或点击顶部【选择额外库存】添加
         </div>
       ) : (
         currentGoods.map((g: DispatchGoods) => (

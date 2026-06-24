@@ -160,7 +160,7 @@ export function DispatchListPage() {
           {
             title: '状态',
             dataIndex: 'status',
-            width: 100,
+            width: 90,
             render: (s: DispatchStatus, r) => {
               const opt = DISPATCH_STATUS_OPTIONS.find((o) => o.value === s)
               return (
@@ -168,15 +168,29 @@ export function DispatchListPage() {
                   <Tag color={opt?.color}>{opt?.label || s}</Tag>
                   {r.isUrgent && <Tag color="red">紧急</Tag>}
                   {r.isCarpool && <Tag color="purple">拼车</Tag>}
-                  {r.shippingMethod && (
-                    <Tag color={SHIPPING_METHOD_COLOR[r.shippingMethod]}>
-                      {SHIPPING_METHOD_LABEL[r.shippingMethod]}
-                    </Tag>
-                  )}
-                  {r.truckSize && <Tag>{TRUCK_SIZE_LABEL[r.truckSize]}</Tag>}
                 </Space>
               )
             },
+          },
+          {
+            title: '发运方式',
+            dataIndex: 'shippingMethod',
+            width: 100,
+            render: (sm: Dispatch['shippingMethod']) => {
+              if (!sm) return '-'
+              return (
+                <Tag color={SHIPPING_METHOD_COLOR[sm]}>
+                  {SHIPPING_METHOD_LABEL[sm]}
+                </Tag>
+              )
+            },
+          },
+          {
+            title: '车型',
+            dataIndex: 'truckSize',
+            width: 90,
+            render: (ts: Dispatch['truckSize']) =>
+              ts ? <Tag>{TRUCK_SIZE_LABEL[ts]}</Tag> : '-',
           },
           {
             title: '服务方向',
