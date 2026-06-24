@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Descriptions, Card, Tag, Timeline, Button, Space, Table, Row, Col, Empty } from 'antd'
+import { Descriptions, Card, Tag, Timeline, Button, Table, Row, Col, Empty } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { PageContainer } from '@/components'
 import { useDispatchStore, useDictStore } from '@/stores'
@@ -126,16 +126,6 @@ export function DispatchDetailPage() {
                   : []),
               ]}
             />
-          </Card>
-
-          <Card title="M1 状态机说明" size="small" style={{ marginTop: 16 }}>
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
-              {DISPATCH_STATUS_OPTIONS.map((s) => (
-                <Tag key={s.value} color={s.color} style={{ width: '100%', textAlign: 'center' }}>
-                  {s.label}
-                </Tag>
-              ))}
-            </Space>
           </Card>
         </Col>
       </Row>
