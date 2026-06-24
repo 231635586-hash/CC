@@ -29,6 +29,8 @@ import {
   ORDER_TYPE_OPTIONS,
   PACKAGING_OPTIONS,
   INVENTORY_STATUS_OPTIONS,
+  MATERIAL_CATEGORY_LABEL,
+  STOCK_TYPE_LABEL,
 } from '@/types/inventory'
 import type { Inventory, InventoryStatus } from '@/types/inventory'
 import { InventoryFormDrawer } from './InventoryFormDrawer'
@@ -41,6 +43,9 @@ export function InventoryListPage() {
   const { list: customers, loadList: loadCustomers } = useCustomerStore()
   const [searchName, setSearchName] = useState('')
   const [searchMaterial, setSearchMaterial] = useState('')
+  const [searchYard, setSearchYard] = useState<string>('')
+  const [searchCategory, setSearchCategory] = useState<string>('')
+  const [searchStockType, setSearchStockType] = useState<string>('')
   const [searchOrderType, setSearchOrderType] = useState<string>('')
   const [searchStatus, setSearchStatus] = useState<string>('')
   const [searchDateRange, setSearchDateRange] = useState<[string, string] | null>(null)
@@ -53,6 +58,13 @@ export function InventoryListPage() {
     loadList()
     loadCustomers()
   }, [loadList, loadCustomers])
+
+  // 园区下拉选项（从数据中动态提取）
+  const yardOptions = useMemo(() => {
+    const set = new Set<string>()
+    list.forEach((i) => i.yardName && set.add(i.yardName))
+    return Array.from(set)
+  }, [list])
 
   const stats = useMemo(() => {
     return {
@@ -67,6 +79,9 @@ export function InventoryListPage() {
     return list.filter((i) => {
       if (searchName && !i.customerName.toLowerCase().includes(searchName.toLowerCase())) return false
       if (searchMaterial && !i.materialCode.toLowerCase().includes(searchMaterial.toLowerCase())) return false
+      if (searchYard && i.yardName !== searchYard) return false
+      if (searchCategory && i.category !== searchCategory) return false
+      if (searchStockType && i.stockType !== searchStockType) return false
       if (searchOrderType && i.orderType !== searchOrderType) return false
       if (searchStatus && i.status !== searchStatus) return false
       if (searchDateRange) {
@@ -77,7 +92,7 @@ export function InventoryListPage() {
       }
       return true
     })
-  }, [list, searchName, searchMaterial, searchOrderType, searchStatus, searchDateRange])
+  }, [list, searchName, searchMaterial, searchYard, searchCategory, searchStockType, searchOrderType, searchStatus, searchDateRange])
 
   const handleAdd = () => {
     setEditing(null)
@@ -106,6 +121,9 @@ export function InventoryListPage() {
   const resetSearch = () => {
     setSearchName('')
     setSearchMaterial('')
+    setSearchYard('')
+    setSearchCategory('')
+    setSearchStockType('')
     setSearchOrderType('')
     setSearchStatus('')
     setSearchDateRange(null)
@@ -117,6 +135,20 @@ export function InventoryListPage() {
       <div className={styles.searchRow}>
         <input className={styles.searchItem} placeholder="客户名称" value={searchName} onChange={(e) => setSearchName(e.target.value)} />
         <input className={styles.searchItem} placeholder="物料编码" value={searchMaterial} onChange={(e) => setSearchMaterial(e.target.value)} />
+        <select className={styles.searchItem} value={searchYard} onChange={(e) => setSearchYard(e.target.value)}>
+          <option value="">全部归属</option>
+          {yardOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select className={styles.searchItem} value={searchCategory} onChange={(e) => setSearchCategory(e.target.value)}>
+          <option value="">全部类别</option>
+          <option value="rough">毛坯</option>
+          <option value="processed">加工件</option>
+        </select>
+        <select className={styles.searchItem} value={searchStockType} onChange={(e) => setSearchStockType(e.target.value)}>
+          <option value="">全部现货</option>
+          <option value="in_stock_now">现货</option>
+          <option value="waiting">等货</option>
+        </select>
         <select className={styles.searchItem} value={searchOrderType} onChange={(e) => setSearchOrderType(e.target.value)}>
           <option value="">全部订单类型</option>
           {ORDER_TYPE_OPTIONS.map((o) => (
@@ -152,12 +184,63 @@ export function InventoryListPage() {
         dataSource={filtered}
         rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
         columns={[
-          { title: '系统单号', dataIndex: 'id', width: 160 },
-          { title: '条码编号', dataIndex: 'barcode', width: 150 },
-          { title: '物料编码', dataIndex: 'materialCode', width: 120 },
-          { title: '物料名称', dataIndex: 'materialName', width: 150, ellipsis: true },
-          { title: '客户名称', dataIndex: 'customerName', width: 200, ellipsis: true },
-          { title: '数量(箱)', dataIndex: 'quantity', width: 90, align: 'right' },
+          { title: '系统单号', dataIndex: 'id', width: 150 },
+          {
+            title: '归属',
+            dataIndex: 'yardName',
+            width: 80,
+            render: (v: string | undefined) => v ? <Tag color="blue">{v}</Tag> : '-',
+          },
+          {
+            title: '类别',
+            dataIndex: 'category',
+            width: 80,
+            render: (v: Inventory['category']) => v ? MATERIAL_CATEGORY_LABEL[v] : '-',
+          },
+          { title: '物料编码', dataIndex: 'materialCode', width: 110 },
+          { title: '产品名称', dataIndex: 'productName', width: 150, ellipsis: true },
+          { title: '客户', dataIndex: 'customerName', width: 180, ellipsis: true },
+          {
+            title: '发货地',
+            dataIndex: 'shippingFrom',
+            width: 90,
+            render: (v: string | undefined) => v || '-',
+          },
+          {
+            title: '数量',
+            dataIndex: 'quantity',
+            width: 110,
+            align: 'right',
+            render: (q: number, r: Inventory) => {
+              const per = r.quantityPerBox ?? '-'
+              return (
+                <span>
+                  {q} 箱
+                  {r.totalQuantity !== undefined && (
+                    <span style={{ color: '#999', fontSize: 12 }}> / {r.totalQuantity} 件</span>
+                  )}
+                </span>
+              )
+            },
+          },
+          {
+            title: '净重(kg)',
+            dataIndex: 'netWeight',
+            width: 90,
+            align: 'right',
+            render: (v: number | undefined) => (v ?? '-'),
+          },
+          {
+            title: '现货',
+            dataIndex: 'stockType',
+            width: 80,
+            render: (v: Inventory['stockType']) =>
+              v ? (
+                <Tag color={v === 'in_stock_now' ? 'green' : 'orange'}>
+                  {STOCK_TYPE_LABEL[v]}
+                </Tag>
+              ) : '-',
+          },
           {
             title: '订单类型',
             dataIndex: 'orderType',
@@ -167,12 +250,12 @@ export function InventoryListPage() {
           {
             title: '库存状态',
             dataIndex: 'status',
-            width: 100,
+            width: 90,
             render: (v: InventoryStatus) => (
               <Tag color={INVENTORY_STATUS_COLOR[v]}>{INVENTORY_STATUS_LABEL[v]}</Tag>
             ),
           },
-          { title: '库龄(天)', dataIndex: 'age', width: 90, align: 'right', render: (v) => v ?? '-' },
+          { title: '库龄(天)', dataIndex: 'age', width: 80, align: 'right', render: (v) => v ?? '-' },
           {
             title: '操作',
             width: 320,
@@ -207,7 +290,7 @@ export function InventoryListPage() {
             },
           },
         ]}
-        scroll={{ x: 1500 }}
+        scroll={{ x: 1750 }}
         pagination={{ pageSize: 20, showTotal: (t) => `共 ${t} 条` }}
       />
 

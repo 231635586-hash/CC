@@ -4,6 +4,7 @@ export type CustomerStatus = 'active' | 'inactive'
 
 export interface Customer {
   id: string                  // 系统编号：CUS-YYYY-XXXX
+  code?: string               // 客户编号（业务编号）
   name: string
   address: string
   contact?: string

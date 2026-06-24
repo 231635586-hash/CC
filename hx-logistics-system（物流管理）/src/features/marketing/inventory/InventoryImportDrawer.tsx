@@ -2,9 +2,21 @@ import { useState } from 'react'
 import { Drawer, Steps, Button, Upload, Table, Tag, Modal, Space, message, Alert } from 'antd'
 import { InboxOutlined, DownloadOutlined } from '@ant-design/icons'
 import * as XLSX from 'xlsx'
-import { useInventoryStore, useCustomerStore } from '@/stores'
-import type { InventoryImportRow, ValidatedRow, OrderType, PackagingType } from '@/types/inventory'
-import { ORDER_TYPE_LABEL, PACKAGING_LABEL } from '@/types/inventory'
+import { useInventoryStore, useCustomerStore, useDictStore } from '@/stores'
+import type {
+  InventoryImportRow,
+  ValidatedRow,
+  OrderType,
+  PackagingType,
+  MaterialCategory,
+  StockType,
+} from '@/types/inventory'
+import {
+  MATERIAL_CATEGORY_LABEL,
+  STOCK_TYPE_LABEL,
+  ORDER_TYPE_LABEL,
+  PACKAGING_LABEL,
+} from '@/types/inventory'
 import styles from './InventoryImportDrawer.module.css'
 
 interface Props {
@@ -13,15 +25,47 @@ interface Props {
   onSuccess: () => void
 }
 
-const REQUIRED_FIELDS = ['条码编号', '物料编码', '物料名称', '客户名称', '订单类型', '数量(箱)']
+/** 必填字段（按用户确认：归属/客户名称/发货地/类别/物料编码/产品名称/图号/单箱数量/箱数/单重/箱重/净重/单箱隔板重/隔板总重/吨位/现货） */
+const REQUIRED_FIELDS = [
+  '归属',
+  '客户名称',
+  '发货地',
+  '类别',
+  '物料编码',
+  '产品名称',
+  '图号',
+  '单箱数量',
+  '箱数',
+  '单重(kg)',
+  '箱重(kg)',
+  '净重(kg)',
+  '单箱隔板重(kg)',
+  '隔板总重(kg)',
+  '吨位/车',
+  '现货/等货',
+]
 
+/** 模板表头顺序 */
 const TEMPLATE_HEADERS = [
-  '条码编号', '生产编号', '物料编码', '物料名称', '物料图号',
-  '客户名称', '订单类型', '单件净重(kg)', '单箱货重(kg)',
-  '数量(箱)', '包装类型', '库龄(天)', '备注',
+  '归属', '客户编号', '客户名称', '发货地',
+  '类别', '物料编码', '产品名称', '图号',
+  '单箱数量', '箱数', '单重(kg)', '箱重(kg)', '净重(kg)',
+  '单箱隔板重(kg)', '隔板总重(kg)', '吨位/车', '现货/等货',
+  '客户物料编码', '条码编号', '生产编号',
+  '订单类型', '包装类型', '库龄(天)', '备注',
 ]
 
 // Excel 显示标签 → TS 枚举值 的映射
+const CATEGORY_VALUE_MAP: Record<string, MaterialCategory> = {
+  毛坯: 'rough',
+  加工件: 'processed',
+}
+
+const STOCK_TYPE_VALUE_MAP: Record<string, StockType> = {
+  现货: 'in_stock_now',
+  等货: 'waiting',
+}
+
 const ORDER_TYPE_VALUE_MAP: Record<string, OrderType> = {
   毛坯自用: 'rough_self_use',
   正常订单: 'normal',
@@ -41,6 +85,7 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
   const [importing, setImporting] = useState(false)
   const { importBatch, getByBarcode } = useInventoryStore()
   const { list: customers } = useCustomerStore()
+  const { yards } = useDictStore()
 
   const reset = () => {
     setCurrent(0)
@@ -53,14 +98,27 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
     onClose()
   }
 
+  /** 园区名称 → yardId */
+  const yardNameToId = (name: string): string | undefined => {
+    const hit = yards.find((y) => y.name === name && y.status === 'enabled')
+    return hit?.id
+  }
+
   const downloadTemplate = () => {
+    const sampleYard = yards[0]?.name || '甘亭'
+    const sampleCustomer = customers[0]?.name || '客户名称'
     const ws = XLSX.utils.aoa_to_sheet([
       TEMPLATE_HEADERS,
-      // 示例行
-      ['BC202606240001', 'PRD-2026-0624-X', 'MAT-A001', '精密齿轮组件', 'DWG-A001-REV3',
-        customers[0]?.name || '客户名称', '正常订单', 2.5, 25, 50, '木箱', 0, '示例备注'],
+      [
+        sampleYard, 'CUS-2026-001', sampleCustomer, '苏州',
+        '毛坯', 'MAT-A001', '精密齿轮组件', 'DWG-A001-REV3',
+        20, 50, 2.5, 55, 1370,
+        1.5, 75, 10, '现货',
+        'CUST-MAT-A001', 'BC202606240001', 'PRD-2026-0624-X',
+        '正常订单', '木箱', 0, '示例备注',
+      ],
     ])
-    ws['!cols'] = TEMPLATE_HEADERS.map(() => ({ wch: 16 }))
+    ws['!cols'] = TEMPLATE_HEADERS.map((h) => ({ wch: h.length > 8 ? 16 : 12 }))
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, '库存导入模板')
     XLSX.writeFile(wb, '库存导入模板.xlsx')
@@ -77,54 +135,131 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
 
         const validated: ValidatedRow[] = json.map((row, idx) => {
           const errors: string[] = []
+
+          // 归属（园区名称 → yardId）
+          const yardName = String(row['归属'] || '').trim()
+          const yardId = yardName ? yardNameToId(yardName) : undefined
+          if (!yardName) errors.push('归属必填')
+          else if (!yardId) errors.push(`归属【${yardName}】不存在或未启用`)
+
+          // 客户编号（可选）
+          const customerCode = String(row['客户编号'] || '').trim() || undefined
+          const customerName = String(row['客户名称'] || '').trim()
+          if (!customerName) errors.push('客户名称必填')
+
+          const shippingFrom = String(row['发货地'] || '').trim()
+          if (!shippingFrom) errors.push('发货地必填')
+
+          // 类别
+          const categoryLabel = String(row['类别'] || '').trim()
+          const category = CATEGORY_VALUE_MAP[categoryLabel]
+          if (!categoryLabel) errors.push('类别必填')
+          else if (!category) errors.push(`类别【${categoryLabel}】只能填 毛坯 / 加工件`)
+
+          const materialCode = String(row['物料编码'] || '').trim()
+          if (!materialCode) errors.push('物料编码必填')
+          const productName = String(row['产品名称'] || '').trim()
+          if (!productName) errors.push('产品名称必填')
+          const drawingNo = String(row['图号'] || '').trim()
+          if (!drawingNo) errors.push('图号必填')
+
+          // 数值字段
+          const numField = (name: string, min = 0, mustInteger = false): number | undefined => {
+            const raw = row[name]
+            if (raw === '' || raw == null) return undefined
+            const n = Number(raw)
+            if (!Number.isFinite(n)) return undefined
+            return n
+          }
+          const quantityPerBox = numField('单箱数量', 1, true)
+          const quantity = numField('箱数', 1, true)
+          const unitWeight = numField('单重(kg)', 0)
+          const boxWeight = numField('箱重(kg)', 0)
+          const netWeight = numField('净重(kg)', 0)
+          const partitionWeightPerBox = numField('单箱隔板重(kg)', 0)
+          const partitionTotalWeight = numField('隔板总重(kg)', 0)
+          const tonnagePerVehicle = numField('吨位/车', 0)
+
+          if (quantityPerBox === undefined) errors.push('单箱数量必填')
+          else if (quantityPerBox < 1) errors.push('单箱数量必须 ≥ 1')
+          if (quantity === undefined) errors.push('箱数必填')
+          else if (quantity < 1) errors.push('箱数必须 ≥ 1')
+          if (unitWeight === undefined) errors.push('单重(kg)必填')
+          else if (unitWeight < 0) errors.push('单重(kg)不能为负')
+          if (boxWeight === undefined) errors.push('箱重(kg)必填')
+          else if (boxWeight < 0) errors.push('箱重(kg)不能为负')
+          if (netWeight === undefined) errors.push('净重(kg)必填')
+          else if (netWeight < 0) errors.push('净重(kg)不能为负')
+          if (partitionWeightPerBox === undefined) errors.push('单箱隔板重(kg)必填')
+          else if (partitionWeightPerBox < 0) errors.push('单箱隔板重(kg)不能为负')
+          if (partitionTotalWeight === undefined) errors.push('隔板总重(kg)必填')
+          else if (partitionTotalWeight < 0) errors.push('隔板总重(kg)不能为负')
+          if (tonnagePerVehicle === undefined) errors.push('吨位/车必填')
+          else if (tonnagePerVehicle < 0) errors.push('吨位/车不能为负')
+
+          // 现货/等货
+          const stockTypeLabel = String(row['现货/等货'] || '').trim()
+          const stockType = STOCK_TYPE_VALUE_MAP[stockTypeLabel]
+          if (!stockTypeLabel) errors.push('现货/等货必填')
+          else if (!stockType) errors.push(`现货/等货【${stockTypeLabel}】只能填 现货 / 等货`)
+
+          // 订单类型 / 包装（可选）
           const orderTypeLabel = String(row['订单类型'] || '').trim()
-          const orderType = ORDER_TYPE_VALUE_MAP[orderTypeLabel]
+          const orderType = orderTypeLabel ? ORDER_TYPE_VALUE_MAP[orderTypeLabel] : 'normal'
+          if (orderTypeLabel && !orderType) errors.push(`订单类型【${orderTypeLabel}】不在可选范围内`)
 
           const packagingLabel = String(row['包装类型'] || '').trim()
           const packaging = packagingLabel ? PACKAGING_VALUE_MAP[packagingLabel] : undefined
-
-          const quantity = Number(row['数量(箱)'])
-          const netWeight = row['单件净重(kg)'] !== '' && row['单件净重(kg)'] != null ? Number(row['单件净重(kg)']) : undefined
-          const weightPerBox = row['单箱货重(kg)'] !== '' && row['单箱货重(kg)'] != null ? Number(row['单箱货重(kg)']) : undefined
-          const age = row['库龄(天)'] !== '' && row['库龄(天)'] != null ? Number(row['库龄(天)']) : undefined
-
-          // 必填校验
-          if (!String(row['条码编号'] || '').trim()) errors.push('条码编号必填')
-          if (!String(row['物料编码'] || '').trim()) errors.push('物料编码必填')
-          if (!String(row['物料名称'] || '').trim()) errors.push('物料名称必填')
-          if (!String(row['客户名称'] || '').trim()) errors.push('客户名称必填')
-          if (!orderTypeLabel) errors.push('订单类型必填')
-          else if (!orderType) errors.push(`订单类型【${orderTypeLabel}】不在可选范围内`)
-
-          // 数值校验
-          if (!Number.isFinite(quantity) || quantity <= 0) errors.push('数量必须为正整数')
-          if (netWeight !== undefined && (!Number.isFinite(netWeight) || netWeight < 0)) errors.push('单件净重必须为正数')
-          if (weightPerBox !== undefined && (!Number.isFinite(weightPerBox) || weightPerBox < 0)) errors.push('单箱货重必须为正数')
-          if (age !== undefined && (!Number.isInteger(age) || age < 0 || age > 9999)) errors.push('库龄必须在 0-9999 之间')
-
-          // 包装类型校验
           if (packagingLabel && !packaging) errors.push(`包装类型【${packagingLabel}】不在可选范围内`)
 
+          const ageRaw = row['库龄(天)']
+          const age = ageRaw !== '' && ageRaw != null ? Number(ageRaw) : undefined
+          if (age !== undefined && (!Number.isInteger(age) || age < 0 || age > 9999)) {
+            errors.push('库龄必须在 0-9999 之间')
+          }
+
+          // 条码必填
+          const barcode = String(row['条码编号'] || '').trim()
+          if (!barcode) errors.push('条码编号必填')
+
           // 客户存在性校验
-          const customerName = String(row['客户名称'] || '').trim()
           if (customerName && !customers.find((c) => c.name === customerName && c.status === 'active')) {
             errors.push(`客户【${customerName}】不存在或已停用`)
           }
 
+          // 总数自动计算
+          const totalQuantity =
+            typeof quantityPerBox === 'number' && typeof quantity === 'number'
+              ? quantityPerBox * quantity
+              : undefined
+
           const hasErrors = errors.length > 0
-          const existingRecord = !hasErrors ? getByBarcode(String(row['条码编号'] || '').trim()) : undefined
+          const existingRecord = !hasErrors && barcode ? getByBarcode(barcode) : undefined
 
           const importRow: InventoryImportRow = {
-            barcode: String(row['条码编号'] || '').trim(),
+            barcode,
             productionNo: String(row['生产编号'] || '').trim() || undefined,
-            materialCode: String(row['物料编码'] || '').trim(),
-            materialName: String(row['物料名称'] || '').trim(),
-            materialDrawingNo: String(row['物料图号'] || '').trim() || undefined,
+            yardName: yardName || undefined,
+            category,
+            materialCode,
+            materialName: productName,
+            productName,
+            drawingNo: drawingNo || undefined,
+            customerCode,
             customerName,
+            shippingFrom: shippingFrom || undefined,
+            customerMaterialCode: String(row['客户物料编码'] || '').trim() || undefined,
             orderType: orderType || 'normal',
-            netWeightPerPiece: netWeight,
-            weightPerBox,
-            quantity: Number.isFinite(quantity) ? quantity : 0,
+            quantityPerBox,
+            quantity: typeof quantity === 'number' ? quantity : 0,
+            totalQuantity,
+            unitWeight,
+            boxWeight,
+            netWeight,
+            partitionWeightPerBox,
+            partitionTotalWeight,
+            tonnagePerVehicle,
+            stockType,
             packaging,
             age,
             remark: String(row['备注'] || '').trim() || undefined,
@@ -136,7 +271,7 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
           else status = 'valid'
 
           return {
-            rowIndex: idx + 2, // Excel 行号（含表头）
+            rowIndex: idx + 2,
             raw: importRow,
             status,
             errors,
@@ -162,7 +297,7 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
 
   const handleImport = async (mode: 'overwrite' | 'skip') => {
     const rowsToImport = validatedRows.filter(
-      (r) => r.status === 'valid' || (mode === 'overwrite' && r.status === 'duplicate')
+      (r) => r.status === 'valid' || (mode === 'overwrite' && r.status === 'duplicate'),
     )
     if (rowsToImport.length === 0) {
       message.warning('没有可导入的行')
@@ -173,7 +308,7 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
     try {
       const result = importBatch(rowsToImport, mode)
       message.success(
-        `导入完成：新增 ${result.imported} 条，覆盖 ${result.overwritten} 条，跳过 ${result.skipped} 条`
+        `导入完成：新增 ${result.imported} 条，覆盖 ${result.overwritten} 条，跳过 ${result.skipped} 条`,
       )
       onSuccess()
       handleClose()
@@ -222,7 +357,7 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
           </Button>
           <Alert
             message={`必填字段（${REQUIRED_FIELDS.length} 列）：${REQUIRED_FIELDS.join('、')}`}
-            description={`订单类型可选：${Object.keys(ORDER_TYPE_VALUE_MAP).join('、')}；包装类型可选：${Object.keys(PACKAGING_VALUE_MAP).join('、')}`}
+            description={`归属按园区名称匹配；类别可选：毛坯 / 加工件；现货/等货可选：现货 / 等货；订单类型可选：${Object.keys(ORDER_TYPE_VALUE_MAP).join('、')}；包装类型可选：${Object.keys(PACKAGING_VALUE_MAP).join('、')}`}
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
@@ -279,10 +414,23 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
             scroll={{ y: 400 }}
             columns={[
               { title: 'Excel 行', dataIndex: 'rowIndex', width: 80 },
-              { title: '条码', dataIndex: ['raw', 'barcode'], width: 130 },
-              { title: '物料编码', dataIndex: ['raw', 'materialCode'], width: 100 },
+              { title: '归属', dataIndex: ['raw', 'yardName'], width: 90 },
+              { title: '物料编码', dataIndex: ['raw', 'materialCode'], width: 110 },
+              { title: '产品名称', dataIndex: ['raw', 'productName'], width: 140, ellipsis: true },
+              {
+                title: '类别',
+                dataIndex: ['raw', 'category'],
+                width: 80,
+                render: (v: MaterialCategory | undefined) => (v ? MATERIAL_CATEGORY_LABEL[v] : '-'),
+              },
               { title: '客户', dataIndex: ['raw', 'customerName'], width: 150, ellipsis: true },
-              { title: '数量', dataIndex: ['raw', 'quantity'], width: 70 },
+              { title: '数量(箱)', dataIndex: ['raw', 'quantity'], width: 90, align: 'right' },
+              {
+                title: '现货/等货',
+                dataIndex: ['raw', 'stockType'],
+                width: 90,
+                render: (v: StockType | undefined) => (v ? STOCK_TYPE_LABEL[v] : '-'),
+              },
               {
                 title: '校验结果',
                 width: 90,
@@ -294,9 +442,9 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
               },
               {
                 title: '错误信息',
-                render: (_, r) => r.errors.length > 0 ? (
+                render: (_, r) => (r.errors.length > 0 ? (
                   <span style={{ color: '#f5222d' }}>{r.errors.join('；')}</span>
-                ) : '-',
+                ) : '-'),
               },
             ]}
           />

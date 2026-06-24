@@ -7,6 +7,8 @@ import { Empty } from './Empty'
 import {
   PACKAGING_LABEL,
   ORDER_TYPE_LABEL,
+  MATERIAL_CATEGORY_LABEL,
+  STOCK_TYPE_LABEL,
 } from '@/types/inventory'
 import type { Inventory } from '@/types/inventory'
 
@@ -55,24 +57,58 @@ export function InventoryPickerModal({ open, excludeIds, onClose, onConfirm }: P
   }, [list, excludeSet, keyword])
 
   const columns: ColumnsType<Inventory> = [
-    { title: '系统单号', dataIndex: 'id', width: 160 },
-    { title: '条码', dataIndex: 'barcode', width: 140 },
-    { title: '物料编码', dataIndex: 'materialCode', width: 110 },
-    { title: '物料名称', dataIndex: 'materialName', width: 150, ellipsis: true },
-    { title: '客户', dataIndex: 'customerName', width: 180, ellipsis: true },
+    { title: '系统单号', dataIndex: 'id', width: 150 },
     {
-      title: '订单类型',
-      dataIndex: 'orderType',
-      width: 100,
-      render: (v: Inventory['orderType']) => ORDER_TYPE_LABEL[v] || v,
+      title: '归属',
+      dataIndex: 'yardName',
+      width: 80,
+      render: (v: string | undefined) => v ? <Tag color="blue">{v}</Tag> : '-',
     },
-    { title: '数量(箱)', dataIndex: 'quantity', width: 90, align: 'right' },
     {
-      title: '包装',
-      dataIndex: 'packaging',
+      title: '类别',
+      dataIndex: 'category',
+      width: 80,
+      render: (v: Inventory['category']) => v ? MATERIAL_CATEGORY_LABEL[v] : '-',
+    },
+    { title: '物料编码', dataIndex: 'materialCode', width: 110 },
+    { title: '产品名称', dataIndex: 'productName', width: 150, ellipsis: true },
+    { title: '客户', dataIndex: 'customerName', width: 160, ellipsis: true },
+    {
+      title: '发货地',
+      dataIndex: 'shippingFrom',
+      width: 80,
+      render: (v: string | undefined) => v || '-',
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
       width: 100,
-      render: (v: Inventory['packaging']) =>
-        v ? <Tag color="blue">{PACKAGING_LABEL[v]}</Tag> : '-',
+      align: 'right',
+      render: (q: number, r: Inventory) => {
+        const per = r.quantityPerBox ?? '-'
+        return (
+          <span>
+            {q} 箱
+            {r.totalQuantity !== undefined && (
+              <span style={{ color: '#999', fontSize: 12 }}> / {r.totalQuantity} 件</span>
+            )}
+          </span>
+        )
+      },
+    },
+    {
+      title: '净重(kg)',
+      dataIndex: 'netWeight',
+      width: 90,
+      align: 'right',
+      render: (v: number | undefined) => v ?? '-',
+    },
+    {
+      title: '现货',
+      dataIndex: 'stockType',
+      width: 80,
+      render: (v: Inventory['stockType']) =>
+        v ? <Tag color={v === 'in_stock_now' ? 'green' : 'orange'}>{STOCK_TYPE_LABEL[v]}</Tag> : '-',
     },
   ]
 

@@ -525,21 +525,40 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
             {
               title: '货物',
               dataIndex: 'goodsName',
-              render: (n: string, g: DispatchGoods) => (
-                <>
-                  <b>{n}</b> × {g.quantity}
-                  {g.unit}
-                  {g.inventoryId && (
-                    <Tag color="blue" style={{ marginLeft: 8 }}>来源 {g.inventoryId}</Tag>
-                  )}
-                </>
-              ),
+              width: 320,
+              render: (n: string, g: DispatchGoods) => {
+                const inv = g.inventoryId ? getById(g.inventoryId) : null
+                return (
+                  <div>
+                    <div>
+                      <b>{n}</b> × {g.quantity}
+                      {g.unit}
+                      {g.inventoryId && (
+                        <Tag color="blue" style={{ marginLeft: 8 }}>来源 {g.inventoryId}</Tag>
+                      )}
+                    </div>
+                    {inv && (
+                      <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
+                        {inv.yardName && <Tag color="cyan" style={{ marginRight: 4 }}>{inv.yardName}</Tag>}
+                        {inv.category && <Tag style={{ marginRight: 4 }}>{inv.category === 'rough' ? '毛坯' : '加工件'}</Tag>}
+                        {inv.totalQuantity !== undefined && (
+                          <span style={{ marginRight: 8 }}>共 {inv.totalQuantity} 件</span>
+                        )}
+                        {inv.drawingNo && <span>图号 {inv.drawingNo}</span>}
+                      </div>
+                    )}
+                  </div>
+                )
+              },
             },
             {
-              title: '重量(kg)',
+              title: '净重(kg)',
               dataIndex: 'weight',
               width: 100,
-              render: (w: number) => w || '-',
+              render: (w: number, g: DispatchGoods) => {
+                const inv = g.inventoryId ? getById(g.inventoryId) : null
+                return inv?.netWeight ?? w ?? '-'
+              },
             },
             { title: '客户', dataIndex: 'customerName', width: 140, ellipsis: true },
             { title: '目的地', dataIndex: 'destination', width: 160, ellipsis: true },

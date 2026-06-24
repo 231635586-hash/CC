@@ -54,10 +54,9 @@ const initialDB: MockDB = {
 
 /**
  * 数据迁移：兼容旧版本 localStorage
- * - 自动补齐新增字段（如 yards、物流公司 vehicleTypes/directions/estimatedHours）
- * - 修复旧 dispatch 数据中 yardName 错位（华翔上海/苏州园区 → 秦壁/甘亭）
- * - 修复旧 dispatch.direction 字面量（east/west/north/south → 城市字符串）
- * - 同步公司名变更（顺达→华东快运 等）
+ * - 自动补齐新增字段
+ * - 修复旧 dispatch 数据
+ * - 同步公司名变更
  * - 按 companyId 兜底重算 vehicles/users/dispatches 的 companyName
  */
 function migrateDB(db: MockDB): MockDB {
@@ -157,7 +156,6 @@ function migrateDB(db: MockDB): MockDB {
   // 8) dispatches 新字段补齐（yardIds/primaryYardId/shippingMethod/truckSize/isCarpool/isUrgent）
   db.dispatches.forEach((d) => {
     const raw = d as unknown as Record<string, unknown>
-    // yardId → yardIds 迁移（老版本单值 yardId 自动转数组）
     if (!Array.isArray(raw.yardIds)) {
       const oldYardId = raw.yardId as string | undefined
       raw.yardIds = oldYardId ? [oldYardId] : []
@@ -229,7 +227,6 @@ export const mockDB = {
   // ----- 调车单 -----
   listDispatches: async (): Promise<Dispatch[]> => {
     const db = readDB()
-    // 出口兜底：保证新字段必有值（yardIds/primaryYardId/shippingMethod/truckSize/isCarpool/isUrgent）
     const dispatches = db.dispatches.map((d) => {
       const raw = d as unknown as Record<string, unknown>
       const yardIds = Array.isArray(raw.yardIds)
@@ -267,7 +264,6 @@ export const mockDB = {
   // ----- 物流公司 -----
   listCompanies: async (): Promise<LogisticsCompany[]> => {
     const db = readDB()
-    // 出口兜底：保证 3 个新业务字段必有值
     const safe = db.companies.map((c) => ({
       ...c,
       vehicleTypes: Array.isArray(c.vehicleTypes) ? c.vehicleTypes : [],
@@ -365,7 +361,6 @@ export const mockDB = {
   // ----- 钉钉群机器人 -----
   listDingtalkBots: async (): Promise<DingtalkBot[]> => {
     const db = readDB()
-    // 出口兜底：按 yardId 实时修正 yardName
     const yardMap = new Map(db.yards.map((y) => [y.id, y.name]))
     const bots = db.dingtalkBots.map((b) => {
       if (b.yardId && yardMap.has(b.yardId) && b.yardName !== yardMap.get(b.yardId)) {
