@@ -10,7 +10,7 @@ import type { Dispatch } from '@/types/dispatch'
 /** 派车调度 - 按方向+时间聚类展示 */
 export function DispatchSchedulePage() {
   const { list, load, save } = useDispatchStore()
-  const { vehicles, loadVehicles, loadCompanies } = useDictStore()
+  const { vehicles, yards, loadVehicles, loadCompanies, loadYards } = useDictStore()
   const [modalOpen, setModalOpen] = useState(false)
   const [active, setActive] = useState<Dispatch | null>(null)
   const [form] = Form.useForm()
@@ -19,7 +19,14 @@ export function DispatchSchedulePage() {
     load()
     loadVehicles()
     loadCompanies()
-  }, [load, loadVehicles, loadCompanies])
+    loadYards()
+  }, [load, loadVehicles, loadCompanies, loadYards])
+
+  /** UI 层兜底：按 yardId 实时查表，避免依赖 yardName 字段 */
+  const renderYardName = (yardId: string, fallback: string) => {
+    const hit = yards.find((y) => y.id === yardId)
+    return hit?.name || fallback || '-'
+  }
 
   // 待派车 = 已确认 + 已派车
   const pending = useMemo(() => list.filter((d) => d.status === 'confirmed'), [list])
@@ -118,7 +125,7 @@ export function DispatchSchedulePage() {
                   pagination={false}
                   columns={[
                     { title: '调车编号', dataIndex: 'dispatchNo', width: 150 },
-                    { title: '园区', dataIndex: 'yardName', width: 140 },
+                    { title: '园区', dataIndex: 'yardId', width: 140, render: (id: string, r: Dispatch) => renderYardName(id, r.yardName) },
                     {
                       title: '货物',
                       dataIndex: 'goods',
@@ -164,7 +171,7 @@ export function DispatchSchedulePage() {
             },
             { title: '车辆', dataIndex: 'vehicleNo', width: 100 },
             { title: '司机', dataIndex: 'driverName', width: 100 },
-            { title: '园区', dataIndex: 'yardName', width: 140 },
+            { title: '园区', dataIndex: 'yardId', width: 140, render: (id: string, r: Dispatch) => renderYardName(id, r.yardName) },
             { title: '派车时间', dataIndex: 'dispatchedAt', width: 160 },
           ]}
         />

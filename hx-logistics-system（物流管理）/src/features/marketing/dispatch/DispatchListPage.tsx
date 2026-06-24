@@ -14,7 +14,7 @@ export function DispatchListPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { list, load, save, remove, loading } = useDispatchStore()
-  const { loadCompanies } = useDictStore()
+  const { loadCompanies, loadYards, yards } = useDictStore()
   const currentUser = useAuthStore((s) => s.currentUser)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editing, setEditing] = useState<Dispatch | null>(null)
@@ -24,7 +24,19 @@ export function DispatchListPage() {
   useEffect(() => {
     load()
     loadCompanies()
-  }, [load, loadCompanies])
+    loadYards()
+  }, [load, loadCompanies, loadYards])
+
+  /**
+   * 渲染园区名称：优先按 yardId 实时查 yards 字典
+   * 这是 UI 层兜底，无论 store 中的 yardName 字段是什么值（即使是旧的"华翔上海/苏州园区"），
+   * 都能通过 yardId 实时匹配当前 yards 字典返回正确名称
+   */
+  const renderYardName = (yardId: string, fallback: string) => {
+    const hit = yards.find((y) => y.id === yardId)
+    if (hit) return hit.name
+    return fallback || '-'
+  }
 
   // 从 URL 参数识别"库存关联"入口
   useEffect(() => {
@@ -141,7 +153,12 @@ export function DispatchListPage() {
             render: (d: string) => DIRECTION_LABEL[d] || d,
           },
           { title: '物流公司', dataIndex: 'companyName', width: 180 },
-          { title: '园区', dataIndex: 'yardName', width: 140 },
+          {
+            title: '园区',
+            dataIndex: 'yardId',
+            width: 140,
+            render: (yardId: string, r) => renderYardName(yardId, r.yardName),
+          },
           {
             title: '货物',
             dataIndex: 'goods',
