@@ -215,6 +215,41 @@ export const mockInventory: Inventory[] = [
     remark: '新样品测试',
   },
 
+  // 2026-06-24 新增 2 条 in_stock（多选测试用）
+  {
+    id: 'INV-20260624-0001',
+    barcode: 'BC202606240001',
+    materialCode: 'MAT-L020',
+    materialName: '钣金外壳',
+    customerId: 'CUS-2026-002',
+    customerName: '深圳精密科技',
+    customerAddress: '广东省深圳市南山区科技园南区高新南一道',
+    orderType: 'normal',
+    netWeightPerPiece: 3.0,
+    weightPerBox: 30,
+    quantity: 55,
+    packaging: 'wooden_box',
+    status: 'in_stock',
+    age: 1,
+    importDate: '2026-06-24T08:00:00.000Z',
+  },
+  {
+    id: 'INV-20260624-0002',
+    barcode: 'BC202606240002',
+    materialCode: 'MAT-M021',
+    materialName: '散热风扇',
+    customerId: 'CUS-2026-003',
+    customerName: '青岛海尔智造',
+    customerAddress: '山东省青岛市崂山区海尔路 1 号',
+    orderType: 'sample',
+    quantity: 200,
+    packaging: 'zhongji_ub108',
+    status: 'in_stock',
+    age: 1,
+    importDate: '2026-06-24T09:00:00.000Z',
+    remark: '新增备选库存',
+  },
+
   // 已锁定（8 条）
   {
     id: 'INV-20260618-0001',

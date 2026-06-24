@@ -15,7 +15,6 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  StopOutlined,
   FileExcelOutlined,
   CarOutlined,
   EyeOutlined,
@@ -38,7 +37,7 @@ import styles from './InventoryListPage.module.css'
 
 export function InventoryListPage() {
   const navigate = useNavigate()
-  const { list, loadList, voidOne, voidBatch } = useInventoryStore()
+  const { list, loadList, removeInventory } = useInventoryStore()
   const { list: customers, loadList: loadCustomers } = useCustomerStore()
   const [searchName, setSearchName] = useState('')
   const [searchMaterial, setSearchMaterial] = useState('')
@@ -96,19 +95,8 @@ export function InventoryListPage() {
   }
 
   const handleDelete = (record: Inventory) => {
-    voidOne(record.id)
-    message.success('已删除（逻辑）')
-  }
-
-  const handleVoid = (record: Inventory) => {
-    voidOne(record.id)
-    message.success('已作废')
-  }
-
-  const handleBatchVoid = () => {
-    voidBatch(selectedRowKeys as string[])
-    message.success(`批量作废 ${selectedRowKeys.length} 条`)
-    setSelectedRowKeys([])
+    removeInventory(record.id)
+    message.success('已删除')
   }
 
   const handleDispatch = (record: Inventory) => {
@@ -156,13 +144,6 @@ export function InventoryListPage() {
       <div className={styles.toolbar}>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>新增</Button>
         <Button icon={<FileExcelOutlined />} onClick={() => setImportDrawerOpen(true)}>批量导入</Button>
-        <Popconfirm
-          title={`确认作废选中的 ${selectedRowKeys.length} 条记录？`}
-          disabled={selectedRowKeys.length === 0}
-          onConfirm={handleBatchVoid}
-        >
-          <Button danger disabled={selectedRowKeys.length === 0}>批量作废</Button>
-        </Popconfirm>
       </div>
 
       {/* 列表 */}
@@ -208,15 +189,12 @@ export function InventoryListPage() {
                   </Button>
                   {isInStock && (
                     <Button type="link" size="small" icon={<CarOutlined />} onClick={() => handleDispatch(record)}>
-                      关联调车单
+                      发起调车
                     </Button>
                   )}
-                  <Popconfirm title="确认作废该库存？" onConfirm={() => handleVoid(record)}>
-                    <Button type="link" size="small" icon={<StopOutlined />} danger>作废</Button>
-                  </Popconfirm>
                   <Popconfirm
                     title="确认删除该库存？删除后不可恢复"
-                    description="建议使用作废代替删除（可追溯）"
+                    description="仅可删除已入库状态的库存"
                     okText="确认删除"
                     cancelText="取消"
                     okButtonProps={{ danger: true }}

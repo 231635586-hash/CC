@@ -41,4 +41,6 @@ export interface DispatchGoods {
   customerName?: string
   destination?: string
   remark?: string
+  /** 来源库存 id（手工添加则为 undefined） */
+  inventoryId?: string
 }

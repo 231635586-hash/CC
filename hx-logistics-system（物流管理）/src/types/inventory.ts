@@ -62,9 +62,9 @@ export const PACKAGING_OPTIONS = (Object.keys(PACKAGING_LABEL) as PackagingType[
   (v) => ({ label: PACKAGING_LABEL[v], value: v })
 )
 
-export const INVENTORY_STATUS_OPTIONS = (Object.keys(INVENTORY_STATUS_LABEL) as InventoryStatus[]).map(
-  (v) => ({ label: INVENTORY_STATUS_LABEL[v], value: v })
-)
+export const INVENTORY_STATUS_OPTIONS = (Object.keys(INVENTORY_STATUS_LABEL) as InventoryStatus[])
+  .filter((s) => s !== 'voided')
+  .map((v) => ({ label: INVENTORY_STATUS_LABEL[v], value: v }))
 
 // Excel 导入行类型（与 Inventory 区别：id/importDate 由系统生成）
 export interface InventoryImportRow {

@@ -18,7 +18,7 @@ export function DispatchListPage() {
   const currentUser = useAuthStore((s) => s.currentUser)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editing, setEditing] = useState<Dispatch | null>(null)
-  const [linkedInventoryId, setLinkedInventoryId] = useState<string | null>(null)
+  const [linkedInventoryIds, setLinkedInventoryIds] = useState<string[] | null>(null)
   const [filters, setFilters] = useState<Record<string, unknown>>({})
 
   useEffect(() => {
@@ -38,11 +38,11 @@ export function DispatchListPage() {
     return fallback || '-'
   }
 
-  // 从 URL 参数识别"库存关联"入口
+  // 从 URL 参数识别"库存关联"入口（支持多 ID：?inventoryId=A&inventoryId=B）
   useEffect(() => {
-    const invId = searchParams.get('inventoryId')
-    if (invId) {
-      setLinkedInventoryId(invId)
+    const ids = searchParams.getAll('inventoryId')
+    if (ids.length) {
+      setLinkedInventoryIds(ids)
       setEditing(null)
       setDrawerOpen(true)
     }
@@ -50,8 +50,8 @@ export function DispatchListPage() {
 
   const handleCloseDrawer = () => {
     setDrawerOpen(false)
-    setLinkedInventoryId(null)
-    if (searchParams.get('inventoryId')) {
+    setLinkedInventoryIds(null)
+    if (searchParams.has('inventoryId')) {
       setSearchParams({})
     }
   }
@@ -243,7 +243,7 @@ export function DispatchListPage() {
       <DispatchFormDrawer
         open={drawerOpen}
         dispatch={editing}
-        linkedInventoryId={linkedInventoryId}
+        linkedInventoryIds={linkedInventoryIds || undefined}
         onClose={handleCloseDrawer}
       />
     </PageContainer>

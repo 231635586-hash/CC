@@ -19,9 +19,17 @@ interface InventoryState {
   create: (data: Omit<Inventory, 'id' | 'importDate'>) => Inventory
   update: (id: string, patch: Partial<Inventory>) => void
 
-  voidOne: (id: string) => void
-  voidBatch: (ids: string[]) => void
-  lock: (id: string) => void
+  /** 物理删除（仅 in_stock 可删），替代作废 */
+  removeInventory: (id: string) => void
+
+  /** 锁定（in_stock → locked），支持单 ID 或多 ID；已锁的会静默跳过 */
+  lock: (input: string | string[]) => void
+  /** 多 ID 锁定（显式入口） */
+  lockMany: (ids: string[]) => void
+  /** 解锁（locked → in_stock），用于 Drawer 取消回滚 */
+  unlock: (input: string | string[]) => void
+
+  /** 标记已发货（locked → shipped），保留供未来联动 */
   markShipped: (id: string) => void
 
   importBatch: (rows: ValidatedRow[], onConflict: 'overwrite' | 'skip') => {
@@ -77,27 +85,35 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     })
   },
 
-  voidOne: (id) => {
-    set({
-      list: get().list.map((i) =>
-        i.id === id && i.status !== 'shipped' ? { ...i, status: 'voided' } : i
-      ),
-    })
+  removeInventory: (id) => {
+    set({ list: get().list.filter((i) => !(i.id === id && i.status === 'in_stock')) })
   },
 
-  voidBatch: (ids) => {
+  lock: (input) => {
+    const ids = Array.isArray(input) ? input : [input]
     const idSet = new Set(ids)
     set({
       list: get().list.map((i) =>
-        idSet.has(i.id) && i.status !== 'shipped' ? { ...i, status: 'voided' } : i
+        idSet.has(i.id) && i.status === 'in_stock' ? { ...i, status: 'locked' } : i
       ),
     })
   },
 
-  lock: (id) => {
+  lockMany: (ids) => {
+    const idSet = new Set(ids)
     set({
       list: get().list.map((i) =>
-        i.id === id && i.status === 'in_stock' ? { ...i, status: 'locked' } : i
+        idSet.has(i.id) && i.status === 'in_stock' ? { ...i, status: 'locked' } : i
+      ),
+    })
+  },
+
+  unlock: (input) => {
+    const ids = Array.isArray(input) ? input : [input]
+    const idSet = new Set(ids)
+    set({
+      list: get().list.map((i) =>
+        idSet.has(i.id) && i.status === 'locked' ? { ...i, status: 'in_stock' } : i
       ),
     })
   },

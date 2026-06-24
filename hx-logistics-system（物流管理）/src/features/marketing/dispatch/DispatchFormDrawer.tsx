@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Drawer,
   Form,
@@ -13,12 +13,14 @@ import {
   Card,
   Row,
   Col,
+  Tag,
   message,
   Alert,
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, LinkOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useDispatchStore, useDictStore, useAuthStore, useInventoryStore } from '@/stores'
+import { InventoryPickerModal } from '@/components'
 import { genId, genDispatchNo, parseCities, formatCities } from '@/utils'
 import type { Dispatch, DispatchGoods } from '@/types/dispatch'
 import { ORDER_TYPE_LABEL } from '@/types/inventory'
@@ -26,21 +28,23 @@ import { ORDER_TYPE_LABEL } from '@/types/inventory'
 interface Props {
   open: boolean
   dispatch?: Dispatch | null
-  /** 从库存关联跳转时传入，自动锁定该库存并预填货物信息 */
-  linkedInventoryId?: string | null
+  /** 从库存发起调车时传入，自动锁定所有库存并预填货物信息 */
+  linkedInventoryIds?: string[]
   onClose: () => void
 }
 
 /** 调车单新建/编辑表单（支持拼车+多园区） */
-export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose }: Props) {
+export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose }: Props) {
   const [form] = Form.useForm()
   const [goodsForm] = Form.useForm()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const lockedIdsRef = useRef<Set<string>>(new Set())
   const save = useDispatchStore((s) => s.save)
   const companies = useDictStore((s) => s.companies)
   const yards = useDictStore((s) => s.yards)
   const loadYards = useDictStore((s) => s.loadYards)
   const currentUser = useAuthStore((s) => s.currentUser)
-  const { getById, lock } = useInventoryStore()
+  const { getById, lockMany, unlock } = useInventoryStore()
 
   // 监听 direction 字段，联动筛选物流公司
   const directionValue = Form.useWatch('direction', form)
@@ -58,45 +62,85 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
   }, [loadYards])
 
   useEffect(() => {
-    if (open) {
-      if (dispatch) {
-        form.setFieldsValue({
-          ...dispatch,
-          expectedLoadTime: dispatch.expectedLoadTime ? dayjs(dispatch.expectedLoadTime) : null,
-        })
-      } else {
-        form.resetFields()
-        form.setFieldsValue({
-          dispatchNo: genDispatchNo(),
-          status: 'pending_confirm',
-        })
-        // 从库存关联进入：自动锁定库存
-        if (linkedInventoryId) {
-          const inv = getById(linkedInventoryId)
-          if (inv) {
-            lock(linkedInventoryId)
-            // 预填货物信息（仅参考，可改）
-            const existing = useDispatchStore.getState().list.find((d) => d.id === 'temp')
-            form.setFieldValue('_pendingGoods', [
-              ...(form.getFieldValue('_pendingGoods') || []),
-              {
-                id: genId('goods'),
-                dispatchId: 'temp',
-                goodsName: inv.materialName,
-                quantity: inv.quantity,
-                unit: '箱',
-                weight: inv.weightPerBox,
-                customerName: inv.customerName,
-                destination: inv.customerAddress,
-                remark: `从库存 ${inv.id} 关联，订单类型：${ORDER_TYPE_LABEL[inv.orderType]}`,
-              },
-            ])
-            message.success(`已自动锁定库存 ${inv.id}`)
-          }
-        }
+    if (!open) return
+    loadYards()
+    form.resetFields()
+    if (dispatch) {
+      // 编辑模式：仅回填表单，不锁库存
+      form.setFieldsValue({
+        ...dispatch,
+        expectedLoadTime: dispatch.expectedLoadTime ? dayjs(dispatch.expectedLoadTime) : null,
+      })
+    } else {
+      form.setFieldsValue({
+        dispatchNo: genDispatchNo(),
+        status: 'pending_confirm',
+      })
+      // 从库存发起调车：锁定所有库存 + 预填货物
+      if (linkedInventoryIds?.length) {
+        lockMany(linkedInventoryIds)
+        lockedIdsRef.current = new Set(linkedInventoryIds)
+        const initial: DispatchGoods[] = linkedInventoryIds
+          .map(getById)
+          .filter((inv): inv is NonNullable<ReturnType<typeof getById>> => Boolean(inv))
+          .map((inv) => ({
+            id: genId('goods'),
+            dispatchId: 'temp',
+            goodsName: inv.materialName,
+            quantity: inv.quantity,
+            unit: '箱',
+            weight: inv.weightPerBox,
+            customerName: inv.customerName,
+            destination: inv.customerAddress,
+            inventoryId: inv.id,
+            remark: `从库存 ${inv.id} 关联，订单类型：${ORDER_TYPE_LABEL[inv.orderType]}`,
+          }))
+        form.setFieldValue('_pendingGoods', initial)
+        message.success(`已锁定 ${linkedInventoryIds.length} 条库存`)
       }
     }
-  }, [open, dispatch, linkedInventoryId, form, getById, lock])
+  }, [open, dispatch, linkedInventoryIds, form, getById, lockMany, loadYards])
+
+  /** 从库存选择 Modal 确认回调 */
+  const handlePickerConfirm = (selectedIds: string[]) => {
+    if (selectedIds.length === 0) {
+      setPickerOpen(false)
+      return
+    }
+    lockMany(selectedIds)
+    selectedIds.forEach((id) => lockedIdsRef.current.add(id))
+    const newOnes: DispatchGoods[] = selectedIds
+      .map(getById)
+      .filter((inv): inv is NonNullable<ReturnType<typeof getById>> => Boolean(inv))
+      .map((inv) => ({
+        id: genId('goods'),
+        dispatchId: 'temp',
+        goodsName: inv.materialName,
+        quantity: inv.quantity,
+        unit: '箱',
+        weight: inv.weightPerBox,
+        customerName: inv.customerName,
+        destination: inv.customerAddress,
+        inventoryId: inv.id,
+        remark: `从库存 ${inv.id} 关联，订单类型：${ORDER_TYPE_LABEL[inv.orderType]}`,
+      }))
+    form.setFieldValue('_pendingGoods', [
+      ...(form.getFieldValue('_pendingGoods') || []),
+      ...newOnes,
+    ])
+    setPickerOpen(false)
+    message.success(`已新增 ${selectedIds.length} 条货物`)
+  }
+
+  /** 取消 Drawer：解锁本次会话中所有未保存的库存 */
+  const handleCancel = () => {
+    if (lockedIdsRef.current.size) {
+      unlock(Array.from(lockedIdsRef.current))
+      lockedIdsRef.current.clear()
+    }
+    form.setFieldValue('_pendingGoods', [])
+    onClose()
+  }
 
   const handleSubmit = async () => {
     try {
@@ -122,8 +166,13 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
         ...(existing || {}),
       } as Dispatch
       // 重新设置，因为 spread 会覆盖
-      newDispatch.goods = existing?.goods || []
+      // 修复 bug：合并 _pendingGoods（关联库存预填的货物）进新 dispatch
+      const pending = form.getFieldValue('_pendingGoods') || []
+      newDispatch.goods = [...(existing?.goods || []), ...pending]
       await save(newDispatch)
+      // 保存成功：保留锁定状态，清空临时
+      form.setFieldValue('_pendingGoods', [])
+      lockedIdsRef.current.clear()
       message.success(dispatch ? '编辑成功' : '创建成功')
       onClose()
     } catch (err) {
@@ -167,6 +216,13 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
   const handleRemoveGoods = async (gid: string) => {
     const dispatchId = dispatch?.id || 'temp'
     const current = useDispatchStore.getState().list.find((d) => d.id === dispatchId)
+    // 找到被删除的货物：来自库存 + 本次会话已锁 → 解锁
+    const allGoods = current?.goods || form.getFieldValue('_pendingGoods') || []
+    const removed = allGoods.find((g: DispatchGoods) => g.id === gid)
+    if (removed?.inventoryId && lockedIdsRef.current.has(removed.inventoryId)) {
+      unlock([removed.inventoryId])
+      lockedIdsRef.current.delete(removed.inventoryId)
+    }
     if (current) {
       await save({ ...current, goods: current.goods.filter((g) => g.id !== gid) })
     } else {
@@ -182,18 +238,31 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
     form.getFieldValue('_pendingGoods') ||
     []
 
-  // 关联库存的提示信息
-  const linkedInventory = linkedInventoryId ? getById(linkedInventoryId) : null
+  // 关联库存的提示信息（仅主库存中第一个）
+  const linkedInventory = linkedInventoryIds?.[0] ? getById(linkedInventoryIds[0]) : null
+
+  // 当前 Drawer 中已占用的库存 id（用于 InventoryPickerModal 排除已选项）
+  const excludedInventoryIds: string[] = [
+    ...(linkedInventoryIds || []),
+    ...(form.getFieldValue('_pendingGoods') || [])
+      .map((g: DispatchGoods) => g.inventoryId)
+      .filter(Boolean) as string[],
+  ]
 
   return (
     <Drawer
       title={dispatch ? `编辑调车单 - ${dispatch.dispatchNo}` : '新建调车单'}
       open={open}
-      onClose={onClose}
+      onClose={handleCancel}
       width={720}
       extra={
         <Space>
-          <Button onClick={onClose}>取消</Button>
+          {!dispatch && (
+            <Button icon={<PlusOutlined />} onClick={() => setPickerOpen(true)}>
+              选择额外库存
+            </Button>
+          )}
+          <Button onClick={handleCancel}>取消</Button>
           <Button type="primary" onClick={handleSubmit}>
             保存
           </Button>
@@ -203,8 +272,12 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
       {linkedInventory && (
         <Alert
           icon={<LinkOutlined />}
-          message={`已从库存 ${linkedInventory.id} 关联`}
-          description={`货物信息已预填，该库存已自动锁定为「已锁定」状态。请补充物流公司、园区、装货时间等信息后保存。`}
+          message={
+            linkedInventoryIds && linkedInventoryIds.length > 1
+              ? `已从 ${linkedInventoryIds.length} 条库存发起`
+              : `已从库存 ${linkedInventory.id} 关联`
+          }
+          description="货物信息已预填，对应库存已自动锁定为「已锁定」状态。可点击【选择额外库存】继续添加。请补充物流公司、园区、装货时间等信息后保存。"
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
@@ -343,6 +416,9 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
               <Col span={6}>
                 <b>{g.goodsName}</b> × {g.quantity}
                 {g.unit}
+                {g.inventoryId && (
+                  <Tag color="blue" style={{ marginLeft: 8 }}>来源 {g.inventoryId}</Tag>
+                )}
               </Col>
               <Col span={6}>重量：{g.weight || '-'} kg</Col>
               <Col span={6}>客户：{g.customerName || '-'}</Col>
@@ -351,6 +427,13 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryId, onClose 
           </Card>
         ))
       )}
+
+      <InventoryPickerModal
+        open={pickerOpen}
+        excludeIds={excludedInventoryIds}
+        onClose={() => setPickerOpen(false)}
+        onConfirm={handlePickerConfirm}
+      />
     </Drawer>
   )
 }
