@@ -261,6 +261,17 @@ export const mockUsers: User[] = [
     status: 'enabled',
     createdAt: '2026-01-08 09:00:00',
   },
+  {
+    // 客户档案添加人（CRM 业务员）
+    id: 'mock-user-005',
+    username: 'crm01',
+    realName: '李欣',
+    phone: '13600136004',
+    roleId: 'mock-role-002',
+    roleName: '营销业务员',
+    status: 'enabled',
+    createdAt: '2026-01-05 09:00:00',
+  },
 ]
 
 // ============== 角色 ==============

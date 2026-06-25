@@ -12,6 +12,12 @@ export interface Customer {
   status: CustomerStatus
   remark?: string
   createdAt: string           // ISO 日期
+
+  // ===== 添加人（CRM 业务员）=====
+  /** 添加人用户 id（关联 users.id） */
+  creatorId?: string
+  /** 添加人姓名（与 users.realName 对应；自动取当前登录用户） */
+  creatorName?: string
 }
 
 export const CUSTOMER_STATUS_LABEL: Record<CustomerStatus, string> = {

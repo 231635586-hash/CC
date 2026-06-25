@@ -199,7 +199,12 @@ export function CustomerImportDrawer({ open, onClose, onSuccess }: Props) {
           </Button>
           <Alert
             message={`必填字段（${REQUIRED_FIELDS.length} 列）：${REQUIRED_FIELDS.join('、')}`}
-            description={`状态可选：${Object.keys(STATUS_VALUE_MAP).join('、')}（默认启用）；系统当前共 ${list.length} 个客户。`}
+            description={
+              <>
+                状态可选：{Object.keys(STATUS_VALUE_MAP).join('、')}（默认启用）；系统当前共 {list.length} 个客户；
+                <b>添加人</b>由系统自动取当前登录用户，无需在 Excel 中填写。
+              </>
+            }
             type="info"
             showIcon
             style={{ marginBottom: 16 }}

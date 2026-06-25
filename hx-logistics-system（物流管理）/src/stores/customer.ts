@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import type { Customer, CustomerStatus } from '@/types/customer'
 import { mockCustomers } from '@/mock/customer'
+import { useAuthStore } from './auth'
 
-/** 客户导入单行（不带 id/createdAt） */
+/** 客户导入单行（不带 id/createdAt/添加人） */
 export interface CustomerImportRow {
   name: string
   address: string
@@ -30,6 +31,8 @@ interface CustomerState {
   create: (data: Omit<Customer, 'id' | 'createdAt'>) => Customer
   update: (id: string, patch: Partial<Omit<Customer, 'id' | 'createdAt'>>) => void
   toggleStatus: (id: string) => void
+  /** 软删（status → inactive），保留记录以便审计 */
+  remove: (id: string) => void
 
   /**
    * 批量导入客户
@@ -38,6 +41,15 @@ interface CustomerState {
    * @returns 导入统计
    */
   importBatch: (rows: CustomerImportRow[], mode: 'overwrite' | 'skip') => ImportResult
+}
+
+/** 当前登录用户（添加人）；无登录态时降级为「未知用户」 */
+function getCurrentCreator(): { creatorId: string; creatorName: string } {
+  const u = useAuthStore.getState().currentUser
+  return {
+    creatorId: u?.id || 'unknown',
+    creatorName: u?.realName || '未知用户',
+  }
 }
 
 let customerCounter = 8  // mock 已用 1-8
@@ -54,7 +66,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
   loadList: async () => {
     set({ loading: true })
     await new Promise((r) => setTimeout(r, 100))
-    set({ list: mockCustomers, loading: false })
+    // 兜底：历史客户（无添加人字段）统一回填为 mock-user-005 李欣
+    const safe = mockCustomers.map((c) =>
+      c.creatorName
+        ? c
+        : { ...c, creatorId: 'mock-user-005', creatorName: '李欣' },
+    )
+    set({ list: safe, loading: false })
   },
 
   search: (keyword) => {
@@ -72,10 +90,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
   getByName: (name) => get().list.find((c) => c.name === name.trim()),
 
   create: (data) => {
+    const creator = getCurrentCreator()
     const customer: Customer = {
       ...data,
       id: genCustomerId(),
       createdAt: new Date().toISOString(),
+      creatorId: data.creatorId || creator.creatorId,
+      creatorName: data.creatorName || creator.creatorName,
     }
     set({ list: [customer, ...get().list] })
     return customer
@@ -97,16 +118,27 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
     })
   },
 
+  /** 软删：active → inactive（保留记录，便于审计与恢复） */
+  remove: (id) => {
+    set({
+      list: get().list.map((c) =>
+        c.id === id && c.status === 'active' ? { ...c, status: 'inactive' } : c,
+      ),
+    })
+  },
+
   importBatch: (rows, mode) => {
     let imported = 0
     let overwritten = 0
     let skipped = 0
     const next = [...get().list]
+    const creator = getCurrentCreator()
 
     rows.forEach((row) => {
       const idx = next.findIndex((c) => c.name === row.name.trim())
       if (idx >= 0) {
         if (mode === 'overwrite') {
+          // 覆盖模式：不修改添加人（保持原录入人）
           next[idx] = {
             ...next[idx],
             address: row.address,
@@ -120,6 +152,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
           skipped += 1
         }
       } else {
+        // 新增行：自动填入当前登录用户为添加人
         next.unshift({
           id: genCustomerId(),
           name: row.name.trim(),
@@ -129,6 +162,8 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
           status: row.status ?? 'active',
           remark: row.remark,
           createdAt: new Date().toISOString(),
+          creatorId: creator.creatorId,
+          creatorName: creator.creatorName,
         })
         imported += 1
       }

@@ -10,6 +10,8 @@ export const mockCustomers: Customer[] = [
     status: 'active',
     remark: '重点客户，月单量大',
     createdAt: '2026-01-15T08:30:00.000Z',
+    creatorId: 'mock-user-005',
+    creatorName: '李欣',
   },
   {
     id: 'CUS-2026-002',
@@ -19,6 +21,8 @@ export const mockCustomers: Customer[] = [
     phone: '13687654321',
     status: 'active',
     createdAt: '2026-02-20T10:15:00.000Z',
+    creatorId: 'mock-user-005',
+    creatorName: '李欣',
   },
   {
     id: 'CUS-2026-003',
@@ -28,6 +32,8 @@ export const mockCustomers: Customer[] = [
     phone: '13511223344',
     status: 'active',
     createdAt: '2026-03-05T14:00:00.000Z',
+    creatorId: 'mock-user-005',
+    creatorName: '李欣',
   },
   {
     id: 'CUS-2026-004',
@@ -37,6 +43,8 @@ export const mockCustomers: Customer[] = [
     phone: '13455667788',
     status: 'active',
     createdAt: '2026-03-18T09:45:00.000Z',
+    creatorId: 'mock-user-005',
+    creatorName: '李欣',
   },
   {
     id: 'CUS-2026-005',
@@ -46,6 +54,8 @@ export const mockCustomers: Customer[] = [
     phone: '13799887766',
     status: 'active',
     createdAt: '2026-04-10T11:20:00.000Z',
+    creatorId: 'mock-user-005',
+    creatorName: '李欣',
   },
   {
     id: 'CUS-2026-006',
@@ -55,6 +65,8 @@ export const mockCustomers: Customer[] = [
     phone: '13566778899',
     status: 'active',
     createdAt: '2026-05-02T13:30:00.000Z',
+    creatorId: 'mock-user-005',
+    creatorName: '李欣',
   },
   {
     id: 'CUS-2026-007',
@@ -65,6 +77,8 @@ export const mockCustomers: Customer[] = [
     status: 'inactive',
     remark: '已停用，保留历史',
     createdAt: '2025-12-01T08:00:00.000Z',
+    creatorId: 'mock-user-005',
+    creatorName: '李欣',
   },
   {
     id: 'CUS-2026-008',
@@ -72,5 +86,7 @@ export const mockCustomers: Customer[] = [
     address: '北京市朝阳区建国路 88 号',
     status: 'inactive',
     createdAt: '2025-11-15T10:30:00.000Z',
+    creatorId: 'mock-user-005',
+    creatorName: '李欣',
   },
 ]

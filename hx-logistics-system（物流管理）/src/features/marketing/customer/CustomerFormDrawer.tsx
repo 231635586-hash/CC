@@ -1,6 +1,15 @@
 import { useEffect } from 'react'
-import { Form, Input, Select, Drawer, Button, Space, message } from 'antd'
-import { useCustomerStore } from '@/stores'
+import {
+  Form,
+  Input,
+  Select,
+  Modal,
+  Button,
+  Row,
+  Col,
+  message,
+} from 'antd'
+import { useCustomerStore, useAuthStore } from '@/stores'
 import { CUSTOMER_STATUS_OPTIONS } from '@/types/customer'
 import type { Customer } from '@/types/customer'
 import styles from './CustomerFormDrawer.module.css'
@@ -11,9 +20,11 @@ interface Props {
   onClose: () => void
 }
 
+/** 客户档案新增/编辑（对齐库存管理：居中 Modal + 必填红星 + 添加人只读） */
 export function CustomerFormDrawer({ open, customer, onClose }: Props) {
   const [form] = Form.useForm()
   const { create, update } = useCustomerStore()
+  const currentUser = useAuthStore((s) => s.currentUser)
   const isEdit = !!customer
 
   useEffect(() => {
@@ -22,19 +33,31 @@ export function CustomerFormDrawer({ open, customer, onClose }: Props) {
         form.setFieldsValue(customer)
       } else {
         form.resetFields()
-        form.setFieldsValue({ status: 'active' })
+        // 新增时自动带入当前登录用户为添加人（系统自动记录，不可改）
+        form.setFieldsValue({
+          status: 'active',
+          creatorId: currentUser?.id || '',
+          creatorName: currentUser?.realName || '',
+        })
       }
     }
-  }, [open, customer, form])
+  }, [open, customer, form, currentUser])
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
+      // 编辑已有客户时保留原添加人（不变更录入人）
+      const payload = {
+        ...values,
+        creatorId: customer?.creatorId || values.creatorId || currentUser?.id || '',
+        creatorName:
+          customer?.creatorName || values.creatorName || currentUser?.realName || '',
+      }
       if (isEdit && customer) {
-        update(customer.id, values)
+        update(customer.id, payload)
         message.success('更新成功')
       } else {
-        create(values)
+        create(payload)
         message.success('创建成功')
       }
       onClose()
@@ -44,43 +67,107 @@ export function CustomerFormDrawer({ open, customer, onClose }: Props) {
   }
 
   return (
-    <Drawer
+    <Modal
       title={isEdit ? '编辑客户' : '新增客户'}
       open={open}
-      onClose={onClose}
-      width={520}
-      extra={
-        <Space>
-          <Button onClick={onClose}>取消</Button>
-          <Button type="primary" onClick={handleSubmit}>保存</Button>
-        </Space>
-      }
+      onCancel={onClose}
+      width={720}
+      centered
+      destroyOnClose
+      footer={[
+        <Button key="cancel" onClick={onClose}>取消</Button>,
+        <Button key="submit" type="primary" onClick={handleSubmit}>确定</Button>,
+      ]}
     >
-      <Form form={form} layout="vertical" className={styles.form} requiredMark={false}>
-        {isEdit && (
-          <Form.Item label="客户编码">
-            <Input value={customer?.id} disabled />
+      <Form form={form} layout="vertical" className={styles.form}>
+        {/* 必填字段说明 */}
+        <div style={{ marginBottom: 12, color: '#999', fontSize: 12 }}>
+          标注 <span style={{ color: '#ff4d4f' }}>*</span> 为必填字段
+        </div>
+
+        {/* 基础信息（4 列） */}
+        <div className={styles.formGroup}>
+          <div className={styles.groupTitle}>基础信息</div>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="name"
+                label="客户名称"
+                rules={[{ required: true, message: '请输入客户名称' }, { max: 100 }]}
+              >
+                <Input placeholder="请输入客户名称" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="status"
+                label="状态"
+                rules={[{ required: true, message: '请选择状态' }]}
+              >
+                <Select options={CUSTOMER_STATUS_OPTIONS} placeholder="启用 / 停用" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                name="address"
+                label="客户地址"
+                rules={[{ required: true, message: '请输入客户地址' }, { max: 200 }]}
+              >
+                <Input.TextArea rows={2} placeholder="请输入客户地址" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </div>
+
+        {/* 联系信息（4 列） */}
+        <div className={styles.formGroup}>
+          <div className={styles.groupTitle}>联系信息</div>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="contact" label="联系人" rules={[{ max: 50 }]}>
+                <Input placeholder="选填" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="phone"
+                label="联系电话"
+                rules={[{ max: 20 }, { pattern: /^[\d\-+\s()]*$/, message: '电话号码格式不正确' }]}
+              >
+                <Input placeholder="选填" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </div>
+
+        {/* 其他信息（4 列） */}
+        <div className={styles.formGroup}>
+          <div className={styles.groupTitle}>其他信息</div>
+          <Row gutter={16}>
+            <Col span={18}>
+              <Form.Item name="remark" label="备注" rules={[{ max: 200 }]}>
+                <Input.TextArea rows={2} placeholder="选填" />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              {/* 添加人只读展示：新增时由系统自动带入当前登录用户，编辑时保留原录入人 */}
+              <Form.Item name="creatorName" label="添加人">
+                <Input
+                  placeholder={currentUser?.realName || '当前登录用户'}
+                  disabled
+                  prefix={<span style={{ color: '#999' }}>系统</span>}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          {/* creatorId 字段（hidden），仅随表单提交，不展示 */}
+          <Form.Item name="creatorId" hidden>
+            <Input />
           </Form.Item>
-        )}
-        <Form.Item name="name" label="客户名称" rules={[{ required: true, message: '请输入客户名称' }]}>
-          <Input placeholder="请输入客户名称" />
-        </Form.Item>
-        <Form.Item name="address" label="客户地址" rules={[{ required: true, message: '请输入客户地址' }]}>
-          <Input.TextArea rows={2} placeholder="请输入客户地址" />
-        </Form.Item>
-        <Form.Item name="contact" label="联系人">
-          <Input placeholder="选填" />
-        </Form.Item>
-        <Form.Item name="phone" label="联系电话">
-          <Input placeholder="选填" />
-        </Form.Item>
-        <Form.Item name="status" label="状态" rules={[{ required: true }]}>
-          <Select options={CUSTOMER_STATUS_OPTIONS} />
-        </Form.Item>
-        <Form.Item name="remark" label="备注">
-          <Input.TextArea rows={3} placeholder="选填" />
-        </Form.Item>
+        </div>
       </Form>
-    </Drawer>
+    </Modal>
   )
 }
