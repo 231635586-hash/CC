@@ -1,0 +1,16 @@
+# ── 各子项目独立管理（在子目录内有自己的 .git） ──
+# 档案系统（hx-dangan）→ https://github.com/231635586-hash/hx-dangan
+hx-archive-system*/
+# 物流系统（hx-logistics-system）→ https://github.com/231635586-hash/hx-logistics-system
+hx-logistics-system*/
+# 报工系统（mes-workorder）→ 独立仓库
+mes-workorder/
+# 技能资源（个人）
+skills（个人）/
+
+# ── 系统级 ──
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
