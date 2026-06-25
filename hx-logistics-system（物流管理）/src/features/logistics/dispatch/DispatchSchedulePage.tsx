@@ -45,7 +45,7 @@ function getStage(d: Dispatch): ScheduleStage {
 /** 派车调度看板 */
 export function DispatchSchedulePage() {
   const { list, load, save } = useDispatchStore()
-  const { vehicles, yards, loadVehicles, loadCompanies, loadYards } = useDictStore()
+  const { vehicles, drivers, yards, loadVehicles, loadDrivers, loadCompanies, loadYards } = useDictStore()
   const companies = useDictStore((s) => s.companies)
   const [modalOpen, setModalOpen] = useState(false)
   const [active, setActive] = useState<Dispatch | null>(null)
@@ -65,9 +65,10 @@ export function DispatchSchedulePage() {
   useEffect(() => {
     load()
     loadVehicles()
+    loadDrivers()
     loadCompanies()
     loadYards()
-  }, [load, loadVehicles, loadCompanies, loadYards])
+  }, [load, loadVehicles, loadDrivers, loadCompanies, loadYards])
 
   // —— WS 事件订阅（沉默开关） ——
   // 当前不展示任何 UI 反馈（5s 定时器 / 刷新状态均已移除），
@@ -142,13 +143,15 @@ export function DispatchSchedulePage() {
     try {
       const values = await form.validateFields()
       const vehicle = vehicles.find((v) => v.id === values.vehicleId)
+      const driver = drivers.find((d) => d.id === values.driverId)
       await save({
         ...active,
         status: 'dispatched' as DispatchStatus,
         vehicleId: vehicle?.id,
         vehicleNo: vehicle?.plateNo,
-        dispatcherId: values.dispatcherId,
-        dispatcherName: values.dispatcherId,
+        driverId: driver?.id,
+        driverName: driver?.name,
+        dispatcherName: values.dispatcherName,
         dispatchedAt: nowIsoString(),
       })
       message.success('派车成功')
@@ -424,8 +427,7 @@ export function DispatchSchedulePage() {
             <Form form={form} layout="vertical">
               <Form.Item name="vehicleId" label="选择车辆" rules={[{ required: true, message: '请选择车辆' }]}>
                 <Select
-                  placeholder="暂无车辆数据（Mock 阶段）"
-                  disabled
+                  placeholder="请选择车辆"
                   showSearch
                   optionFilterProp="label"
                   options={vehicles
@@ -435,14 +437,15 @@ export function DispatchSchedulePage() {
               </Form.Item>
               <Form.Item name="driverId" label="选择司机" rules={[{ required: true, message: '请选择司机' }]}>
                 <Select
-                  placeholder="暂无司机数据（Mock 阶段）"
-                  disabled
+                  placeholder="请选择司机"
                   showSearch
                   optionFilterProp="label"
-                  options={[] as { value: string; label: string }[]}
+                  options={drivers
+                    .filter((d) => d.status === 'enabled' && (!active.companyId || d.companyId === active.companyId))
+                    .map((d) => ({ value: d.id, label: `${d.name}（${d.phone}）` }))}
                 />
               </Form.Item>
-              <Form.Item name="dispatcherId" label="调车员（备注）">
+              <Form.Item name="dispatcherName" label="调车员（备注）">
                 <Select
                   placeholder="可选"
                   allowClear
