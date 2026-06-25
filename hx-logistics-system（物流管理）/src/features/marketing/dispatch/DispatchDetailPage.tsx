@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Descriptions, Card, Tag, Timeline, Button, Table, Row, Col, Empty } from 'antd'
+import { Descriptions, Card, Tag, Timeline, Button, Table, Row, Col, Empty, Tooltip } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { PageContainer } from '@/components'
 import { useDispatchStore, useDictStore } from '@/stores'
@@ -97,6 +97,21 @@ export function DispatchDetailPage() {
                 { title: '单位', dataIndex: 'unit', width: 60 },
                 { title: '重量(kg)', dataIndex: 'weight', width: 100 },
                 { title: '客户', dataIndex: 'customerName' },
+                {
+                  // 与「创建人」明确区分：本列显示货物来源库存的录入业务员
+                  title: '库存业务员',
+                  dataIndex: 'salesPersonName',
+                  width: 110,
+                  render: (v: string | undefined, g: { inventoryId?: string }) => {
+                    if (!v) return <span style={{ color: '#ccc' }}>-</span>
+                    const fromInventory = !!g.inventoryId
+                    return (
+                      <Tooltip title={fromInventory ? `来自库存 ${g.inventoryId}` : '手工录入（取当前用户）'}>
+                        <Tag color={fromInventory ? 'blue' : 'default'}>{v}</Tag>
+                      </Tooltip>
+                    )
+                  },
+                },
                 { title: '目的地', dataIndex: 'destination' },
                 { title: '备注', dataIndex: 'remark' },
               ]}

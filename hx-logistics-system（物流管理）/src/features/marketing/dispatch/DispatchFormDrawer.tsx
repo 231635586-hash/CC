@@ -17,6 +17,7 @@ import {
   Checkbox,
   message,
   Alert,
+  Tooltip,
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, LinkOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { useDispatchStore, useDictStore, useAuthStore, useInventoryStore } from '@/stores'
@@ -567,6 +568,21 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
               },
             },
             { title: '客户', dataIndex: 'customerName', width: 140, ellipsis: true },
+            {
+              // 与「创建人」明确区分：本列显示该货物来源库存的录入业务员
+              title: '库存业务员',
+              dataIndex: 'salesPersonName',
+              width: 110,
+              render: (v: string | undefined, g: DispatchGoods) => {
+                if (!v) return <span style={{ color: '#ccc' }}>-</span>
+                const fromInventory = !!g.inventoryId
+                return (
+                  <Tooltip title={fromInventory ? `来自库存 ${g.inventoryId}` : '手工录入（取当前用户）'}>
+                    <Tag color={fromInventory ? 'blue' : 'default'}>{v}</Tag>
+                  </Tooltip>
+                )
+              },
+            },
             { title: '目的地', dataIndex: 'destination', width: 160, ellipsis: true },
             {
               title: '操作',
