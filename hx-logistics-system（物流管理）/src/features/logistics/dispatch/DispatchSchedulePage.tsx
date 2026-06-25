@@ -2,18 +2,23 @@
  * 派车调度看板
  *
  * M1 增强（2026-06-25）：
- * - 3 个 Tab：待派车 / 运输中 / 已完成（+ "全部"）
+ * - 4 个 Tab：全部 / 待派车 / 运输中 / 已完成
  * - 顶部筛选：关键词 / 方向 / 公司 / 园区
  * - 分页：默认 10 条，可切换 10 / 30 / 50 / 100
- * - 实时刷新：本地 5s 定时 + WS 订阅接口（桩实现）
+ * - 详情入口：所有 Tab 行尾【详情】按钮跳转 /marketing/dispatch/:id
+ * - 实时刷新：WS 订阅接口（桩实现，UI 暂不展示；PRD 待补）
+ *
+ * 注：之前曾启用本地 5s 定时刷新 + UI 状态反馈，2026-06-25 按用户反馈撤回。
+ *     WS 事件订阅代码保留，作为未来对接真实后端的"沉默开关"。
  */
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Row, Col, Card, Table, Tag, Button, Space, Modal, Form, Select, message,
-  Statistic, Empty, Tooltip, Tabs, Input, Segmented,
+  Statistic, Empty, Tabs, Input,
 } from 'antd'
 import {
-  TruckOutlined, ClockCircleOutlined, CheckCircleOutlined, EnvironmentOutlined, ReloadOutlined, SearchOutlined,
+  TruckOutlined, ClockCircleOutlined, CheckCircleOutlined, EnvironmentOutlined, SearchOutlined, EyeOutlined,
 } from '@ant-design/icons'
 import { PageContainer, renderYardNames } from '@/components'
 import { useDispatchStore, useDictStore } from '@/stores'
@@ -55,8 +60,7 @@ export function DispatchSchedulePage() {
   // 分页
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
-  // 刷新节流：避免定时器 + WS 同时触发造成卡顿
-  const [refreshing, setRefreshing] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     load()
@@ -65,30 +69,17 @@ export function DispatchSchedulePage() {
     loadYards()
   }, [load, loadVehicles, loadCompanies, loadYards])
 
-  // —— 实时刷新：本地 5s 定时 + WS 订阅 ——
+  // —— WS 事件订阅（沉默开关） ——
+  // 当前不展示任何 UI 反馈（5s 定时器 / 刷新状态均已移除），
+  // 仅保留订阅入口；未来对接真实后端时只需在 ws.ts 中替换 emit 即可启用。
   useEffect(() => {
-    const tick = async () => {
-      setRefreshing(true)
-      try {
-        await load()
-      } finally {
-        // 微小延迟避免 UI 闪烁
-        setTimeout(() => setRefreshing(false), 200)
-      }
+    const tick = () => {
+      load()
     }
-    const timer = setInterval(tick, 5000)
     const unsubscribe = on(WS_EVENTS.DISPATCH_UPDATE, tick)
-    return () => {
-      clearInterval(timer)
-      unsubscribe()
-    }
+    return unsubscribe
   }, [load])
 
-  /** UI 层兜底：按 yardId 实时查表，避免依赖 yardName 字段 */
-  const renderYardName = (yardId: string, fallback: string) => {
-    const hit = yards.find((y) => y.id === yardId)
-    return hit?.name || fallback || '-'
-  }
   /** 渲染多园区：调用共享 renderYardNames */
   const renderYard = (yardIds: string[] | undefined, primaryYardId?: string) =>
     renderYardNames(yardIds, primaryYardId, yards)
@@ -206,20 +197,6 @@ export function DispatchSchedulePage() {
   return (
     <PageContainer
       title="派车调度看板"
-      extra={
-        <Space>
-          <Tag color={refreshing ? 'processing' : 'default'}>
-            {refreshing ? '刷新中…' : '每 5s 自动刷新'}
-          </Tag>
-          <Button
-            icon={<ReloadOutlined />}
-            loading={refreshing}
-            onClick={() => load()}
-          >
-            手动刷新
-          </Button>
-        </Space>
-      }
     >
       {/* 4 个统计卡 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
@@ -345,11 +322,21 @@ export function DispatchSchedulePage() {
                         { title: '创建人', dataIndex: 'creatorName', width: 100 },
                         {
                           title: '操作',
-                          width: 120,
+                          width: 180,
                           render: (_, r) => (
-                            <Button type="primary" size="small" onClick={() => handleOpen(r)}>
-                              派车
-                            </Button>
+                            <Space size={4}>
+                              <Button type="primary" size="small" onClick={() => handleOpen(r)}>
+                                派车
+                              </Button>
+                              <Button
+                                type="link"
+                                size="small"
+                                icon={<EyeOutlined />}
+                                onClick={() => navigate(`/marketing/dispatch/${r.id}`)}
+                              >
+                                详情
+                              </Button>
+                            </Space>
                           ),
                         },
                       ]}
@@ -365,7 +352,6 @@ export function DispatchSchedulePage() {
             size="small"
             rowKey="id"
             dataSource={filtered}
-            loading={refreshing}
             locale={{ emptyText: <Empty description="暂无数据" /> }}
             pagination={{
               current: currentPage,
@@ -397,6 +383,22 @@ export function DispatchSchedulePage() {
               { title: '司机', dataIndex: 'driverName', width: 100 },
               { title: '派车时间', dataIndex: 'dispatchedAt', width: 160 },
               { title: '完成时间', dataIndex: 'completedAt', width: 160 },
+              {
+                title: '操作',
+                key: 'action',
+                width: 100,
+                fixed: 'right',
+                render: (_, r) => (
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => navigate(`/marketing/dispatch/${r.id}`)}
+                  >
+                    详情
+                  </Button>
+                ),
+              },
             ]}
           />
         )}

@@ -309,6 +309,7 @@ src/
 | C5 | 鉴权 | 增加密码校验（修复鉴权错觉） | P2 | mock 阶段非 admin 用户不校验密码，建议至少校验非空 + 注释说明 |
 | C6 | 类型 | 用 `Timestamp` 统一时间字段 | P2 | Inventory / Customer 部分字段仍用 string 隐式代替 `Timestamp`，建议全部显式标注 |
 | B5 | UI 复用 | `StatusTag` 组件接入到所有列表页 | P2 | 组件已抽到 `components/StatusTag.tsx`，约 20 处 `<Tag color={map[v].color}>` 待替换 |
+| D1 | 派车调度 | PRD 文档待补充：实时刷新设计 | P1 | 当前 WS 事件订阅代码已保留为"沉默开关"，但 5s 定时刷新 / 刷新状态 / 手动刷新按钮均未在 UI 展示。**PRD 飞书文档待补充**：M2 是否启用？何时启用？触发条件是什么？详见 [discussion-2026-06-25] |
 
 ---
 
