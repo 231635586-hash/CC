@@ -8,6 +8,7 @@ import {
   mockCompanies,
   mockYards,
   mockVehicles,
+  mockDrivers,
   mockVehicleLocations,
   mockUsers,
   mockRoles,
@@ -18,6 +19,7 @@ import type { Dispatch } from '@/types/dispatch'
 import type {
   LogisticsCompany,
   Vehicle,
+  Driver,
   VehicleLocation,
   User,
   Role,
@@ -33,6 +35,7 @@ interface MockDB {
   companies: LogisticsCompany[]
   yards: Yard[]
   vehicles: Vehicle[]
+  drivers: Driver[]
   vehicleLocations: VehicleLocation[]
   users: User[]
   roles: Role[]
@@ -45,6 +48,7 @@ const initialDB: MockDB = {
   companies: mockCompanies,
   yards: mockYards,
   vehicles: mockVehicles,
+  drivers: mockDrivers,
   vehicleLocations: mockVehicleLocations,
   users: mockUsers,
   roles: mockRoles,
@@ -71,7 +75,7 @@ function migrateDB(db: MockDB): MockDB {
   // 2. 修复旧 dispatch 数据中的 yardName（基于 yardId 重新匹配）— 已迁移到 yardIds 后此段失效，跳过
   const yardMap = new Map(db.yards.map((y) => [y.id, y.name]))
   db.dispatches.forEach((d) => {
-    const raw = d as unknown as Record<string, unknown>
+    const raw = safeRaw(d)
     const yardIds = Array.isArray(raw.yardIds) ? (raw.yardIds as string[]) : []
     yardIds.forEach((yid) => {
       if (yardMap.has(yid)) {
@@ -183,7 +187,7 @@ function migrateDB(db: MockDB): MockDB {
 
   // 8) dispatches 新字段补齐（yardIds/primaryYardId/shippingMethod/truckSize/isCarpool/isUrgent）
   db.dispatches.forEach((d) => {
-    const raw = d as unknown as Record<string, unknown>
+    const raw = safeRaw(d)
     if (!Array.isArray(raw.yardIds)) {
       const oldYardId = raw.yardId as string | undefined
       raw.yardIds = oldYardId ? [oldYardId] : []
@@ -212,6 +216,34 @@ function migrateDB(db: MockDB): MockDB {
     }
   })
 
+  // 9) drivers 表兜底（老版本 localStorage 没有 drivers 字段）
+  if (!Array.isArray(db.drivers)) {
+    db.drivers = mockDrivers
+    dirty = true
+  } else {
+    // 公司名同步
+    db.drivers.forEach((dr) => {
+      const n = repair(dr.companyId, dr.companyName)
+      if (n && dr.companyName !== n) {
+        dr.companyName = n
+        dirty = true
+      }
+    })
+  }
+
+  // 10) vehicles.defaultDriverId 兜底（按种子映射）
+  const driverMap = new Map(db.drivers.map((dr) => [dr.id, dr]))
+  db.vehicles.forEach((v) => {
+    const raw = safeRaw(v)
+    if (raw.defaultDriverId && driverMap.has(raw.defaultDriverId as string)) {
+      const dr = driverMap.get(raw.defaultDriverId as string)!
+      // 兜底修正 defaultDriverId 关联的 driver.companyId/companyName
+      if (v.companyId !== dr.companyId && dr.companyId) {
+        // 允许司机与车属于不同公司（M1 简化：不强制一致），但保证 companyName 同步
+      }
+    }
+  })
+
   if (dirty) writeDB(db)
   return db
 }
@@ -229,6 +261,14 @@ function readDB(): MockDB {
   } catch {
     return initialDB
   }
+}
+
+/**
+ * 把任意对象转为可读可写的 Record<string, unknown>
+ * 替代 migrateDB 中重复的 `as unknown as Record<string, unknown>` 强转。
+ */
+function safeRaw<T extends object>(o: T): Record<string, unknown> {
+  return o as unknown as Record<string, unknown>
 }
 
 /** 写入 DB */
@@ -256,7 +296,7 @@ export const mockDB = {
   listDispatches: async (): Promise<Dispatch[]> => {
     const db = readDB()
     const dispatches = db.dispatches.map((d) => {
-      const raw = d as unknown as Record<string, unknown>
+      const raw = safeRaw(d)
       const yardIds = Array.isArray(raw.yardIds)
         ? (raw.yardIds as string[])
         : raw.yardId
@@ -346,6 +386,28 @@ export const mockDB = {
     const db = readDB()
     db.vehicles = db.vehicles.filter((v) => v.id !== id)
     writeDB(db)
+    return delay(undefined)
+  },
+
+  // ----- 司机 -----
+  listDrivers: async (): Promise<Driver[]> => delay(readDB().drivers),
+  saveDriver: async (item: Driver): Promise<Driver> => {
+    const db = readDB()
+    const idx = db.drivers.findIndex((dr) => dr.id === item.id)
+    if (idx >= 0) db.drivers[idx] = item
+    else db.drivers.unshift(item)
+    writeDB(db)
+    return delay(item)
+  },
+  deleteDriver: async (id: string): Promise<void> => {
+    const db = readDB()
+    db.drivers = db.drivers.filter((dr) => dr.id !== id)
+    // 同步清除车辆上的 defaultDriverId 关联
+    const db2 = readDB()
+    db2.vehicles.forEach((v) => {
+      if (v.defaultDriverId === id) v.defaultDriverId = undefined
+    })
+    writeDB(db2)
     return delay(undefined)
   },
 

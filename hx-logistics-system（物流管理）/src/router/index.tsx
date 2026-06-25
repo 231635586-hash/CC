@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { MainLayout } from '@/layouts/MainLayout'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { NotFoundPage } from '@/features/NotFoundPage'
 import { AuthGuard, UnderConstruction } from '@/components'
 
 // 营销模块（使用 barrel 入口）
@@ -12,6 +13,7 @@ import { CustomerListPage } from '@/features/marketing/customer'
 import { DispatchSchedulePage } from '@/features/logistics/dispatch/DispatchSchedulePage'
 import { CompanyListPage } from '@/features/logistics/company/CompanyListPage'
 import { VehicleListPage } from '@/features/logistics/vehicle/VehicleListPage'
+import { DriverListPage } from '@/features/logistics/driver/DriverListPage'
 import { LocationListPage } from '@/features/logistics/location/LocationListPage'
 
 // 系统管理
@@ -51,6 +53,7 @@ export function AppRouter() {
         <Route path="logistics">
           <Route path="dispatch" element={<DispatchSchedulePage />} />
           <Route path="vehicles" element={<VehicleListPage />} />
+          <Route path="drivers" element={<DriverListPage />} />
           <Route path="locations" element={<LocationListPage />} />
         </Route>
 
@@ -66,7 +69,7 @@ export function AppRouter() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

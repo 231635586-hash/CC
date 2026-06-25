@@ -47,6 +47,7 @@ export function MainLayout() {
       children: [
         { key: '/logistics/dispatch', label: '派车调度' },
         { key: '/logistics/vehicles', label: '车辆档案' },
+        { key: '/logistics/drivers', label: '司机档案' },
         { key: '/logistics/locations', label: '车辆位置' },
       ],
     },

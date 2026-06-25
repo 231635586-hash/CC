@@ -3,6 +3,7 @@ import { mockDB } from '@/mock/db'
 import type {
   LogisticsCompany,
   Vehicle,
+  Driver,
   VehicleLocation,
   User,
   Role,
@@ -15,6 +16,7 @@ interface DictState {
   companies: LogisticsCompany[]
   yards: Yard[]
   vehicles: Vehicle[]
+  drivers: Driver[]
   vehicleLocations: VehicleLocation[]
   users: User[]
   roles: Role[]
@@ -24,6 +26,7 @@ interface DictState {
   loadCompanies: () => Promise<void>
   loadYards: () => Promise<void>
   loadVehicles: () => Promise<void>
+  loadDrivers: () => Promise<void>
   loadUsers: () => Promise<void>
   loadRoles: () => Promise<void>
   loadDingtalkBots: () => Promise<void>
@@ -38,6 +41,7 @@ export const useDictStore = create<DictState>((set) => ({
   companies: [],
   yards: [],
   vehicles: [],
+  drivers: [],
   vehicleLocations: [],
   users: [],
   roles: [],
@@ -47,6 +51,7 @@ export const useDictStore = create<DictState>((set) => ({
   loadCompanies: async () => set({ companies: await mockDB.listCompanies() }),
   loadYards: async () => set({ yards: await mockDB.listYards() }),
   loadVehicles: async () => set({ vehicles: await mockDB.listVehicles() }),
+  loadDrivers: async () => set({ drivers: await mockDB.listDrivers() }),
   loadUsers: async () => set({ users: await mockDB.listUsers() }),
   loadRoles: async () => set({ roles: await mockDB.listRoles() }),
   loadDingtalkBots: async () => set({ dingtalkBots: await mockDB.listDingtalkBots() }),
@@ -54,10 +59,11 @@ export const useDictStore = create<DictState>((set) => ({
   loadVehicleLocations: async () => set({ vehicleLocations: await mockDB.listVehicleLocations() }),
 
   loadAll: async () => {
-    const [companies, yards, vehicles, vehicleLocations, users, roles, dingtalkBots, dingtalkTemplates] = await Promise.all([
+    const [companies, yards, vehicles, drivers, vehicleLocations, users, roles, dingtalkBots, dingtalkTemplates] = await Promise.all([
       mockDB.listCompanies(),
       mockDB.listYards(),
       mockDB.listVehicles(),
+      mockDB.listDrivers(),
       mockDB.listVehicleLocations(),
       mockDB.listUsers(),
       mockDB.listRoles(),
@@ -68,6 +74,7 @@ export const useDictStore = create<DictState>((set) => ({
       companies,
       yards,
       vehicles,
+      drivers,
       vehicleLocations,
       users,
       roles,

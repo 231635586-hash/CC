@@ -29,6 +29,28 @@ export interface Vehicle {
   vehicleType: 'heavy' | 'medium' | 'light' // 重型/中型/轻型
   maxLoad: number // 最大载重（吨）
   length: number // 车长（米）
+  /** 默认司机 id（关联 Driver，可空） */
+  defaultDriverId?: string
+  status: EnableStatus
+  remark?: string
+  createdAt: Timestamp
+}
+
+/** 司机 */
+export interface Driver {
+  id: string
+  /** 司机姓名 */
+  name: string
+  /** 手机号（车辆位置/调度用） */
+  phone: string
+  /** 关联物流公司 id */
+  companyId: string
+  /** 关联物流公司名（denormalized 便于展示） */
+  companyName: string
+  /** 身份证号 */
+  idCardNo?: string
+  /** 驾驶证号 */
+  licenseNo?: string
   status: EnableStatus
   remark?: string
   createdAt: Timestamp
