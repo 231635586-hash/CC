@@ -12,7 +12,7 @@ import {
   Col,
   AutoComplete,
 } from 'antd'
-import { useInventoryStore, useDictStore } from '@/stores'
+import { useInventoryStore, useDictStore, useAuthStore } from '@/stores'
 import {
   MATERIAL_CATEGORY_OPTIONS,
   STOCK_TYPE_OPTIONS,
@@ -34,6 +34,7 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
   const [form] = Form.useForm()
   const { create, update } = useInventoryStore()
   const { yards, loadYards } = useDictStore()
+  const currentUser = useAuthStore((s) => s.currentUser)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
 
   const isEdit = !!inventory
@@ -51,10 +52,15 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
         setSelectedCustomer(c || null)
       } else {
         form.resetFields()
+        // 新增时自动带入当前登录用户为业务员（系统自动记录录入人，不可改）
+        form.setFieldsValue({
+          salesPersonId: currentUser?.id || '',
+          salesPersonName: currentUser?.realName || '',
+        })
         setSelectedCustomer(null)
       }
     }
-  }, [open, inventory, customers, form])
+  }, [open, inventory, customers, form, currentUser])
 
   // 监听单箱数量 / 箱数 → 自动算 总数（展示，不参与提交）
   const quantityPerBox = Form.useWatch('quantityPerBox', form) as number | undefined
@@ -89,6 +95,10 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
         customerName: selectedCustomer?.name || values.customerName,
         customerAddress: selectedCustomer?.address || values.customerAddress || '',
         status: inventory?.status || 'in_stock',
+        // 业务员：编辑已有记录时保留原值，新建时由 useEffect 注入 currentUser
+        salesPersonId: inventory?.salesPersonId || values.salesPersonId || currentUser?.id || '',
+        salesPersonName:
+          inventory?.salesPersonName || values.salesPersonName || currentUser?.realName || '',
       }
       if (isEdit && inventory) {
         update(inventory.id, payload)
@@ -381,6 +391,22 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
               </Form.Item>
             </Col>
           </Row>
+          <Row gutter={16}>
+            <Col span={6}>
+              {/* 业务员只读展示：新增时由系统自动带入当前登录用户，编辑时保留原录入人 */}
+              <Form.Item name="salesPersonName" label="业务员">
+                <Input
+                  placeholder={currentUser?.realName || '当前登录用户'}
+                  disabled
+                  prefix={<span style={{ color: '#999' }}>系统</span>}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          {/* salesPersonId 字段（hidden），仅随表单提交，不展示 */}
+          <Form.Item name="salesPersonId" hidden>
+            <Input />
+          </Form.Item>
         </div>
       </Form>
     </Modal>

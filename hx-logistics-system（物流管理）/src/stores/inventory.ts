@@ -58,7 +58,13 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   loadList: async () => {
     set({ loading: true })
     await new Promise((r) => setTimeout(r, 100))
-    set({ list: mockInventory, loading: false })
+    // 兜底：历史库存（无业务员字段）回填为 mock-user-002 李营销
+    const safe = mockInventory.map((i) =>
+      i.salesPersonName
+        ? i
+        : { ...i, salesPersonId: 'mock-user-002', salesPersonName: '李营销' },
+    )
+    set({ list: safe, loading: false })
   },
 
   getById: (id) => get().list.find((i) => i.id === id),

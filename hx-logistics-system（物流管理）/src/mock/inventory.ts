@@ -38,6 +38,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 30,
     importDate: '2026-06-20T09:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
     remark: '6 月订单第 1 批',
   },
   {
@@ -74,6 +76,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 25,
     importDate: '2026-06-20T10:15:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260621-0001',
@@ -107,6 +111,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 15,
     importDate: '2026-06-21T08:30:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
     remark: '样品订单，免费提供',
   },
   {
@@ -144,6 +150,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 10,
     importDate: '2026-06-21T11:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260621-0003',
@@ -177,6 +185,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 5,
     importDate: '2026-06-21T14:20:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
     remark: '退货入库',
   },
   {
@@ -213,6 +223,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 8,
     importDate: '2026-06-22T09:45:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260622-0002',
@@ -246,6 +258,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 7,
     importDate: '2026-06-22T10:30:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260622-0003',
@@ -279,6 +293,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 6,
     importDate: '2026-06-22T13:15:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260622-0004',
@@ -313,6 +329,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 6,
     importDate: '2026-06-22T15:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260623-0001',
@@ -348,6 +366,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 1,
     importDate: '2026-06-23T08:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260623-0002',
@@ -380,6 +400,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 1,
     importDate: '2026-06-23T09:30:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260623-0003',
@@ -414,6 +436,8 @@ export const mockInventory: Inventory[] = [
     packaging: 'ton_bag',
     status: 'in_stock',
     importDate: '2026-06-23T10:45:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
     remark: '新样品测试',
   },
 
@@ -451,6 +475,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 1,
     importDate: '2026-06-24T08:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260624-0002',
@@ -483,6 +509,8 @@ export const mockInventory: Inventory[] = [
     status: 'in_stock',
     age: 1,
     importDate: '2026-06-24T09:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
     remark: '新增备选库存',
   },
 
@@ -521,6 +549,8 @@ export const mockInventory: Inventory[] = [
     status: 'locked',
     age: 35,
     importDate: '2026-06-18T09:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
     remark: '已关联调车单',
   },
   {
@@ -555,6 +585,8 @@ export const mockInventory: Inventory[] = [
     status: 'locked',
     age: 32,
     importDate: '2026-06-18T10:30:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260619-0001',
@@ -590,6 +622,8 @@ export const mockInventory: Inventory[] = [
     status: 'locked',
     age: 28,
     importDate: '2026-06-19T11:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260619-0002',
@@ -622,6 +656,8 @@ export const mockInventory: Inventory[] = [
     status: 'locked',
     age: 26,
     importDate: '2026-06-19T13:20:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260619-0003',
@@ -657,6 +693,8 @@ export const mockInventory: Inventory[] = [
     status: 'locked',
     age: 24,
     importDate: '2026-06-19T15:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260620-0003',
@@ -690,6 +728,8 @@ export const mockInventory: Inventory[] = [
     status: 'locked',
     age: 20,
     importDate: '2026-06-20T08:30:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260620-0004',
@@ -723,6 +763,8 @@ export const mockInventory: Inventory[] = [
     status: 'locked',
     age: 19,
     importDate: '2026-06-20T14:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260620-0005',
@@ -757,6 +799,8 @@ export const mockInventory: Inventory[] = [
     status: 'locked',
     age: 18,
     importDate: '2026-06-20T16:30:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
 
   // 已发货（6 条）
@@ -794,6 +838,8 @@ export const mockInventory: Inventory[] = [
     status: 'shipped',
     age: 50,
     importDate: '2026-06-10T09:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260610-0002',
@@ -828,6 +874,8 @@ export const mockInventory: Inventory[] = [
     status: 'shipped',
     age: 48,
     importDate: '2026-06-10T10:30:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260612-0001',
@@ -861,6 +909,8 @@ export const mockInventory: Inventory[] = [
     status: 'shipped',
     age: 40,
     importDate: '2026-06-12T11:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260614-0001',
@@ -894,6 +944,8 @@ export const mockInventory: Inventory[] = [
     status: 'shipped',
     age: 35,
     importDate: '2026-06-14T09:30:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260615-0001',
@@ -929,6 +981,8 @@ export const mockInventory: Inventory[] = [
     status: 'shipped',
     age: 30,
     importDate: '2026-06-15T14:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
   {
     id: 'INV-20260616-0001',
@@ -961,6 +1015,8 @@ export const mockInventory: Inventory[] = [
     status: 'shipped',
     age: 28,
     importDate: '2026-06-16T10:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
 
   // 已作废（4 条）
@@ -991,6 +1047,8 @@ export const mockInventory: Inventory[] = [
     stockType: 'waiting',
     status: 'voided',
     importDate: '2026-06-08T09:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
     remark: '客户撤单',
   },
   {
@@ -1020,6 +1078,8 @@ export const mockInventory: Inventory[] = [
     stockType: 'waiting',
     status: 'voided',
     importDate: '2026-06-08T10:30:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
     remark: '录入错误',
   },
   {
@@ -1049,6 +1109,8 @@ export const mockInventory: Inventory[] = [
     stockType: 'waiting',
     status: 'voided',
     importDate: '2026-06-09T11:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
     remark: '质检不合格',
   },
   {
@@ -1078,5 +1140,7 @@ export const mockInventory: Inventory[] = [
     stockType: 'waiting',
     status: 'voided',
     importDate: '2026-06-09T14:00:00.000Z',
+    salesPersonId: 'mock-user-002',
+    salesPersonName: '李营销',
   },
 ]

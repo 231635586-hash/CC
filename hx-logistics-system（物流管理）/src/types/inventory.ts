@@ -75,6 +75,13 @@ export interface Inventory {
   age?: number                // 库龄（天，手动输入）
   importDate: string          // 导入日期 ISO
   importBatchId?: string      // 导入批次号
+
+  // ===== 业务员（录入人）=====
+  /** 业务员用户 id（关联 users.id，便于后续权限/统计） */
+  salesPersonId?: string
+  /** 业务员姓名（与 users.realName 对应，自动取当前登录用户） */
+  salesPersonName?: string
+
   remark?: string
 }
 
@@ -168,6 +175,8 @@ export interface InventoryImportRow {
   packaging?: PackagingType
   age?: number
   remark?: string
+  /** 业务员姓名（导入时由调用方根据当前登录用户填入，Excel 不需要提供） */
+  salesPersonName?: string
 }
 
 // Excel 校验结果

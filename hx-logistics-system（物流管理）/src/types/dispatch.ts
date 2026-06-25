@@ -103,4 +103,8 @@ export interface DispatchGoods {
   remark?: string
   /** 来源库存 id（手工添加则为 undefined） */
   inventoryId?: string
+  /** 业务员 id（从来源库存带入；手工录入时为当前用户） */
+  salesPersonId?: string
+  /** 业务员姓名（与 inventory.salesPersonName 一致） */
+  salesPersonName?: string
 }

@@ -74,6 +74,12 @@ export function InventoryPickerModal({ open, excludeIds, onClose, onConfirm }: P
     { title: '产品名称', dataIndex: 'productName', width: 150, ellipsis: true },
     { title: '客户', dataIndex: 'customerName', width: 160, ellipsis: true },
     {
+      title: '业务员',
+      dataIndex: 'salesPersonName',
+      width: 80,
+      render: (v: string | undefined) => v || '-',
+    },
+    {
       title: '发货地',
       dataIndex: 'shippingFrom',
       width: 80,

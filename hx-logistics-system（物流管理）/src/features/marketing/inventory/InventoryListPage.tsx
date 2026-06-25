@@ -48,6 +48,7 @@ export function InventoryListPage() {
   const [searchStockType, setSearchStockType] = useState<string>('')
   const [searchOrderType, setSearchOrderType] = useState<string>('')
   const [searchStatus, setSearchStatus] = useState<string>('')
+  const [searchSalesPerson, setSearchSalesPerson] = useState<string>('')
   const [searchDateRange, setSearchDateRange] = useState<[string, string] | null>(null)
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
   const [formDrawerOpen, setFormDrawerOpen] = useState(false)
@@ -63,6 +64,13 @@ export function InventoryListPage() {
   const yardOptions = useMemo(() => {
     const set = new Set<string>()
     list.forEach((i) => i.yardName && set.add(i.yardName))
+    return Array.from(set)
+  }, [list])
+
+  // 业务员下拉选项（从数据中动态提取）
+  const salesPersonOptions = useMemo(() => {
+    const set = new Set<string>()
+    list.forEach((i) => i.salesPersonName && set.add(i.salesPersonName))
     return Array.from(set)
   }, [list])
 
@@ -84,6 +92,7 @@ export function InventoryListPage() {
       if (searchStockType && i.stockType !== searchStockType) return false
       if (searchOrderType && i.orderType !== searchOrderType) return false
       if (searchStatus && i.status !== searchStatus) return false
+      if (searchSalesPerson && i.salesPersonName !== searchSalesPerson) return false
       if (searchDateRange) {
         const imp = new Date(i.importDate).getTime()
         if (imp < new Date(searchDateRange[0]).getTime() || imp > new Date(searchDateRange[1]).getTime()) {
@@ -92,7 +101,7 @@ export function InventoryListPage() {
       }
       return true
     })
-  }, [list, searchName, searchMaterial, searchYard, searchCategory, searchStockType, searchOrderType, searchStatus, searchDateRange])
+  }, [list, searchName, searchMaterial, searchYard, searchCategory, searchStockType, searchOrderType, searchStatus, searchSalesPerson, searchDateRange])
 
   const handleAdd = () => {
     setEditing(null)
@@ -126,6 +135,7 @@ export function InventoryListPage() {
     setSearchStockType('')
     setSearchOrderType('')
     setSearchStatus('')
+    setSearchSalesPerson('')
     setSearchDateRange(null)
   }
 
@@ -159,6 +169,12 @@ export function InventoryListPage() {
           <option value="">全部状态</option>
           {INVENTORY_STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <select className={styles.searchItem} value={searchSalesPerson} onChange={(e) => setSearchSalesPerson(e.target.value)}>
+          <option value="">全部业务员</option>
+          {salesPersonOptions.map((s) => (
+            <option key={s} value={s}>{s}</option>
           ))}
         </select>
         <Button onClick={resetSearch}>重置</Button>
@@ -200,6 +216,12 @@ export function InventoryListPage() {
           { title: '物料编码', dataIndex: 'materialCode', width: 110 },
           { title: '产品名称', dataIndex: 'productName', width: 150, ellipsis: true },
           { title: '客户', dataIndex: 'customerName', width: 180, ellipsis: true },
+          {
+            title: '业务员',
+            dataIndex: 'salesPersonName',
+            width: 90,
+            render: (v: string | undefined) => v || '-',
+          },
           {
             title: '发货地',
             dataIndex: 'shippingFrom',
@@ -290,7 +312,7 @@ export function InventoryListPage() {
             },
           },
         ]}
-        scroll={{ x: 1750 }}
+        scroll={{ x: 1840 }}
         pagination={{ pageSize: 20, showTotal: (t) => `共 ${t} 条` }}
       />
 

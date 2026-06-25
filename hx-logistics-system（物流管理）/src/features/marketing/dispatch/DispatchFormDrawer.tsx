@@ -127,6 +127,9 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
             customerName: inv.customerName,
             destination: inv.customerAddress,
             inventoryId: inv.id,
+            // 从来源库存带入业务员（与库存录入人保持一致）
+            salesPersonId: inv.salesPersonId,
+            salesPersonName: inv.salesPersonName,
             remark: `从库存 ${inv.id} 关联，订单类型：${ORDER_TYPE_LABEL[inv.orderType]}`,
           }))
         form.setFieldValue('_pendingGoods', initial)
@@ -156,6 +159,9 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
         customerName: inv.customerName,
         destination: inv.customerAddress,
         inventoryId: inv.id,
+        // 从来源库存带入业务员（与库存录入人保持一致）
+        salesPersonId: inv.salesPersonId,
+        salesPersonName: inv.salesPersonName,
         remark: `从库存 ${inv.id} 关联，订单类型：${ORDER_TYPE_LABEL[inv.orderType]}`,
       }))
     form.setFieldValue('_pendingGoods', [
