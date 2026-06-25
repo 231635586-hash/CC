@@ -174,6 +174,7 @@ export function CustomerListPage() {
           {
             title: '操作',
             width: 230,
+            fixed: 'right',
             render: (_, record) => (
               <Space size="small">
                 <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
