@@ -1,16 +1,29 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Table, Button, Space, Tag, Popconfirm, message, Tooltip, AutoComplete } from 'antd'
-import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
+import { Table, Button, Space, Tag, Popconfirm, message, Tooltip, AutoComplete, Modal, Form, Radio, Input, Alert } from 'antd'
+import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, StopOutlined } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { PageContainer, SearchForm, Empty } from '@/components'
+import { PageContainer, SearchForm, Empty, renderYardNames, SCROLL_PRESETS } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import { DISPATCH_STATUS_OPTIONS, type DispatchStatus } from '@/types'
-import { SHIPPING_METHOD_LABEL, SHIPPING_METHOD_COLOR, TRUCK_SIZE_LABEL } from '@/types/dispatch'
-import { parseCities } from '@/utils'
+import {
+  SHIPPING_METHOD_LABEL,
+  SHIPPING_METHOD_COLOR,
+  TRUCK_SIZE_LABEL,
+  VOID_REASON_OPTIONS,
+  VOID_REASON_LABEL,
+} from '@/types/dispatch'
+import { parseCities, nowIsoString } from '@/utils'
 import type { Dispatch } from '@/types/dispatch'
 import { DispatchFormDrawer } from './DispatchFormDrawer'
 
-/** 调车单列表页 */
+/**
+ * 调车单列表页
+ *
+ * M1 增强（2026-06-25）：
+ * - confirmed 状态可作废（仅创建人或营销业务员/管理员可操作）
+ * - 作废后状态 → cancelled，并记录 voidedAt/voidedBy/voidReason
+ * - cancelled 状态可物理删除（便于重建）
+ */
 export function DispatchListPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -21,6 +34,24 @@ export function DispatchListPage() {
   const [editing, setEditing] = useState<Dispatch | null>(null)
   const [linkedInventoryIds, setLinkedInventoryIds] = useState<string[] | null>(null)
   const [filters, setFilters] = useState<Record<string, unknown>>({})
+  // 作废弹窗状态
+  const [voidModalOpen, setVoidModalOpen] = useState(false)
+  const [voidTarget, setVoidTarget] = useState<Dispatch | null>(null)
+  const [voidForm] = Form.useForm<{ reasonKey: string; reasonText?: string }>()
+
+  /**
+   * 作废权限判断：
+   * - 系统管理员：全权限
+   * - 创建人本人
+   * - 营销业务员/营销负责人（roleName 含"营销"字样）
+   */
+  const canVoid = (d: Dispatch): boolean => {
+    if (!currentUser) return false
+    if (currentUser.roleName === '系统管理员') return true
+    if (d.creatorId === currentUser.id) return true
+    if (currentUser.roleName && currentUser.roleName.includes('营销')) return true
+    return false
+  }
 
   useEffect(() => {
     load()
@@ -29,19 +60,10 @@ export function DispatchListPage() {
   }, [load, loadCompanies, loadYards])
 
   /**
-   * 渲染园区名称：优先按 yardIds 实时查 yards 字典
-   * 多园区用 / 分隔；primaryYardId 加"优先入场"标记
+   * 渲染园区名称：调用共享 renderYardNames（多园区用 / 分隔；primaryYardId 加"优先入场"标记）
    */
-  const renderYardNames = (yardIds: string[] | undefined, primaryYardId?: string) => {
-    if (!yardIds || yardIds.length === 0) return '-'
-    return yardIds
-      .map((id) => {
-        const hit = yards.find((y) => y.id === id)
-        const name = hit?.name || id
-        return id === primaryYardId ? `【${name}】` : name
-      })
-      .join(' / ')
-  }
+  const renderYard = (yardIds: string[] | undefined, primaryYardId?: string) =>
+    renderYardNames(yardIds, primaryYardId, yards)
 
   // 从 URL 参数识别"库存关联"入口（支持多 ID：?inventoryId=A&inventoryId=B）
   useEffect(() => {
@@ -72,7 +94,7 @@ export function DispatchListPage() {
   }
 
   const handleConfirm = async (record: Dispatch) => {
-    await save({ ...record, status: 'confirmed' as DispatchStatus, confirmedAt: new Date().toISOString().slice(0, 19).replace('T', ' ') })
+    await save({ ...record, status: 'confirmed' as DispatchStatus, confirmedAt: nowIsoString() })
     message.success('已确认')
   }
 
@@ -80,6 +102,44 @@ export function DispatchListPage() {
     await save({ ...record, status: 'cancelled' as DispatchStatus })
     message.success('已取消')
   }
+
+  /** 打开作废弹窗（仅 confirmed 状态触发） */
+  const handleVoid = (record: Dispatch) => {
+    setVoidTarget(record)
+    voidForm.resetFields()
+    voidForm.setFieldsValue({ reasonKey: 'order_error' })
+    setVoidModalOpen(true)
+  }
+
+  /** 提交作废 */
+  const handleVoidSubmit = async () => {
+    if (!voidTarget || !currentUser) return
+    try {
+      const { reasonKey, reasonText } = await voidForm.validateFields()
+      const reason = reasonKey === 'other'
+        ? (reasonText || '').trim()
+        : VOID_REASON_LABEL[reasonKey] || reasonKey
+      await save({
+        ...voidTarget,
+        status: 'cancelled' as DispatchStatus,
+        voidedAt: nowIsoString(),
+        voidedById: currentUser.id,
+        voidedByName: currentUser.realName,
+        voidReason: reason,
+      })
+      message.success('已作废')
+      setVoidModalOpen(false)
+      setVoidTarget(null)
+    } catch {
+      // 校验失败由 antd 处理
+    }
+  }
+
+  /**
+   * 物理删除权限：cancelled 状态可删除（前提：本人或营销/管理员）
+   * 复用 canVoid 逻辑（同一组权限）
+   */
+  const canDelete = (d: Dispatch): boolean => canVoid(d)
 
   // 筛选
   const filtered = list.filter((d) => {
@@ -204,7 +264,7 @@ export function DispatchListPage() {
             title: '园区',
             dataIndex: 'yardIds',
             width: 200,
-            render: (yardIds: string[] | undefined, r) => renderYardNames(yardIds, r.primaryYardId),
+            render: (yardIds: string[] | undefined, r) => renderYard(yardIds, r.primaryYardId),
           },
           {
             title: '货物',
@@ -225,7 +285,7 @@ export function DispatchListPage() {
           {
             title: '操作',
             fixed: 'right',
-            width: 240,
+            width: 260,
             render: (_, r) => (
               <Space size="small">
                 <Button
@@ -256,8 +316,26 @@ export function DispatchListPage() {
                     </Popconfirm>
                   </>
                 )}
-                {r.status === 'draft' && (
-                  <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>
+                {r.status === 'confirmed' && (
+                  <Button
+                    type="link"
+                    size="small"
+                    danger
+                    icon={<StopOutlined />}
+                    disabled={!canVoid(r)}
+                    onClick={() => handleVoid(r)}
+                  >
+                    作废
+                  </Button>
+                )}
+                {(r.status === 'cancelled' || r.status === 'draft') && canDelete(r) && (
+                  <Popconfirm
+                    title="确定删除？此操作不可恢复"
+                    okText="确认删除"
+                    okButtonProps={{ danger: true }}
+                    cancelText="取消"
+                    onConfirm={() => handleDelete(r.id)}
+                  >
                     <Button type="link" size="small" danger icon={<DeleteOutlined />}>
                       删除
                     </Button>
@@ -267,7 +345,7 @@ export function DispatchListPage() {
             ),
           },
         ]}
-        scroll={{ x: 1300 }}
+        scroll={{ x: SCROLL_PRESETS.medium }}
         pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
       />
 
@@ -277,6 +355,71 @@ export function DispatchListPage() {
         linkedInventoryIds={linkedInventoryIds || undefined}
         onClose={handleCloseDrawer}
       />
+
+      {/* 作废弹窗（仅 confirmed 状态） */}
+      <Modal
+        title={`作废调车单 - ${voidTarget?.dispatchNo || ''}`}
+        open={voidModalOpen}
+        onCancel={() => {
+          setVoidModalOpen(false)
+          setVoidTarget(null)
+        }}
+        onOk={handleVoidSubmit}
+        okText="确认作废"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+        width={520}
+      >
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="作废后状态将变为【已取消】，可被物理删除便于重新发起。请如实填写作废原因。"
+        />
+        {voidTarget && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 6 }}>
+            <Space wrap>
+              <Tag color="blue">{voidTarget.dispatchNo}</Tag>
+              <Tag>{voidTarget.companyName}</Tag>
+              <Tag color="cyan">{voidTarget.direction}</Tag>
+            </Space>
+          </div>
+        )}
+        <Form form={voidForm} layout="vertical">
+          <Form.Item
+            name="reasonKey"
+            label="作废原因"
+            rules={[{ required: true, message: '请选择作废原因' }]}
+          >
+            <Radio.Group>
+              <Space direction="vertical">
+                {VOID_REASON_OPTIONS.map((o) => (
+                  <Radio key={o.value} value={o.value}>{o.label}</Radio>
+                ))}
+              </Space>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, cur) => prev.reasonKey !== cur.reasonKey}
+          >
+            {({ getFieldValue }) =>
+              getFieldValue('reasonKey') === 'other' ? (
+                <Form.Item
+                  name="reasonText"
+                  label="具体原因"
+                  rules={[{ required: true, message: '请输入具体原因' }, { max: 200 }]}
+                >
+                  <Input.TextArea rows={3} placeholder="请说明具体作废原因（200 字内）" />
+                </Form.Item>
+              ) : null
+            }
+          </Form.Item>
+          <Form.Item label="作废人">
+            <Input value={currentUser?.realName || '未知用户'} disabled prefix={<span style={{ color: '#999' }}>系统</span>} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </PageContainer>
   )
 }

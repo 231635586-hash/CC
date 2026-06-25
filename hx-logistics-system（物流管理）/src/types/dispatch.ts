@@ -88,7 +88,26 @@ export interface Dispatch {
   enterYardAt?: Timestamp
   leaveYardAt?: Timestamp
   completedAt?: Timestamp
+  // —— 作废字段（仅 confirmed → cancelled 流转时记录）——
+  voidedAt?: Timestamp
+  voidedById?: string
+  voidedByName?: string
+  voidReason?: string
 }
+
+/** 作废原因枚举（M1 简化：常用业务原因） */
+export const VOID_REASON_LABEL: Record<string, string> = {
+  order_error: '订单信息错误',
+  customer_cancel: '客户取消',
+  qty_change: '数量变更',
+  yard_change: '园区/装货点调整',
+  schedule_change: '时间计划调整',
+  other: '其他',
+}
+
+export const VOID_REASON_OPTIONS = (
+  Object.keys(VOID_REASON_LABEL) as (keyof typeof VOID_REASON_LABEL)[]
+).map((v) => ({ value: v, label: VOID_REASON_LABEL[v] }))
 
 /** 调车单货物 */
 export interface DispatchGoods {

@@ -216,6 +216,22 @@ function migrateDB(db: MockDB): MockDB {
     }
   })
 
+  // 8.5) dispatches 作废字段补齐（voidedAt/voidedById/voidedByName/voidReason）
+  db.dispatches.forEach((d) => {
+    const raw = safeRaw(d)
+    // 仅 cancelled 状态需要这些字段；其他状态保持 undefined
+    if (d.status === 'cancelled') {
+      if (!raw.voidedAt) {
+        raw.voidedAt = d.updatedAt || d.confirmedAt || d.createdAt
+        dirty = true
+      }
+      if (!raw.voidedByName) {
+        raw.voidedByName = d.creatorName || '未知'
+        dirty = true
+      }
+    }
+  })
+
   // 9) drivers 表兜底（老版本 localStorage 没有 drivers 字段）
   if (!Array.isArray(db.drivers)) {
     db.drivers = mockDrivers
@@ -310,6 +326,10 @@ export const mockDB = {
         truckSize: raw.truckSize as Dispatch['truckSize'] | undefined,
         isCarpool: Boolean(raw.isCarpool),
         isUrgent: Boolean(raw.isUrgent),
+        voidedAt: (raw.voidedAt as string | undefined),
+        voidedById: (raw.voidedById as string | undefined),
+        voidedByName: (raw.voidedByName as string | undefined),
+        voidReason: (raw.voidReason as string | undefined),
       } as Dispatch
     })
     return delay(dispatches)
