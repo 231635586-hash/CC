@@ -65,3 +65,47 @@
 ---
 
 *本节最后更新: 2026-07-08 — 来源: 致命漏洞修复执行清单 P1-4*
+
+---
+
+## 🟠 PRD Diff 交付规范（强制）
+
+**每次代码任务交付时，AI 必须附带 PRD diff 清单。** 禁止代码与 PRD 双向脱节。
+
+### 触发条件
+- 任何代码任务交付（feature / fix / refactor）
+- 调用 prd-writer skill 时
+
+### PRD Diff 清单格式
+AI 交付时必须输出以下 3 段：
+
+```markdown
+## PRD Diff 清单
+
+### ✅ 已实现
+- [功能点 1] — [对应 PRD 章节]
+- [功能点 2] — [对应 PRD 章节]
+
+### ⚠️ 与 PRD 描述的差异
+- [差异点 1] — [PRD 写的是 X，代码实现是 Y，原因：...]
+- [差异点 2] — [...]
+
+### 📝 建议更新的 PRD 章节
+- [章节 1] — [更新原因]
+- [章节 2] — [更新原因]
+```
+
+### 用户动作
+- 收到 PRD diff 后，**必须** 决策是否同步飞书 PRD
+- 不允许沉默跳过
+
+### Why
+2026-07-08 致命漏洞复盘识别：PRD 与代码长期双轨制，3 个月后会出现"PRD 描述的系统 ≠ 实际系统"的灾难性失同步。
+
+### 关联记忆
+- [feishu-prd-links.md](.claude/projects/-Users-roro-Vibe-coding/memory/feishu-prd-links.md)
+- [prd-writer-skill-v32.md](.claude/projects/-Users-roro-Vibe-coding/memory/prd-writer-skill-v32.md)
+
+---
+
+*本节最后更新: 2026-07-08 — 来源: 致命漏洞修复执行清单 P1-5*
