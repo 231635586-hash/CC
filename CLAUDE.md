@@ -35,3 +35,33 @@
 ---
 
 *最后更新: 2026-07-08 — 来源: 致命漏洞修复执行清单 P0-2*
+
+---
+
+## 🟠 单意图 Commit 规范（强制）
+
+**1 个 commit = 1 个意图。** 禁止把 feature、fix、refactor 混搭在同一个 commit 中。
+
+### 拆分标准
+- 涉及 ≥ 3 个独立功能点 → 必须先用 TodoWrite 拆 3-7 个子项
+- 每个子项独立 commit
+- commit message 明确标注类别：`feat` / `fix` / `refactor` / `docs` / `test` / `chore`
+
+### 拆分前自检
+准备 commit 前问自己：本次变更是否只解决 1 件事？
+- 是 → 提交
+- 否 → 先拆分
+
+### 反例（2026-07-08 复盘发现）
+- `e77ba12 feat: 补齐司机档案模块 + 车辆位置加 4 列` — 2 个独立功能塞进 1 个 commit
+- `43a3c62 feat: 调车单 confirmed 状态可作废 + cancelled 状态可物理删除` — 2 个独立状态机变更
+
+### Why
+粒度不稳定的 commit history 让 code review、问题回溯、版本回滚都变得痛苦。AI 接到大任务时会降级处理细节质量。
+
+### 关联记忆
+- [single-intent-commit-rule.md](.claude/projects/-Users-roro-Vibe-coding/memory/single-intent-commit-rule.md)
+
+---
+
+*本节最后更新: 2026-07-08 — 来源: 致命漏洞修复执行清单 P1-4*
