@@ -1,0 +1,45 @@
+{
+  "name": "华翔物流司机端",
+  "appid": "__UNI__HXLOGI",
+  "description": "华翔物流管理系统 - 司机端 H5（扫码登记/入场/离场）",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "app-plus": {
+    "usingComponents": true,
+    "nvueStyleCompiler": "uni-app",
+    "compilerVersion": 3,
+    "splashscreen": {
+      "alwaysShowBeforeRender": true,
+      "waiting": true,
+      "autoclose": true,
+      "delay": 0
+    },
+    "modules": {},
+    "distribute": {
+      "android": {
+        "permissions": [
+          "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
+          "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>"
+        ]
+      },
+      "ios": {
+        "privacyDescription": {
+          "NSLocationWhenInUseUsageDescription": "用于在司机到达园区门口时自动定位打卡入园/离厂"
+        }
+      },
+      "sdkConfigs": {}
+    },
+    "h5": {
+      "sdkConfigs": {},
+      "optimization": { "treeShaking": { "enable": true } }
+    }
+  },
+  "quickapp": {},
+  "mp-weixin": {
+    "appid": "",
+    "setting": { "urlCheck": false },
+    "usingComponents": true
+  },
+  "vueVersion": "3"
+}

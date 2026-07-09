@@ -1,0 +1,145 @@
+/**
+ * 司机端 H5 - 派车单 mock 数据（M3 演示用）
+ *
+ * 数据来源说明：
+ *  - 当前阶段：从 seed.ts 抄一份子集（避免 localStorage 跨 origin 问题）
+ *  - 真实阶段：API GET /api/dispatch?driverId={id}
+ *
+ * 字段对齐 types/dispatch.ts（hx-order-system/src/types/dispatch.ts）
+ */
+
+export interface DispatchMock {
+  id: string
+  dispatchNo: string
+  status: DispatchStatus
+  direction: string
+  expectedLoadTime: string
+  yardIds: string[]
+  yardNames: string[]
+  customerName: string
+  customerAddress: string
+  companyName: string
+  vehicleNo?: string
+  driverName?: string
+  goodsSummary?: string
+}
+
+export type DispatchStatus =
+  | 'draft'
+  | 'pending_confirm'
+  | 'confirmed'
+  | 'dispatching'
+  | 'dispatched'
+  | 'entering'
+  | 'loading'
+  | 'leaving'
+  | 'completed'
+  | 'cancelled'
+
+export const MOCK_DISPATCHES: DispatchMock[] = [
+  {
+    id: 'mock-dispatch-012',
+    dispatchNo: 'DC20260627012',
+    status: 'loading',
+    direction: '杭州',
+    expectedLoadTime: '2026-06-27 16:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '杭州智能装备',
+    customerAddress: '杭州市余杭区文一西路 1818 号',
+    companyName: '北方通远运输股份有限公司',
+    vehicleNo: '沪A23456',
+    driverName: '李建国',
+    goodsSummary: '大型设备配件 80 箱 / 3.2 吨',
+  },
+  {
+    id: 'mock-dispatch-006',
+    dispatchNo: 'DC20260626006',
+    status: 'dispatched',
+    direction: '上海',
+    expectedLoadTime: '2026-06-26 14:30:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '华东机械制造有限公司',
+    customerAddress: '苏州市工业园区星湖街 128 号',
+    companyName: '华东快运物流有限公司',
+    vehicleNo: '沪A12345',
+    driverName: '陈大壮',
+    goodsSummary: '精密齿轮组件 50 箱 / 1.4 吨',
+  },
+  {
+    id: 'mock-dispatch-008',
+    dispatchNo: 'DC20260625008',
+    status: 'leaving',
+    direction: '无锡',
+    expectedLoadTime: '2026-06-25 14:00:00',
+    yardIds: ['mock-yard-002'],
+    yardNames: ['甘亭'],
+    customerName: '青岛海尔智造',
+    customerAddress: '青岛市崂山区海尔路 1 号',
+    companyName: '北方通远运输股份有限公司',
+    vehicleNo: '沪A23456',
+    driverName: '李建国',
+    goodsSummary: '家电配件 60 箱 / 2.1 吨',
+  },
+  {
+    id: 'mock-dispatch-005',
+    dispatchNo: 'DC20260624005',
+    status: 'entering',
+    direction: '广州',
+    expectedLoadTime: '2026-06-24 16:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '东莞五金制品厂',
+    customerAddress: '东莞市长安镇振安路 88 号',
+    companyName: '华南华运供应链管理有限公司',
+    vehicleNo: '浙C45678',
+    driverName: '王大锤',
+    goodsSummary: '五金配件 35 箱 / 1.2 吨',
+  },
+  {
+    id: 'mock-dispatch-007',
+    dispatchNo: 'DC20260625007',
+    status: 'completed',
+    direction: '苏州',
+    expectedLoadTime: '2026-06-25 10:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '深圳精密科技',
+    customerAddress: '深圳市南山区科技园南区高新南一道',
+    companyName: '华东快运物流有限公司',
+    vehicleNo: '沪A12345',
+    driverName: '陈大壮',
+    goodsSummary: '电子元器件 40 箱 / 0.8 吨',
+  },
+  {
+    id: 'mock-dispatch-003',
+    dispatchNo: 'DC20260622003',
+    status: 'completed',
+    direction: '北京',
+    expectedLoadTime: '2026-06-22 09:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '天津北方重工',
+    customerAddress: '天津市东丽区军粮城工业园',
+    companyName: '北方通远运输股份有限公司',
+    vehicleNo: '沪A23456',
+    driverName: '李建国',
+    goodsSummary: '机械配件 70 箱 / 2.8 吨',
+  },
+  {
+    id: 'mock-dispatch-001',
+    dispatchNo: 'DC20260622001',
+    status: 'cancelled',
+    direction: '上海',
+    expectedLoadTime: '2026-06-22 16:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '华东机械制造有限公司',
+    customerAddress: '苏州市工业园区星湖街 128 号',
+    companyName: '华东快运物流有限公司',
+    vehicleNo: '-',
+    driverName: '-',
+    goodsSummary: '精密齿轮组件 60 箱 / 1.7 吨',
+  },
+]

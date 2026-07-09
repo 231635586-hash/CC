@@ -1,0 +1,22 @@
+{
+  "pages": [
+    {
+      "path": "pages/driver/orders/index",
+      "style": {
+        "navigationBarTitleText": "我的派车单"
+      }
+    },
+    {
+      "path": "pages/driver/order-detail/index",
+      "style": {
+        "navigationBarTitleText": "派车单详情"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "华翔订单",
+    "navigationBarBackgroundColor": "#1677ff",
+    "backgroundColor": "#F5F5F5"
+  }
+}
