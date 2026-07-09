@@ -1,0 +1,52 @@
+/* 登录页样式 */
+
+.wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+}
+
+.card {
+  width: 420px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.logo {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.systemTitle {
+  margin: 0;
+}
+
+.demoBox {
+  background: #fafafa;
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+.demoLabel {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #999;
+}
+
+.demoTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.demoTag {
+  cursor: pointer;
+}

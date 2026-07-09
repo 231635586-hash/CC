@@ -1,0 +1,12 @@
+.group {
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1677ff;
+  border-left: 3px solid #1677ff;
+  padding-left: 8px;
+  margin-bottom: 12px;
+}

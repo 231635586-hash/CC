@@ -1,0 +1,29 @@
+/* 通用筛选表单样式 */
+
+.form {
+  margin-bottom: 16px;
+}
+
+.row {
+  width: 100%;
+}
+
+.formItem {
+  margin-bottom: 0;
+}
+
+/* 动态宽度的 fallback（默认宽度，通过 CSS 变量可覆盖） */
+.input,
+.select,
+.datePicker,
+.dateRange {
+  width: var(--search-input-width, 200px);
+}
+
+.datePicker {
+  width: var(--search-input-width, 180px);
+}
+
+.dateRange {
+  width: var(--search-input-width, 280px);
+}

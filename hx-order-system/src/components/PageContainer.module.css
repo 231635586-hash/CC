@@ -1,0 +1,9 @@
+/* 页面容器样式 */
+
+.card {
+  border-radius: 8px;
+}
+
+.cardBody {
+  padding: 16px;
+}

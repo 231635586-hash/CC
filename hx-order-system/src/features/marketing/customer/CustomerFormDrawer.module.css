@@ -1,0 +1,16 @@
+.form {
+  padding: 16px 0;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.groupTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1890ff;
+  border-left: 3px solid #1890ff;
+  padding-left: 8px;
+  margin-bottom: 12px;
+}

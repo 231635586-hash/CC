@@ -1,0 +1,17 @@
+/* CustomerListPage.module.css */
+.toolbar {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.searchRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.searchItem {
+  width: 200px;
+}
