@@ -17,8 +17,16 @@
  */
 
 import type { Dispatch, YardTimeline, DispatchEfficiency, YardEfficiency } from '@/types/dispatch'
-import { calcRestrictedMinutes, STANDARD_LOAD_MIN } from './restrictedHours'
+import {
+  calcRestrictedMinutes,
+  STANDARD_LOAD_MIN,
+} from './restrictedHours'
 import { nowIsoString, parseTimestamp } from './index'
+import {
+  ON_TIME_ARRIVAL_TOLERANCE_MIN,
+  ON_TIME_DELIVERY_DEFAULT_HOURS,
+  DIRECTION_DELIVERY_SLA_HOURS,
+} from '@/types/dispatch'
 
 /**
  * 计算两个时间戳相差的分钟数（精确到分钟）
@@ -158,6 +166,39 @@ export function analyzeDispatchEfficiency(dispatch: Dispatch): DispatchEfficienc
   const lastYard = timelines[timelines.length - 1]
   const finalExitTime = lastYard?.leftAt
 
+  // —— v0.2.0-M2：及时到场 + 及时到货 ——
+  // 及时到场 = 主园区 enteredAt 与 expectedLoadTime 偏差 ≤ ON_TIME_ARRIVAL_TOLERANCE_MIN
+  const primaryYard = timelines[0]
+  const arrivalDiffMin = primaryYard?.enteredAt
+    ? diffMinutes(primaryYard.enteredAt, dispatch.expectedLoadTime)
+    : undefined
+  const isOnTimeArrival =
+    arrivalDiffMin !== undefined && arrivalDiffMin <= ON_TIME_ARRIVAL_TOLERANCE_MIN
+
+  // 及时到货 = signedAt 与 expectedLoadTime 间隔 ≤ direction SLA
+  // 注：直接 inline 'YYYY-MM-DD HH:mm:ss' → ISO，避免 parseTimestamp 内部
+  //     replace('-','/').replace(' ','T') 在 Chrome 下产出 NaN 的已知问题
+  const signedAt = timelines
+    .map((y) => y.signedAt)
+    .filter((v): v is string => Boolean(v))
+    .reduce<string | undefined>(
+      (max, v) => (max === undefined || v > max ? v : max),
+      undefined,
+    )
+  let deliveryHours: number | undefined
+  let isOnTimeDelivery: boolean | undefined
+  if (signedAt && dispatch.expectedLoadTime) {
+    const a = new Date(signedAt.replace(' ', 'T')).getTime()
+    const b = new Date(dispatch.expectedLoadTime.replace(' ', 'T')).getTime()
+    if (Number.isFinite(a) && Number.isFinite(b) && a >= b) {
+      deliveryHours = Math.round(((a - b) / 3600000) * 10) / 10 // 1 位小数
+      const sla =
+        DIRECTION_DELIVERY_SLA_HOURS[dispatch.direction] ??
+        ON_TIME_DELIVERY_DEFAULT_HOURS
+      isOnTimeDelivery = deliveryHours <= sla
+    }
+  }
+
   return {
     dispatchId: dispatch.id,
     dispatchNo: dispatch.dispatchNo,
@@ -172,6 +213,14 @@ export function analyzeDispatchEfficiency(dispatch: Dispatch): DispatchEfficienc
     isOvertime,
     finalExitTime,
     generatedAt: nowIsoString(),
+    arrivalDiffMin,
+    isOnTimeArrival,
+    signedAt,
+    deliveryHours,
+    isOnTimeDelivery,
+    direction: dispatch.direction,
+    shippingMethod: dispatch.shippingMethod,
+    yardIds: dispatch.yardIds || [],
   }
 }
 
