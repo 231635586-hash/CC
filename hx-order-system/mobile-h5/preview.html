@@ -166,9 +166,9 @@
 <body>
 
 <div class="header">
-  <h1>📱 华翔司机端 H5 — PhoneFrame 预览</h1>
-  <p>iPhone 14 · 390 × 844 · 5 Tab 单页架构</p>
-  <span class="device-tag">1 个主页面 + 1 个详情页</span>
+  <h1>📱 华翔订单系统 H5 — PhoneFrame 预览</h1>
+  <p>iPhone 14 · 390 × 844 · v0.2.0-M2 到货处理</p>
+  <span class="device-tag">1 主页面 + 1 详情页 + 1 客户签收</span>
 </div>
 
 <div class="stage">
@@ -190,27 +190,83 @@
   <!-- 详情页 -->
   <div class="phone-block">
     <div class="phone-label">
-      <span class="name">详情页（点击跳转）</span>
-      <span class="desc">点击列表中某条订单跳转<br>支持返回保留列表状态</span>
+      <span class="name">司机端详情页</span>
+      <span class="desc">点击列表中某条订单跳转<br>arrived_by_gps 显示「确认到达」按钮</span>
     </div>
     <div class="phone">
       <div class="screen">
-        <iframe src="/pages/driver/order-detail/index?id=mock-dispatch-012" scrolling="auto"></iframe>
+        <iframe src="/pages/driver/order-detail/index?id=mock-dispatch-m2-002" scrolling="auto"></iframe>
         <div class="home-indicator"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- 客户签收 H5（v0.2.0-M2 新增） -->
+  <div class="phone-block">
+    <div class="phone-label">
+      <span class="name">客户签收 H5（M2 新增）</span>
+      <span class="desc">PC 生成链接 → 客户扫码进入<br>3 步：查看订单 → 上传照片 → 确认签收</span>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <iframe id="sign-iframe" src="" scrolling="auto"></iframe>
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+    <div style="margin-top: 16px;">
+      <button id="gen-sign-btn" style="
+        background: #52c41a;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        font-weight: 500;
+      ">
+        🔗 生成测试链接
+      </button>
     </div>
   </div>
 
 </div>
 
 <div class="tips">
-  <h3>📋 架构说明</h3>
-  <p>• <strong>单页 5 Tab</strong>：减少跳转 = 减少司机操作摩擦。所有功能一屏可达。</p>
-  <p>• <strong>详情跳转</strong>：点击列表条目 → 跳详情页 → 返回时 Tab 不动、滚动位置保留（uni-app 原生行为）。</p>
-  <p>• <strong>设计 Token</strong>：CSS Variables 全局生效，1 处改全局同步。</p>
+  <h3>📋 v0.2.0-M2 到货处理流程</h3>
+  <p>• <strong>完整链路</strong>：派车 → dispatched → entering → loading → leaving → <strong>in_transit → arrived_by_gps → driver_confirmed → customer_signed</strong> → completed</p>
+  <p>• <strong>司机端</strong>：到达客户园区后，GPS 自动判定 → H5 显示「确认到达」按钮</p>
+  <p>• <strong>PC 端</strong>：司机确认后，PC 生成客户签收链接（带 24h token）→ 调度员发给客户</p>
+  <p>• <strong>客户签收</strong>：客户扫码进入 → 上传 ≥1 张照片 → 确认签收 → 订单完成</p>
+  <p>• <strong>演示按钮</strong>：点击上方「生成测试链接」会用 mock 数据生成链接载入右侧 iframe</p>
   <p>• <strong>设计规范</strong>：<code>docs/standards/mobile-h5-design.md</code></p>
-  <p>• <strong>演示规范</strong>：参照记忆 <code>mobile-h5-prototype-mockup-spec</code></p>
 </div>
+
+<script>
+  // 演示用：生成测试 token 加载到客户签收 iframe
+  // 注意：uni-app H5 默认用 hash 路由（createWebHashHistory）
+  // 正确路径：'/#/pages/customer/sign/index?token=xxx'
+  function generateToken(dispatchId, expiresInHours) {
+    const now = Date.now()
+    const payload = {
+      dispatchId,
+      issuedAt: now,
+      expiresAt: now + expiresInHours * 60 * 60 * 1000,
+      nonce: Math.random().toString(36).slice(2, 10),
+    }
+    return btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
+  }
+  document.getElementById('gen-sign-btn').addEventListener('click', function() {
+    const token = generateToken('mock-dispatch-m2-003', 24)
+    const iframe = document.getElementById('sign-iframe')
+    iframe.src = '/#/pages/customer/sign/index?token=' + token
+  })
+  // 初始载入：直接打开客户签收页面（演示用）
+  (function() {
+    const token = generateToken('mock-dispatch-m2-003', 24)
+    const iframe = document.getElementById('sign-iframe')
+    iframe.src = '/#/pages/customer/sign/index?token=' + token
+  })()
+</script>
 
 </body>
 </html>

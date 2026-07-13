@@ -20,12 +20,17 @@
       "android": {
         "permissions": [
           "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
-          "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>"
+          "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
+          "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+          "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+          "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>"
         ]
       },
       "ios": {
         "privacyDescription": {
-          "NSLocationWhenInUseUsageDescription": "用于在司机到达园区门口时自动定位打卡入园/离厂"
+          "NSLocationWhenInUseUsageDescription": "用于在司机到达园区门口时自动定位打卡入园/离厂",
+          "NSCameraUsageDescription": "用于客户签收时拍摄货物照片",
+          "NSPhotoLibraryUsageDescription": "用于客户签收时选择货物照片"
         }
       },
       "sdkConfigs": {}
