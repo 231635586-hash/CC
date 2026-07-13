@@ -118,6 +118,21 @@ function gotoDriverTab(tab: string) {
   ;(uni as any).reLaunch({ url: '/pages/driver/orders/index' })
 }
 
+/**
+ * v0.3.0-M2.2：演示控制台"状态机快捷推进"按钮
+ *  - 仅在 H5 端本地生效（mobile-h5 与 PC web 不同端口不共享 storage）
+ *  - 通过 window CustomEvent 与主 App 通信，主 App 内修改 dispatchList
+ *  - 与 PC 端的"通知入场(Mock 道闸)"对应：演示场景下让司机侧独立看到进入 entering 的效果
+ */
+function triggerGateOpenLocal() {
+  window.dispatchEvent(new CustomEvent('demo-trigger-gate'))
+  // 这里不弹 toast,主 App 内 handleTriggerGateOpen 收到事件后会反馈
+}
+
+function triggerCompleteLocal() {
+  window.dispatchEvent(new CustomEvent('demo-trigger-complete'))
+}
+
 function toggleVisible() {
   visible.value = !visible.value
 }
@@ -201,6 +216,23 @@ onUnmounted(() => {
         >
           <span class="shortcut-emoji">{{ s.emoji }}</span>
           <span class="shortcut-label">{{ s.label }}</span>
+          <span class="shortcut-arrow">›</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- v0.3.0-M2.2：状态机快捷推进 -->
+    <div v-if="currentRole === 'driver'" class="section">
+      <div class="section-label">⏩ 状态机演示</div>
+      <div class="shortcut-list">
+        <button class="shortcut-btn" @click="triggerGateOpenLocal">
+          <span class="shortcut-emoji">🚪</span>
+          <span class="shortcut-label">模拟道闸放行(queued → entering)</span>
+          <span class="shortcut-arrow">›</span>
+        </button>
+        <button class="shortcut-btn" @click="triggerCompleteLocal">
+          <span class="shortcut-emoji">✅</span>
+          <span class="shortcut-label">模拟完成(driver_confirmed → completed)</span>
           <span class="shortcut-arrow">›</span>
         </button>
       </div>

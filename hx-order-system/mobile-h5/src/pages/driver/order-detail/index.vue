@@ -120,11 +120,9 @@ function loadDetail(id: string) {
       { status: 'entering', label: 'GPS 自动入园', time: '13:45', done: isStepReached('entering', mock.status) },
       { status: 'loading', label: '库房通知装货', time: '14:00', done: isStepReached('loading', mock.status) },
       { status: 'leaving', label: '装货完成离厂', time: '14:30', done: isStepReached('leaving', mock.status) },
-      // v0.2.0-M2：到货处理 4 步
+      // v0.2.0-M2 → v0.3.0-M2.2：到货处理简化（移除 arrived_by_gps / customer_signed 中间态）
       { status: 'in_transit', label: '在途', time: '15:00', done: isStepReached('in_transit', mock.status) },
-      { status: 'arrived_by_gps', label: 'GPS 入客户园区', time: mock.status === 'arrived_by_gps' ? '现在' : '16:00', done: isStepReached('arrived_by_gps', mock.status) },
       { status: 'driver_confirmed', label: '司机确认到达', time: '16:05', done: isStepReached('driver_confirmed', mock.status) },
-      { status: 'customer_signed', label: '客户签收完成', time: '16:30', done: isStepReached('customer_signed', mock.status) },
     ],
     remark: '客户催货，优先派车',
   }

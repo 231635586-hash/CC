@@ -7,14 +7,16 @@
  *     :item="dispatch"
  *     @tap="goDetail"
  *     @navigate="navigateToYard"
+ *     @queue="handleScanQueue"
  *   />
  *
- * 业务（v0.2.x 简化）：
+ * 业务（v0.3.0-M2.2 v2 状态机）：
  *   - 状态徽章 + 派车单号 + 园区/客户/货物 + 预计时间 + 方向
  *   - 司机无需手动接单/拒单：dispatcher 派车后即默认接单
- *   - 仅在 status === 'dispatched' 时显示 [导航前往园区] 按钮
- *     · dispatched → entering 由 GPS 自动检测触发（M3 真实阶段）
- *     · M2 mock 阶段无真实 GPS，状态停留在 dispatched 直至司机实际进入园区
+ *   - status='dispatched' 时显示 [导航前往园区] + [扫码排队] 两个按钮
+ *     · [扫码排队] → 触发 markYardQueuedByScan（无 GPS 场景的统一入口）
+ *     · M3 真实 GPS 场景：GPS 自动入园触发 queued（无需按钮）
+ *     · queued → entering 由库房员点【通知入场(Mock 道闸)】（PC 端）
  */
 
 import StatusTag from './StatusTag.vue'
@@ -29,8 +31,10 @@ const props = withDefaults(defineProps<Props>(), { mode: 'list' })
 
 const emit = defineEmits<{
   (e: 'tap', item: DispatchMock): void
-  /** 司机点击 [导航前往园区] → 调起地图/调用 openNavi(yard) */
+  /** 司机点 [导航前往园区] → 调起地图/调用 openNavi(yard) */
   (e: 'navigate', item: DispatchMock): void
+  /** 司机点 [扫码排队] → 触发 markYardQueuedByScan（v0.3.0-M2.2 新增） */
+  (e: 'queue', item: DispatchMock): void
 }>()
 
 function formatTime(iso: string): string {
@@ -86,6 +90,12 @@ function formatTime(iso: string): string {
         <image class="btn-navigate-icon" src="/static/icons/compass.svg" mode="aspectFit" />
         导航前往园区
       </button>
+      <button class="btn-scan" @click="emit('queue', item)">
+        📱 扫码排队
+      </button>
+    </view>
+    <view v-else-if="item.status === 'queued'" class="card-actions card-actions-queued" @click.stop>
+      <text class="queued-tip">🚧 排队中 · 等待库房员开闸</text>
     </view>
   </view>
 </template>
@@ -190,5 +200,31 @@ function formatTime(iso: string): string {
 .btn-navigate-icon {
   width: 32rpx;
   height: 32rpx;
+}
+.btn-scan {
+  flex: 1;
+  height: 72rpx;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sub);
+  font-weight: var(--font-weight-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  background: #fa8c16;
+  color: #fff;
+  border: none;
+}
+.card-actions-queued {
+  justify-content: center;
+  background: #fff7e6;
+  border: 1rpx solid #ffd591;
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+}
+.queued-tip {
+  font-size: var(--font-size-sub);
+  color: #fa8c16;
+  font-weight: var(--font-weight-medium);
 }
 </style>

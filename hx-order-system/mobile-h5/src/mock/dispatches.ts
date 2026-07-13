@@ -30,14 +30,14 @@ export type DispatchStatus =
   | 'confirmed'
   | 'dispatching'
   | 'dispatched'
+  // —— v0.3.0-M2.2 v2：GPS/扫码统一入场 ——
+  | 'queued'
   | 'entering'
   | 'loading'
   | 'leaving'
-  // —— v0.2.0-M2：到货处理 4 步 ——
+  // —— 到货处理（在途 → 司机确认 → 完成）——
   | 'in_transit'
-  | 'arrived_by_gps'
   | 'driver_confirmed'
-  | 'customer_signed'
   // —— 终态 ——
   | 'completed'
   | 'cancelled'
@@ -168,11 +168,11 @@ export const MOCK_DISPATCHES: DispatchMock[] = [
     goodsSummary: '精密齿轮组件 80 箱 / 2.2 吨',
   },
 
-  // M2-02：arrived_by_gps（GPS 入客户园区，待司机确认）
+  // v0.3.0-M2.2 v2：arrived_by_gps 已下线，迁移到 queued（GPS 检测 = 统一入场）
   {
     id: 'mock-dispatch-m2-002',
     dispatchNo: 'DC20260709002',
-    status: 'arrived_by_gps',
+    status: 'queued',
     direction: '杭州',
     expectedLoadTime: '2026-07-09 11:00:00',
     yardIds: ['mock-yard-001'],
@@ -202,11 +202,11 @@ export const MOCK_DISPATCHES: DispatchMock[] = [
     goodsSummary: '电子元器件 45 箱 / 1.5 吨',
   },
 
-  // M2-04：customer_signed（客户已签收完成）
+  // v0.3.0-M2.2 v2：customer_signed 已下线，统一迁移到 completed
   {
     id: 'mock-dispatch-m2-004',
     dispatchNo: 'DC20260709004',
-    status: 'customer_signed',
+    status: 'completed',
     direction: '青岛',
     expectedLoadTime: '2026-07-09 07:00:00',
     yardIds: ['mock-yard-002'],
@@ -236,11 +236,11 @@ export const MOCK_DISPATCHES: DispatchMock[] = [
     goodsSummary: '电子元器件 60 箱 / 1.5 吨',
   },
 
-  // M2-06：customer_signed 完整链路演示（与 PC mock-dispatch-m2-006 对应）
+  // v0.3.0-M2.2 v2：customer_signed 已下线，统一迁移到 completed
   {
     id: 'mock-dispatch-m2-006',
     dispatchNo: 'DC20260709006',
-    status: 'customer_signed',
+    status: 'completed',
     direction: '杭州',
     expectedLoadTime: '2026-07-09 08:00:00',
     yardIds: ['mock-yard-001'],

@@ -19,14 +19,14 @@ export const DISPATCH_STATUS_MAP: Record<DispatchStatus, StatusOption> = {
   confirmed:          { label: '已确认',   cssClass: 'cancelled' },
   dispatching:        { label: '派车中',   cssClass: 'cancelled' },
   dispatched:         { label: '待出发',   cssClass: 'pending' },
+  // —— v0.3.0-M2.2 v2：GPS / 扫码统一入场 ——
+  queued:             { label: '排队中',   cssClass: 'pending' },
   entering:           { label: '入园中',   cssClass: 'entering' },
   loading:            { label: '装货中',   cssClass: 'loading' },
   leaving:            { label: '出场中',   cssClass: 'leaving' },
   // —— M2 新增 ——
   in_transit:         { label: '在途中',   cssClass: 'transit' },
-  arrived_by_gps:     { label: '已到客户', cssClass: 'entering' },
-  driver_confirmed:   { label: '司机确认', cssClass: 'pending' },
-  customer_signed:    { label: '客户签收', cssClass: 'loading' },
+  driver_confirmed:   { label: '已确认',   cssClass: 'pending' },
   // —— 终态 ——
   completed:          { label: '已完成',   cssClass: 'completed' },
   cancelled:          { label: '已取消',   cssClass: 'cancelled' },
@@ -36,14 +36,14 @@ export const DISPATCH_STATUS_MAP: Record<DispatchStatus, StatusOption> = {
 export const ACTIVE_STATUSES: DispatchStatus[] = [
   'dispatching',
   'dispatched',
+  // v0.3.0-M2.2：新增 queued 到「进行中」分组(司机可扫码排队)
+  'queued',
   'entering',
   'loading',
   'leaving',
-  // M2 新增：进行中包含在途/到货流程
+  // M2 简化后:只保留 in_transit + driver_confirmed
   'in_transit',
-  'arrived_by_gps',
   'driver_confirmed',
-  'customer_signed',
 ]
 export const PENDING_STATUSES: DispatchStatus[] = ['pending_confirm', 'confirmed', 'draft']
 export const DONE_STATUSES: DispatchStatus[] = ['completed', 'cancelled']
@@ -60,13 +60,13 @@ export const TIMELINE_ORDER: DispatchStatus[] = [
   'confirmed',
   'dispatching',
   'dispatched',
+  // v0.3.0-M2.2:在 dispatched 与 entering 之间插入 queued
+  'queued',
   'entering',
   'loading',
   'leaving',
   'in_transit',
-  'arrived_by_gps',
   'driver_confirmed',
-  'customer_signed',
   'completed',
 ]
 

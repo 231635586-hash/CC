@@ -27,7 +27,7 @@
  */
 
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDriverStore } from '@/stores/driver'
 import { useUiStore } from '@/stores/ui'
@@ -145,9 +145,85 @@ function markMessageRead(n: NotificationItem) {
   }
 }
 
+/**
+ * v0.3.0-M2.2 v2：司机点 [扫码排队] → 触发 markYardQueuedByScan
+ *  - 实际生产：调起扫码摄像头扫园区二维码，解析出 yardId
+ *  - mock 阶段：直接用 dispatch.yardIds[0] 作为 yardId
+ *  - 本地 dispatchList：直接设置 dispatched → queued + 写 queuedAt
+ *  - 注意：H5 与 PC 端不共享 localStorage（mobile-h5 独立 demo），仅本地状态变更
+ */
+function handleScanQueue(item: DispatchMock) {
+  const idx = dispatchList.value.findIndex((d) => d.id === item.id)
+  if (idx < 0) {
+    uni.showToast({ title: '派车单不存在', icon: 'none' })
+    return
+  }
+  const yardId = item.yardIds?.[0]
+  if (!yardId) {
+    uni.showToast({ title: '无主园区', icon: 'none' })
+    return
+  }
+  // 触发 reactive 更新：替换 dispatch 对象触发 Vue 重新渲染
+  const updated: DispatchMock = {
+    ...dispatchList.value[idx],
+    status: 'queued',
+  }
+  dispatchList.value = [
+    ...dispatchList.value.slice(0, idx),
+    updated,
+    ...dispatchList.value.slice(idx + 1),
+  ]
+  // 同步 driver store 的 queueHistory（M2 兼容保留）
+  const yard = yards.find((y) => y.id === yardId)
+  driverStore.recordQueue(yardId, yard?.name || yardId, 'mock-scan-token')
+  uni.showToast({ title: '📱 扫码成功,排队中', icon: 'success' })
+}
+
 function markAllRead() {
   notifications.value.forEach((n) => (n.read = true))
   uni.showToast({ title: '已全部标记为已读', icon: 'success' })
+}
+
+/**
+ * v0.3.0-M2.2：演示控制台触发"模拟道闸放行"事件
+ *  - 找到第一条 status='queued' 的派车单 → queued → entering
+ *  - H5 mock：本地生效（无 PC 后端通信）
+ */
+function handleDemoTriggerGate() {
+  const idx = dispatchList.value.findIndex((d) => d.status === 'queued')
+  if (idx < 0) {
+    uni.showToast({ title: '当前没有 queued 状态的派车单', icon: 'none' })
+    return
+  }
+  const updated: DispatchMock = { ...dispatchList.value[idx], status: 'entering' }
+  dispatchList.value = [
+    ...dispatchList.value.slice(0, idx),
+    updated,
+    ...dispatchList.value.slice(idx + 1),
+  ]
+  uni.showToast({ title: '🚪 道闸已开闸,车辆进入', icon: 'success' })
+}
+
+/**
+ * v0.3.0-M2.2：演示控制台触发"模拟完成"事件
+ *  - 找到第一条 status='driver_confirmed' 或最新完成中转 → 直接置 completed
+ *  - 也支持跳过中间态：找到 leaving/in_transit 一路强行打 complete
+ */
+function handleDemoTriggerComplete() {
+  // 优先找可完成状态：driver_confirmed / in_transit / leaving 任选第一条
+  const candidates = ['driver_confirmed', 'in_transit', 'leaving', 'loading']
+  const idx = dispatchList.value.findIndex((d) => candidates.includes(d.status))
+  if (idx < 0) {
+    uni.showToast({ title: '当前没有可完成的派车单', icon: 'none' })
+    return
+  }
+  const updated: DispatchMock = { ...dispatchList.value[idx], status: 'completed' }
+  dispatchList.value = [
+    ...dispatchList.value.slice(0, idx),
+    updated,
+    ...dispatchList.value.slice(idx + 1),
+  ]
+  uni.showToast({ title: '✅ 订单完成', icon: 'success' })
 }
 
 function showDriverSwitcher() {
@@ -183,6 +259,14 @@ onLoad((query: any) => {
     driverStore.setDriver(DEFAULT_DRIVER)
   }
   loadDispatchList()
+  // v0.3.0-M2.2：演示控制台事件监听
+  window.addEventListener('demo-trigger-gate', handleDemoTriggerGate)
+  window.addEventListener('demo-trigger-complete', handleDemoTriggerComplete)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('demo-trigger-gate', handleDemoTriggerGate)
+  window.removeEventListener('demo-trigger-complete', handleDemoTriggerComplete)
 })
 
 onPullDownRefresh(async () => {
@@ -223,6 +307,7 @@ onPullDownRefresh(async () => {
         :dispatch-list="dispatchList"
         @go-detail="goDetail"
         @navigate="navigateToYard"
+        @queue="handleScanQueue"
       />
       <MessagesTab
         v-else-if="activeTab === 'messages'"

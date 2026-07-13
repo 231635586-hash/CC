@@ -32,6 +32,8 @@ const emit = defineEmits<{
   (e: 'goDetail', item: DispatchMock): void
   /** 司机点 [导航前往园区] → 父组件调用 openNavi(yard) */
   (e: 'navigate', item: DispatchMock): void
+  /** 司机点 [扫码排队] → 父组件调用 markYardQueuedByScan（v0.3.0-M2.2 新增） */
+  (e: 'queue', item: DispatchMock): void
 }>()
 
 // 子 Tab 状态从 uiStore 读，切走不丢失
@@ -92,6 +94,7 @@ const subTabLabelMap: Record<OrderSubTab, string> = {
         :item="item"
         @tap="emit('goDetail', item)"
         @navigate="emit('navigate', item)"
+        @queue="emit('queue', item)"
       />
 
       <view v-if="currentOrderList.length > 0" class="load-more">
