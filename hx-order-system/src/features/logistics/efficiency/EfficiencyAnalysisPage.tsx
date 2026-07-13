@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Table,
@@ -32,6 +32,9 @@ import type { Dispatch } from '@/types/dispatch'
 import {
   analyzeDispatchEfficiency,
   formatMinutesAsHour,
+  calcOnTimeArrivalRate,
+  calcOnTimeLoadingRate,
+  calcOnTimeDeliveryRate,
 } from '@/utils/efficiencyAnalysis'
 import {
   exportDispatchEfficiency,
@@ -124,34 +127,17 @@ export function EfficiencyAnalysisPage() {
     return result
   }, [filteredDispatches])
 
-  // 3) 5 指标卡
+  // 3) 3 指标卡（v0.4.0-M2.3 改造：5 指标 → 3 指标，业务视角）
   const stats = useMemo(() => {
-    const completed = analyses.length
-    const totalMin = analyses.reduce((s, a) => s + a.totalEffectiveLoadMin, 0)
-    const avgMin = completed > 0 ? Math.round(totalMin / completed) : 0
-    const overtime = analyses.filter((a) => a.isOvertime).length
-
-    // 及时到场率分母 = 有 enteredAt 的 completed 单
-    const arrivalDenom = analyses.filter((a) => a.arrivalDiffMin !== undefined).length
-    const arrivalNum = analyses.filter((a) => a.isOnTimeArrival).length
-    const onTimeArrivalRate = arrivalDenom > 0 ? Math.round((arrivalNum / arrivalDenom) * 100) : 0
-
-    // 及时到货率分母 = 有 signedAt 的 completed 单
-    const deliveryDenom = analyses.filter((a) => a.signedAt).length
-    const deliveryNum = analyses.filter((a) => a.isOnTimeDelivery).length
-    const onTimeDeliveryRate =
-      deliveryDenom > 0 ? Math.round((deliveryNum / deliveryDenom) * 100) : 0
-
+    const arrival = calcOnTimeArrivalRate(filteredDispatches)
+    const loading = calcOnTimeLoadingRate(filteredDispatches)
+    const delivery = calcOnTimeDeliveryRate(filteredDispatches)
     return {
-      completed,
-      avgMin,
-      overtime,
-      onTimeArrivalRate,
-      onTimeDeliveryRate,
-      arrivalDenom,
-      deliveryDenom,
+      arrival,
+      loading,
+      delivery,
     }
-  }, [analyses])
+  }, [filteredDispatches])
 
   // 4) Tab 分组聚合
   const groupedByCompany = useMemo(
@@ -289,63 +275,59 @@ export function EfficiencyAnalysisPage() {
         </Row>
       </Card>
 
-      {/* 5 统计卡 */}
+      {/* 3 统计卡（v0.4.0-M2.3 改造：业务视角，公式 + 分子 + 分母 + 百分比） */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={5}>
+        <Col span={8}>
           <Card>
             <Statistic
-              title="已完成单数"
-              value={stats.completed}
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#52c41a' }}
+              title="及时到场率"
+              value={`${stats.arrival.rate}%`}
+              prefix={<ThunderboltOutlined />}
+              valueStyle={{ color: stats.arrival.rate >= 80 ? '#52c41a' : '#fa8c16' }}
             />
-          </Card>
-        </Col>
-        <Col span={5}>
-          <Card>
-            <Statistic
-              title="平均装货用时"
-              value={formatMinutesAsHour(stats.avgMin)}
-              prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: '#1677ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={4}>
-          <Card>
-            <Statistic
-              title="超时单数"
-              value={stats.overtime}
-              prefix={<WarningOutlined />}
-              valueStyle={{ color: '#cf1322' }}
-            />
-          </Card>
-        </Col>
-        <Col span={5}>
-          <Card>
-            <Tooltip title={`分母 = 已入场单数（${stats.arrivalDenom}）`}>
-              <Statistic
-                title="及时到场率"
-                value={`${stats.onTimeArrivalRate}%`}
-                prefix={<ThunderboltOutlined />}
-                valueStyle={{
-                  color: stats.onTimeArrivalRate >= 80 ? '#52c41a' : '#fa8c16',
-                }}
-              />
+            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+              公式:按时到场车辆 / 需求到场车辆
+            </div>
+            <Tooltip title="分母 = 所有被派车辆(含未到场的 queued 等 8 种被派状态)">
+              <div style={{ fontSize: 12, color: '#999' }}>
+                分母 = {stats.arrival.denominator}（按时 {stats.arrival.numerator}）
+              </div>
             </Tooltip>
           </Card>
         </Col>
-        <Col span={5}>
+        <Col span={8}>
           <Card>
-            <Tooltip title={`分母 = 已签收单数（${stats.deliveryDenom}）`}>
-              <Statistic
-                title="及时到货率"
-                value={`${stats.onTimeDeliveryRate}%`}
-                prefix={<EnvironmentOutlined />}
-                valueStyle={{
-                  color: stats.onTimeDeliveryRate >= 80 ? '#52c41a' : '#fa8c16',
-                }}
-              />
+            <Statistic
+              title="及时装货完成率（标准4小时）"
+              value={`${stats.loading.rate}%`}
+              prefix={<ClockCircleOutlined />}
+              valueStyle={{ color: stats.loading.rate >= 80 ? '#52c41a' : '#fa8c16' }}
+            />
+            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+              公式:装货完成时间小于4小时的 / 已装货物完成数量
+            </div>
+            <Tooltip title="分母 = 已装货完成的所有园区(以 YardTimeline 为单位,多园区调车单每个园区独立计数)">
+              <div style={{ fontSize: 12, color: '#999' }}>
+                分母 = {stats.loading.denominator}（&lt;4h {stats.loading.numerator}）
+              </div>
+            </Tooltip>
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="及时到货率"
+              value={`${stats.delivery.rate}%`}
+              prefix={<EnvironmentOutlined />}
+              valueStyle={{ color: stats.delivery.rate >= 80 ? '#52c41a' : '#fa8c16' }}
+            />
+            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+              公式:及时到货的车辆 / 需求到场车辆
+            </div>
+            <Tooltip title="分母 = 所有被派车辆(含未到货的 in_transit/driver_confirmed)">
+              <div style={{ fontSize: 12, color: '#999' }}>
+                分母 = {stats.delivery.denominator}（及时 {stats.delivery.numerator}）
+              </div>
             </Tooltip>
           </Card>
         </Col>
