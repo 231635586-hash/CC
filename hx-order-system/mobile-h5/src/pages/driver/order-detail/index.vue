@@ -11,7 +11,8 @@
 import { onLoad } from '@dcloudio/uni-app'
 import { ref, computed } from 'vue'
 import { MOCK_DISPATCHES, type DispatchMock } from '@/mock/dispatches'
-import { DISPATCH_STATUS_MAP } from '@/constants/dispatchStatus'
+import { DISPATCH_STATUS_MAP, isStepReached } from '@/constants/dispatchStatus'
+import StatusTag from '@/components/StatusTag.vue'
 
 interface YardInfo {
   id: string
@@ -47,6 +48,10 @@ interface DetailData {
   customerAddress: string
   customerContact: string
   customerPhone: string
+  /** v0.2.0-M2：客户园区 GPS（用于一键导航到客户地址） */
+  customerSite?: { lng: number; lat: number; radiusM: number }
+  /** v0.2.0-M2：库房员已生成的签收链接（司机展示给客户备用） */
+  signUrl?: string
   companyName: string
   companyPhone: string
   vehicleNo: string
@@ -88,6 +93,17 @@ function loadDetail(id: string) {
     customerAddress: mock.customerAddress,
     customerContact: '周婷',
     customerPhone: '13566778899',
+    // v0.2.0-M2：客户园区坐标（按 customerName 映射）
+    customerSite: getCustomerSite(mock.customerName),
+    // v0.2.0-M2：mock 演示用，库房员已生成链接的场景（arrived_by_gps 之后的状态都视为已生成）
+    signUrl: ['arrived_by_gps', 'driver_confirmed', 'customer_signed', 'completed'].includes(mock.status)
+      ? `http://localhost:5181/?token=${btoa(unescape(encodeURIComponent(JSON.stringify({
+          dispatchId: mock.id,
+          issuedAt: Date.now(),
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          nonce: 'demo',
+        }))))}`
+      : undefined,
     companyName: mock.companyName,
     companyPhone: '13800138002',
     vehicleNo: mock.vehicleNo || '-',
@@ -98,16 +114,63 @@ function loadDetail(id: string) {
       { materialCode: 'MAT-DEMO-B2', materialName: '包装箱', quantity: 40, unit: '箱', weight: 800 },
     ],
     timeline: [
-      { status: 'pending', label: '订单待确认', time: '09:00', done: true },
-      { status: 'confirmed', label: '已确认受理', time: '09:30', done: true },
-      { status: 'dispatched', label: '已派车出发', time: '13:30', done: true },
-      { status: 'entering', label: 'GPS 自动入园', time: '13:45', done: true },
-      { status: 'loading', label: '库房通知装货', time: '14:00', done: true },
-      { status: 'leaving', label: '正在装货', time: '14:30', done: mock.status !== 'dispatched' && mock.status !== 'entering' && mock.status !== 'loading' },
-      { status: 'completed', label: '装货完成离厂', time: '16:00', done: mock.status === 'completed' },
+      { status: 'pending_confirm', label: '订单待确认', time: '09:00', done: isStepReached('pending_confirm', mock.status) },
+      { status: 'confirmed', label: '已确认受理', time: '09:30', done: isStepReached('confirmed', mock.status) },
+      { status: 'dispatched', label: '已派车出发', time: '13:30', done: isStepReached('dispatched', mock.status) },
+      { status: 'entering', label: 'GPS 自动入园', time: '13:45', done: isStepReached('entering', mock.status) },
+      { status: 'loading', label: '库房通知装货', time: '14:00', done: isStepReached('loading', mock.status) },
+      { status: 'leaving', label: '装货完成离厂', time: '14:30', done: isStepReached('leaving', mock.status) },
+      // v0.2.0-M2：到货处理 4 步
+      { status: 'in_transit', label: '在途', time: '15:00', done: isStepReached('in_transit', mock.status) },
+      { status: 'arrived_by_gps', label: 'GPS 入客户园区', time: mock.status === 'arrived_by_gps' ? '现在' : '16:00', done: isStepReached('arrived_by_gps', mock.status) },
+      { status: 'driver_confirmed', label: '司机确认到达', time: '16:05', done: isStepReached('driver_confirmed', mock.status) },
+      { status: 'customer_signed', label: '客户签收完成', time: '16:30', done: isStepReached('customer_signed', mock.status) },
     ],
     remark: '客户催货，优先派车',
   }
+}
+
+/** v0.2.0-M2：客户园区坐标映射（mock 阶段按客户名硬编码） */
+function getCustomerSite(name: string): { lng: number; lat: number; radiusM: number } | undefined {
+  if (name.includes('华东机械') || name.includes('苏州')) return { lng: 120.708, lat: 31.318, radiusM: 200 }
+  if (name.includes('深圳')) return { lng: 113.945, lat: 22.533, radiusM: 200 }
+  if (name.includes('青岛') || name.includes('海尔')) return { lng: 120.469, lat: 36.103, radiusM: 200 }
+  return undefined
+}
+
+/** v0.2.0-M2：司机手动确认到达（H5 端动作） */
+function confirmArrival() {
+  if (!detail.value) return
+  uni.showModal({
+    title: '确认到达客户园区',
+    content: `订单 ${detail.value.dispatchNo} 已到达 ${detail.value.customerName}？\n\n确认后状态将变为「司机确认」，等待客户签收。`,
+    confirmText: '确认到达',
+    success: (res) => {
+      if (res.confirm) {
+        const newStatus = 'driver_confirmed'
+        // 1) 更新本地详情视图
+        detail.value!.status = newStatus
+        // 2) 回写 MOCK_DISPATCHES,确保返回列表时状态一致
+        const idx = MOCK_DISPATCHES.findIndex((d) => d.id === detail.value!.id)
+        if (idx >= 0) MOCK_DISPATCHES[idx].status = newStatus
+        uni.showToast({ title: '已确认到达', icon: 'success' })
+      }
+    },
+  })
+}
+
+/** v0.2.0-M2：导航到客户园区 */
+function openCustomerNavi() {
+  if (!detail.value?.customerSite) {
+    uni.showToast({ title: '客户园区坐标未配置', icon: 'none' })
+    return
+  }
+  const { lng, lat } = detail.value.customerSite
+  uni.showModal({
+    title: '导航到客户园区',
+    content: `目标：${detail.value.customerName}\n坐标：${lng}, ${lat}\n（真实阶段将调起地图 APP）`,
+    showCancel: false,
+  })
 }
 
 function callPhone(phone: string, name: string) {
@@ -138,6 +201,25 @@ function copyAddress() {
   })
 }
 
+/** v0.2.0-M2：复制签收链接 */
+function copySignUrl() {
+  if (!detail.value?.signUrl) return
+  uni.setClipboardData({
+    data: detail.value.signUrl,
+    success: () => uni.showToast({ title: '签收链接已复制', icon: 'success' }),
+  })
+}
+
+/** v0.2.0-M2：分享签收链接（H5 端调 navigator.share；mock 仅 toast） */
+function shareSignUrl() {
+  if (!detail.value?.signUrl) return
+  // 真实环境：uni-app 提供 uni.share；mock 阶段用 clipboard + toast
+  uni.setClipboardData({
+    data: detail.value.signUrl,
+    success: () => uni.showToast({ title: '签收链接已复制，可粘贴到微信/短信', icon: 'none' }),
+  })
+}
+
 onLoad((query: any) => {
   dispatchId.value = query?.id || 'mock-dispatch-012'
   loadDetail(dispatchId.value)
@@ -146,21 +228,11 @@ onLoad((query: any) => {
 
 <template>
   <view class="page" v-if="detail">
-    <!-- 顶部导航 -->
-    <view class="status-bar"></view>
-    <view class="navbar">
-      <view class="nav-back" @click="uni.navigateBack">‹</view>
-      <text class="nav-title">派车单详情</text>
-      <view class="nav-spacer"></view>
-    </view>
-
     <!-- 顶部摘要 -->
     <view class="summary">
       <view class="summary-row">
         <text class="dispatch-no">{{ detail.dispatchNo }}</text>
-        <view :class="['status-tag', 'tag-' + DISPATCH_STATUS_MAP[detail.status as keyof typeof DISPATCH_STATUS_MAP]?.cssClass]">
-          {{ DISPATCH_STATUS_MAP[detail.status as keyof typeof DISPATCH_STATUS_MAP]?.label || detail.status }}
-        </view>
+        <StatusTag :status="detail.status as any" />
       </view>
       <view class="summary-row2">
         <text class="direction">方向：{{ detail.direction }}</text>
@@ -270,10 +342,69 @@ onLoad((query: any) => {
       </view>
     </view>
 
+    <!-- v0.2.0-M2：到达状态横幅（arrived_by_gps / driver_confirmed / customer_signed） -->
+    <view v-if="detail.status === 'arrived_by_gps'" class="arrival-banner">
+      <image class="banner-icon" src="/static/icons/pin.svg" mode="aspectFit" />
+      <view class="banner-content">
+        <text class="banner-title">已到达客户园区</text>
+        <text class="banner-tip">请确认到达后通知客户签收</text>
+      </view>
+    </view>
+    <view v-else-if="detail.status === 'driver_confirmed'" class="arrival-banner confirmed">
+      <image class="banner-icon" src="/static/icons/checked.svg" mode="aspectFit" />
+      <view class="banner-content">
+        <text class="banner-title">司机已确认到达</text>
+        <text class="banner-tip">库房员已生成签收链接，请告知客户扫码签收</text>
+      </view>
+    </view>
+    <view v-else-if="detail.status === 'customer_signed'" class="arrival-banner signed">
+      <image class="banner-icon" src="/static/icons/done.svg" mode="aspectFit" />
+      <view class="banner-content">
+        <text class="banner-title">客户已签收</text>
+        <text class="banner-tip">订单即将完成</text>
+      </view>
+    </view>
+
+    <!-- v0.2.0-M2：签收链接展示卡（arrived_by_gps 之后显示） -->
+    <view v-if="detail.signUrl && ['arrived_by_gps', 'driver_confirmed', 'customer_signed'].includes(detail.status)" class="sign-link-card">
+      <view class="sign-link-header">
+        <view class="sign-link-title-row">
+          <image class="sign-link-title-icon" src="/static/icons/package.svg" mode="aspectFit" />
+          <text class="sign-link-title">客户签收链接</text>
+        </view>
+        <text class="sign-link-tip">库房员已生成，发给客户扫码签收</text>
+      </view>
+      <view class="sign-link-url-row">
+        <text class="sign-link-url">{{ detail.signUrl.length > 50 ? detail.signUrl.slice(0, 50) + '...' : detail.signUrl }}</text>
+      </view>
+      <view class="sign-link-actions">
+        <button class="btn-copy" @click="copySignUrl">复制链接</button>
+        <button class="btn-share" @click="shareSignUrl">分享</button>
+      </view>
+    </view>
+
     <!-- 底部操作栏 -->
     <view class="bottom-bar">
       <button class="btn-secondary" @click="callPhone(detail.companyPhone, '物流公司')">联系物流</button>
-      <button class="btn-primary" @click="openNavi(detail.yards[0])">🧭 一键导航</button>
+      <!-- v0.2.0-M2：按状态切换主操作按钮 -->
+      <template v-if="detail.status === 'arrived_by_gps'">
+        <button class="btn-primary btn-confirm" @click="confirmArrival">
+          <image class="btn-icon" src="/static/icons/checked.svg" mode="aspectFit" />
+          确认到达
+        </button>
+      </template>
+      <template v-else-if="['in_transit', 'arrived_by_gps', 'driver_confirmed', 'customer_signed'].includes(detail.status)">
+        <button class="btn-primary" @click="openCustomerNavi">
+          <image class="btn-icon" src="/static/icons/compass.svg" mode="aspectFit" />
+          客户导航
+        </button>
+      </template>
+      <template v-else>
+        <button class="btn-primary" @click="openNavi(detail.yards[0])">
+          <image class="btn-icon" src="/static/icons/compass.svg" mode="aspectFit" />
+          一键导航
+        </button>
+      </template>
     </view>
   </view>
 
@@ -289,39 +420,26 @@ onLoad((query: any) => {
   background: var(--color-bg);
   padding-bottom: 160rpx;
 }
-
-.status-bar {
-  height: 40rpx;
-  background: var(--color-brand);
+/* Frame 模式下：用 100% 替代 100vh，避免撑爆 Frame */
+html.hx-frame-on .page {
+  min-height: 100% !important;
+  height: 100%;
+  overflow-y: auto;
 }
 
-.navbar {
-  height: 88rpx;
-  background: var(--color-brand);
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-md);
-  position: sticky;
-  top: 0;
-  z-index: 100;
+/* Frame 模式下：.summary 不再被原生 nav bar 遮挡（nav bar 自带 44px 顶部空间） */
+html.hx-frame-on .summary {
+  margin-top: 0;
 }
-.nav-back {
-  width: 60rpx;
-  height: 60rpx;
-  font-size: 56rpx;
-  color: var(--color-text-on-brand);
-  line-height: 60rpx;
-  text-align: center;
+
+/* Frame 模式下：.bottom-bar 改 absolute + 让 padding-bottom 给 Indie 留位置 */
+html.hx-frame-on .bottom-bar {
+  position: absolute !important;
+  bottom: 0 !important;
+  max-width: 390px !important;
+  width: 100% !important;
+  z-index: 100 !important;
 }
-.nav-title {
-  flex: 1;
-  text-align: center;
-  font-size: var(--font-size-card-title);
-  font-weight: 600;
-  color: var(--color-text-on-brand);
-  margin-right: 60rpx;
-}
-.nav-spacer { width: 60rpx; }
 
 .summary {
   background: var(--gradient-brand);
@@ -345,18 +463,7 @@ onLoad((query: any) => {
   opacity: 0.9;
 }
 
-.status-tag {
-  font-size: var(--font-size-mini);
-  padding: 6rpx 18rpx;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-}
-.tag-pending { color: var(--color-status-pending-text); background: var(--color-status-pending-bg); }
-.tag-entering { color: var(--color-status-entering-text); background: var(--color-status-entering-bg); }
-.tag-loading { color: var(--color-status-loading-text); background: var(--color-status-loading-bg); }
-.tag-leaving { color: var(--color-status-leaving-text); background: var(--color-status-leaving-bg); }
-.tag-completed { color: var(--color-status-completed-text); background: var(--color-status-completed-bg); }
-.tag-cancelled { color: var(--color-status-cancelled-text); background: var(--color-status-cancelled-bg); }
+/* 注：状态 Tag CSS 已在 components/StatusTag.vue 中定义（v0.2.x 重构抽出） */
 
 .card {
   background: var(--color-card);
@@ -582,8 +689,147 @@ onLoad((query: any) => {
   min-height: 100vh;
   background: var(--color-bg);
 }
+/* Frame 模式下：loading 页面也要适配 */
+html.hx-frame-on .loading-page {
+  min-height: 100% !important;
+  height: 100%;
+}
 .loading-text {
   font-size: var(--font-size-body);
   color: var(--color-text-secondary);
+}
+
+/* ====== v0.2.0-M2：确认到达按钮 + 到达状态横幅 ====== */
+.btn-confirm {
+  background: var(--color-status-completed) !important;
+  animation: pulse-confirm 1.5s ease-in-out infinite;
+}
+@keyframes pulse-confirm {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+.arrival-banner {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-status-entering-bg);
+  border: 2rpx solid var(--color-status-entering-text);
+  border-radius: var(--radius-lg);
+}
+.arrival-banner.confirmed {
+  background: var(--color-status-completed-bg);
+  border-color: var(--color-status-completed-text);
+}
+.arrival-banner.signed {
+  background: var(--color-status-completed-bg);
+  border-color: var(--color-status-completed-text);
+}
+.banner-icon {
+  width: 64rpx;
+  height: 64rpx;
+  color: var(--color-status-entering-text);
+  flex-shrink: 0;
+}
+.arrival-banner.confirmed .banner-icon,
+.arrival-banner.signed .banner-icon {
+  color: var(--color-status-completed-text);
+}
+.banner-content {
+  flex: 1;
+}
+.banner-title {
+  display: block;
+  font-size: var(--font-size-card-title);
+  font-weight: 600;
+  color: var(--color-status-entering-text);
+  margin-bottom: 4rpx;
+}
+.arrival-banner.confirmed .banner-title,
+.arrival-banner.signed .banner-title {
+  color: var(--color-status-completed-text);
+}
+.banner-tip {
+  display: block;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-regular);
+}
+
+/* ====== v0.2.0-M2：签收链接展示卡 ====== */
+.sign-link-card {
+  background: var(--color-brand-bg);
+  border: 2rpx solid var(--color-brand);
+  border-radius: var(--radius-lg);
+  margin: var(--space-md);
+  padding: var(--space-md);
+}
+.sign-link-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-sm);
+}
+.sign-link-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: 4rpx;
+}
+.sign-link-title-icon {
+  width: 36rpx;
+  height: 36rpx;
+  color: var(--color-brand);
+}
+.sign-link-title {
+  font-size: var(--font-size-card-title);
+  font-weight: 700;
+  color: var(--color-brand);
+}
+.btn-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: var(--space-xs);
+  vertical-align: middle;
+}
+.sign-link-tip {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+.sign-link-url-row {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+.sign-link-url {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-regular);
+  font-family: monospace;
+  word-break: break-all;
+  display: block;
+}
+.sign-link-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+.btn-copy, .btn-share {
+  flex: 1;
+  height: 72rpx;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sub);
+  font-weight: 500;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-copy {
+  background: var(--color-brand);
+  color: var(--color-text-on-brand);
+}
+.btn-share {
+  background: var(--color-card);
+  color: var(--color-brand);
+  border: 1rpx solid var(--color-brand);
 }
 </style>

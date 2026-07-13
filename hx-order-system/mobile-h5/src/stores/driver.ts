@@ -1,10 +1,13 @@
 /**
- * 司机端 Pinia store（M3 阶段）
+ * 司机端 Pinia store（v0.2.0-M2：到货处理）
  *
  * 记录司机的本地状态：
  *  - currentDriver：当前登录司机身份（mock 阶段用"切换司机"下拉模拟）
  *  - queueHistory：排队登记历史（M2 兼容保留）
- *  - notifications：库房推送消息（"通知出发"/"通知装货"）
+ *  - notifications：库房推送消息
+ *    * M3：depart（通知出发）/ loading（通知装货）/ arrive（GPS 入园）
+ *    * M2：complete（装货完成）/ cancel（订单取消）
+ *    * M2：arrived_prompt（已到达客户园区，请确认）
  *
  * 真实数据通过 postMessage 与 Web 端同步；这里仅做 UI 状态管理。
  *
@@ -22,12 +25,22 @@ export interface DriverInfo {
   phone: string
 }
 
+export type NotificationType =
+  | 'depart'         // 通知出发
+  | 'loading'        // 通知装货
+  | 'arrive'         // GPS 入园
+  | 'complete'       // 装货完成（M2）
+  | 'cancel'         // 订单取消
+  | 'arrived_prompt' // 已到达客户园区，请确认（M2 新增）
+
 export interface NotificationItem {
-  type: 'depart' | 'loading'
+  type: NotificationType
   title: string
   content: string
   time: string
-  dispatchId: string
+  timestamp: number
+  read: boolean
+  dispatchId?: string
 }
 
 interface QueueRecord {
@@ -82,8 +95,15 @@ export const useDriverStore = defineStore('driver', {
     /** 推入一条库房消息（mock 阶段由 PC 端 postMessage 调；真实阶段同） */
     pushNotification(n: NotificationItem) {
       this.notifications.unshift(n)
-      // 限 20 条
-      if (this.notifications.length > 20) this.notifications.length = 20
+      // 限 30 条（M2 扩到 30）
+      if (this.notifications.length > 30) this.notifications.length = 30
+      saveToStorage(this.$state)
+    },
+
+    /** 标记单条已读 */
+    markRead(id: string) {
+      const n = this.notifications.find((x) => x.dispatchId === id)
+      if (n) n.read = true
       saveToStorage(this.$state)
     },
 
