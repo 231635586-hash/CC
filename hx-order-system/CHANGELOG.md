@@ -10,11 +10,11 @@
 |------|------|
 | 项目名称 | 华翔物流管理系统 (HX-LOGISTICS-SYSTEM) |
 | 端口（Web） | 5175（区分 hx-archive-system 的 5173） |
-| 端口（Mobile H5） | 5176 |
+| 端口（Mobile H5） | 5181 |
 | 技术栈（Web） | Vite 5 + React 18 + TypeScript + Ant Design 5 + Zustand + Socket.IO |
 | 技术栈（H5） | uni-app + Vue 3 + Pinia |
 | 启动命令（Web） | `npm run dev` |
-| 启动命令（H5） | `cd mobile-h5 && npx serve -l 5174` |
+| 启动命令（H5） | `cd mobile-h5 && npx serve -l 5181` |
 | 关联项目 | hx-archive-system（独立项目，互不影响） |
 
 ---
@@ -466,7 +466,7 @@ Web 端 crossOrigin.ts 监听 → markYardEntered(token, yardId, enteredAt)
 
 - **本项目独立**：`/Users/roro/Vibe_coding/hx-logistics-system`
 - **不影响其他项目**：尤其不能影响 `hx-archive-system`
-- **端口隔离**：Web 5175 / H5 5176 / 档案 5173
+- **端口隔离**：Web 5175 / H5 5181 / 档案 5173
 - **代码组织**：feature 目录按业务划分，互不耦合
 
 ---
@@ -552,3 +552,229 @@ Web 端 crossOrigin.ts 监听 → markYardEntered(token, yardId, enteredAt)
 - [ ] 跨天场景禁行时段计算
 - [ ] Excel 导出
 - [ ] 按公司 / 时间段的分组聚合报表
+
+---
+
+### v0.3.1 - 司机端 H5 端口迁移（2026-07-10）
+
+#### 🔧 端口冲突修复
+
+**背景**：`hx-order-system/mobile-h5`（司机端 H5，uni-app + Vue 3）原本配置 5174 端口，与"移动端原型静态服务"（`npx serve -l5174`）撞车，同时与 5173 档案系统、5176 物流系统、5177 订单 Web、5178 扫码报工的端口矩阵也容易混淆。
+
+**变更**：
+- 司机端 H5 端口 **5174 → 5181**
+- `mobile-h5/vite.config.ts` 加 `strictPort: true`（端口被占时启动失败，与 HX 矩阵其他项目对齐）
+- 同步更新：`h5BaseUrl.ts` 默认值、`signToken.ts` 注释、`docs/standards/mobile-h5-design.md` 标题/版本记录
+
+**端口矩阵**（HX 产品矩阵更新）：
+
+| 项目 | 端口 | 类型 |
+|------|:---:|------|
+| hx-archive-system（档案管理） | 5173 | Web |
+| 移动端原型静态服务 | 5174 | 静态 HTML |
+| hx-logistics-system（物流管理） | 5176 | Web |
+| hx-order-system（订单系统） | 5177 | Web |
+| mes-workorder（扫码报工） | 5178 | Web |
+| **司机端 H5（mobile-h5）** | **5181** | **uni-app H5** |
+
+**注意事项**：
+- PC 端打开订单详情页 → "生成签收链接"按钮拼接的 URL 自动用 5181 端口
+- 司机端 H5 启动命令不变：`cd mobile-h5 && npm run dev:h5`
+- 5174 端口正式让位给"移动端原型静态服务"（如 `npx serve -l5174 scan-report-prototype.html`）
+
+---
+
+### v0.4.0-M2 - 到货处理 v0.2.0-M2 完整闭环（2026-07-13）
+
+#### 🎉 阶段交付：到货处理全流程 + 多角色 H5 + 状态机重写 + 调度时效增强
+
+**✅ 业务范围**：派车 → 入园 → 装货 → 离场 → 司机端确认 → 客户签收 → 完成（多园区循环），覆盖 5 步状态流转 + 多角色 H5 入口。
+
+#### 📦 8 个业务里程碑
+
+##### 1. 数据层 + YardTimeline 类型扩展
+
+**交付范围**：支撑到货处理全流程所需的数据结构。
+
+**关键文件**：
+- [src/types/dispatch.ts](src/types/dispatch.ts) — YardTimeline 类型扩展
+- [src/types/order.ts](src/types/order.ts) — 订单统一类型
+- [src/types/customer.ts](src/types/customer.ts) — 客户类型
+- [src/mock/seed.ts](src/mock/seed.ts) — mock 数据集扩展
+- [mobile-h5/src/types/driver.ts](mobile-h5/src/types/driver.ts) — H5 司机端类型
+
+**已知 TODO**：无
+
+---
+
+##### 2. PC 端到货处理 UI
+
+**交付范围**：库房人员全套工作台 + 订单统一详情。
+
+**关键文件**：
+- [src/features/warehouse/WarehouseQueuePage.tsx](src/features/warehouse/WarehouseQueuePage.tsx) — 排队管理 + 状态驱动操作
+- [src/features/warehouse/WarehouseLoadingPage.tsx](src/features/warehouse/WarehouseLoadingPage.tsx) — 装货进度跟踪
+- [src/features/warehouse/WarehouseDispatchDetailPage.tsx](src/features/warehouse/WarehouseDispatchDetailPage.tsx) — 单据详情 + 多园区时间线
+- [src/features/warehouse/components/YardTimelineView.tsx](src/features/warehouse/components/YardTimelineView.tsx) — antd Steps 垂直时间线
+- [src/features/warehouse/components/NotifyLoadingModal.tsx](src/features/warehouse/components/NotifyLoadingModal.tsx) — 装货通知 Modal
+- [src/features/order/OrderBoardPage.tsx](src/features/order/OrderBoardPage.tsx) — 订单工作台
+- [src/features/order/OrderDetailPage.tsx](src/features/order/OrderDetailPage.tsx) — 订单统一详情 + 签收链接生成
+
+**已知 TODO**：跨天场景禁行时段计算（M3 处理）
+
+---
+
+##### 3. 司机端 H5 重构（5 Tab 单页架构）
+
+**交付范围**：司机角色独立入口，5 Tab 单页架构。
+
+**关键文件**：
+- [mobile-h5/src/pages/driver/orders/index.vue](mobile-h5/src/pages/driver/orders/index.vue) — 5 Tab 容器
+- [mobile-h5/src/pages/driver/orders/tabs/WorkbenchTab.vue](mobile-h5/src/pages/driver/orders/tabs/WorkbenchTab.vue) — 工作台 Tab
+- [mobile-h5/src/pages/driver/order-detail/index.vue](mobile-h5/src/pages/driver/order-detail/index.vue) — 订单详情
+- [mobile-h5/src/stores/driver.ts](mobile-h5/src/stores/driver.ts) — 司机 store
+- [mobile-h5/vite.config.ts](mobile-h5/vite.config.ts) — strictPort: true
+
+**端口矩阵更新**：
+
+| 项目 | 端口 | 类型 |
+|------|:---:|------|
+| hx-archive-system（档案管理） | 5173 | Web |
+| 移动端原型静态服务 | 5174 | 静态 HTML |
+| hx-logistics-system（物流管理） | 5176 | Web |
+| hx-order-system（订单系统） | 5177 | Web |
+| mes-workorder（扫码报工） | 5178 | Web |
+| **司机端 H5（mobile-h5）** | **5181** | **uni-app H5** |
+
+**已知 TODO**：H5 真机扫码需 HTTPS 部署 + 相机权限
+
+---
+
+##### 4. 客户签收 H5
+
+**交付范围**：客户通过 token + base64 snapshot 进入签收页。
+
+**关键文件**：
+- [mobile-h5/src/pages/customer/sign/index.vue](mobile-h5/src/pages/customer/sign/index.vue) — 签收页
+
+**注意**：用户 2026-07-13 反馈"实际客户不会进行该操作"。代码保留作为可复用脚手架，但不在产品路线图内。后续可能转 chore 删除。
+
+**已知 TODO**：客户登录（当前 mock 阶段跳过）
+
+---
+
+##### 5. 销售端 + 公司端 H5
+
+**交付范围**：销售 / 公司两个新角色入口。
+
+**关键文件**：
+- [mobile-h5/src/pages/role-select/index.vue](mobile-h5/src/pages/role-select/index.vue) — 三角色入口首页
+- [mobile-h5/src/pages/salesperson/](mobile-h5/src/pages/salesperson/) — 销售端（创建调车单 + 我的派车单 Tab）
+- [mobile-h5/src/pages/company/](mobile-h5/src/pages/company/) — 公司端（待确认 / 待派车 / 我的 Tab）
+- [mobile-h5/src/stores/role.ts](mobile-h5/src/stores/role.ts) — 角色 Pinia store
+- [mobile-h5/src/stores/ui.ts](mobile-h5/src/stores/ui.ts) — UI 状态 store
+
+**已知 TODO**：销售/公司登录流程（M3）
+
+---
+
+##### 6. 状态机 v0.2.0-M2.2 重写
+
+**交付范围**：5 步状态流转 + entering 守卫 + 多 action。
+
+**业务流程**：`dispatched → entering → loading → leaving → completed`
+
+**关键约束**：
+- **entering 优先级 > loading**（避免脏数据自动跳到 loading）
+- 唯一写入点：[src/stores/dispatch.ts:99-100](src/stores/dispatch.ts#L99-L100)（deriveStatus tick 聚合）
+- 库房员必须主动点「通知装货」才能进入 loading
+- notifyDepart 仅写时间戳，不再链式触发状态切换
+- markYardEntered / markLoadingCompleted / markYardLeft action 守卫
+
+**新增 action**：
+- `markYardEntered` / `markYardLeft`
+- `markLoadingCompleted`
+- `markLoadingNotified`
+- `signByCustomer` / `generateSignUrl`
+
+**关键文件**：
+- [src/stores/dispatch.ts](src/stores/dispatch.ts) — 状态机 single source of truth
+
+**回退指引**：紧急回退路径可 git reset --hard `v0.3.1-pre-squash` tag
+
+**已知 TODO**：跨天禁行时段扣减（M3）
+
+---
+
+##### 7. 调度时效分析增强
+
+**交付范围**：5 指标 + 5 筛选 + 4 Tab + Excel 导出。
+
+**关键文件**：
+- [src/features/logistics/efficiency/EfficiencyAnalysisPage.tsx](src/features/logistics/efficiency/EfficiencyAnalysisPage.tsx) — 主页面
+- [src/features/logistics/efficiency/EfficiencyAnalysisDetailPage.tsx](src/features/logistics/efficiency/EfficiencyAnalysisDetailPage.tsx) — 详情页
+- [src/utils/efficiencyAnalysis.ts](src/utils/efficiencyAnalysis.ts) — 核心计算逻辑
+- [src/utils/excelExport.ts](src/utils/excelExport.ts) — xlsx 导出工具
+
+**已知 TODO**：禁行时间配置化（Yard.restrictedHours 字段）/ 超时归因规则引擎
+
+---
+
+##### 8. 共享基础设施
+
+**交付范围**：跨模块复用的工具 + 组件 + 服务。
+
+**关键文件**：
+- [src/components/dispatch/dispatchStatusMap.ts](src/components/dispatch/dispatchStatusMap.ts) — 状态映射统一
+- [src/utils/clipboard.ts](src/utils/clipboard.ts) — 跨平台复制兜底
+- [src/utils/signToken.ts](src/utils/signToken.ts) — 签收 token 工具
+- [src/utils/h5BaseUrl.ts](src/utils/h5BaseUrl.ts) — H5 base URL 常量
+- [src/services/crossOrigin.ts](src/services/crossOrigin.ts) — 跨 origin 通信桥接（M3 已废弃 YARD_ENTER/YARD_LEFT，仅保留 silent drop）
+- [src/services/dingtalk.ts](src/services/dingtalk.ts) — pushByTemplate 公共实现
+
+**已知 TODO**：真实钉钉推送（待后端联调）
+
+---
+
+#### 🔄 11 commit 整理为 9 个意图 commit（squash 整理）
+
+feat/arrival-processing 分支历史 11 个 commit（含 4 个状态机横跳）已重写为：
+1. `feat(data)` 数据层
+2. `refactor(infra)` 共享基础设施
+3. `feat(pc-ui)` PC 端 UI + 调度时效增强
+4. `feat(state-machine)` 状态机重写
+5. `feat(driver-h5)` 司机端 H5 + 端口迁移
+6. `feat(customer-h5)` 客户签收 H5
+7. `feat(salesperson+company)` 销售/公司端 H5
+8. `ui(mobile-h5)` 统一 UI 规范
+9. `fix(docs)` mobile-h5 设计标准修正
+10. `docs(changelog)` 本章节同步
+
+符合 CLAUDE.md 单意图 commit 规范。
+
+#### 📋 业务验证清单
+
+| 业务场景 | 验证方式 | 状态 |
+|---------|---------|------|
+| 库房人员查看实时排队 | `/warehouse/queue` 表格 | ✅ |
+| 库房人员通知入场（生成 QR） | 点【通知入场】→ Modal 渲染 | ✅ |
+| 司机扫码入场（开发期点击链接） | H5 点【确认入场】→ 自动关闭 | ✅ |
+| 库房人员勾选装货完成 | 点【装货完成】→ 状态 leaving | ✅ |
+| 库房人员通知离场（生成 QR） | 点【通知离场】→ Modal 渲染 | ✅ |
+| 司机扫码离场 | H5 点【确认离场】→ 自动关闭 | ✅ |
+| 多园区循环 | 离场后跳 multi-yard-prompt | ✅ |
+| 全部园区离场 → 状态 completed | 派生字段自动计算 | ✅ |
+| 调度时效分析 5 指标 + Excel 导出 | `/logistics/efficiency` 4 Tab | ✅ |
+| 调度时效详情 + 单园区 YardMetricsCard | `/logistics/efficiency/:id` | ✅ |
+| token 单次使用防重放 | markYardEntered 清空 token | ✅ |
+| 进入守卫（entering > loading） | 脏数据测试 | ✅ |
+
+#### ⚠️ 已知 TODO
+
+- [ ] H5 真机扫码（需 HTTPS 部署 + 相机权限）
+- [ ] 真实钉钉推送（待后端联调）
+- [ ] 跨天场景禁行时段计算
+- [ ] 禁行时间配置化（Yard.restrictedHours）
+- [ ] 超时归因规则引擎
+- [ ] 客户/销售/公司登录流程（M3）
+- [ ] 客户签收 H5 走产品路线决策（用户已反馈"实际客户不会进行该操作"）
