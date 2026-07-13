@@ -1,10 +1,8 @@
 import { create } from 'zustand'
 import { mockDB } from '@/mock/db'
-import type { Dispatch } from '@/types/dispatch'
+import type { Dispatch, YardTimeline } from '@/types/dispatch'
 import { getEnterYardAt, getLeaveYardAt } from '@/utils/dispatchTimeline'
 import { nowIsoString } from '@/utils'
-import { H5_BASE_URL } from '@/utils/h5BaseUrl'
-import { generateSignToken, buildSignUrl } from '@/utils/signToken'
 
 interface DispatchState {
   list: Dispatch[]
@@ -14,95 +12,96 @@ interface DispatchState {
   remove: (id: string) => Promise<void>
   getById: (id: string) => Dispatch | undefined
 
+  // —— M2.2 v2 状态机：GPS / 扫码统一入场 ——
+  /** 司机扫码排队（无 GPS 场景） */
+  markYardQueuedByScan: (dispatchId: string, yardId: string, queuedAt: string) => Promise<void>
+  /** GPS 检测到场（有 GPS 场景，统一走 queued） */
+  markYardQueuedByGps: (vehicleId: string, yardId: string, queuedAt: string) => Promise<void>
+  /** 库房员通知入场 + 道闸开闸（queued → entering） */
+  triggerGateOpen: (dispatchId: string, yardId: string, enteredAt: string) => Promise<void>
+  /** 司机确认到达（driver_confirmed → completed 链式） */
+  completeByDriverConfirm: (dispatchId: string) => Promise<void>
+
   // —— M3：库房主动推进 + 车辆 GPS 自动打卡 ——
   notifyDepart: (dispatchId: string, yardId: string, departAt: string) => Promise<void>
   notifyLoading: (dispatchId: string, yardId: string, notifiedAt: string) => Promise<void>
-  markYardEnteredByGps: (vehicleId: string, yardId: string, enteredAt: string) => Promise<void>
   markYardLeftByGps: (vehicleId: string, yardId: string, leftAt: string) => Promise<void>
 
   // —— M2：库房装货完成 ——
   markLoadingCompleted: (dispatchId: string, yardId: string, completedAt: string) => Promise<void>
 
-  // —— v0.2.0-M2：到货处理 4 步 ——
+  // —— v0.2.0-M2：到货处理 ——
   /** 车辆出厂/在途（库房装货完成后自动链式触发，也可手动标记） */
   markLeftYard: (dispatchId: string, leftAt: string) => Promise<void>
-  /** GPS 进入客户园区半径（自动；mock 来自位置流 tick） */
+  /** GPS 进入客户园区半径（自动；mock 来自位置流 tick）— 注意：仅写入 arrivedByGpsAt 字段，不再驱动状态 */
   markArrivedByGps: (vehicleId: string, arrivedAt: string) => Promise<void>
-  /** 司机手动确认到达（H5「确认到达」按钮） */
+  /** 司机手动确认到达（H5「确认到达」按钮）— 确认后自动链式触发 completeByDriverConfirm */
   confirmArrivalByDriver: (dispatchId: string, confirmedAt: string) => Promise<void>
-  /** 客户签收完成（客户签收 H5 上传照片 + 确认） */
-  signByCustomer: (
-    dispatchId: string,
-    signedAt: string,
-    photos: string[],
-    note?: string,
-  ) => Promise<void>
-  /** v0.2.0-M2：库房员生成客户签收链接（leaving 状态触发） */
-  generateSignUrl: (dispatchId: string, expiresInHours?: number) => Promise<{ url: string; token: string }>
+  // ❌ v0.3.0-M2.2 删除:signByCustomer / generateSignUrl（客户签收全链路已下线）
 }
 
 /**
- * 推导 dispatch.status（基于 yardTimelines）—— v0.2.0-M2.2 版
+ * 推导 dispatch.status（基于 yardTimelines）—— v0.3.0-M2.2 版
  *
- * 业务流程（v0.2.0-M2.2 重新明确）：
- *   物流派车 → dispatched → GPS 入园（自动）→ entering
+ * 业务流程（M2.2 v2 重新明确）：
+ *   物流派车 → dispatched → 排队登记（GPS 自动 / 司机扫码统一走 queued）
+ *     → 库房「通知入场」（道闸开闸）→ entering
  *     → 库房「通知装货」→ loading → 库房「装货完成」→ leaving
- *     → GPS 离厂（自动）→ completed
+ *     → GPS 离厂（自动）→ in_transit
+ *     → 司机「确认到达」→ driver_confirmed → 自动链式 completed
  *
  * 优先级（自上而下）：
- *  1) 客户已签收（signedAt）→ completed
- *  2) 司机已确认（driverConfirmedAt）→ customer_signed（实际签名态之前的等待签收）
- *  3) GPS 已到达客户园区（arrivedByGpsAt）→ driver_confirmed
- *  4) 车辆已出厂（leftYardAt）→ in_transit
- *  5) 所有园区都 leftAt → completed（兼容旧数据无 leftYardAt 场景）
- *  6) 任一园区 loadingCompletedAt → leaving
- *  7) 任一园区 loadingNotifiedAt 且未装完 → loading（库房放行装货）
- *  8) 任一园区 enteredAt（无 loadingNotified）→ entering（GPS 入园，等待库房放行）
- *  9) 任一园区 notifyDepartAt / notifiedAt → dispatched
- *  10) 保留旧 status
- *
- * 关键约束（v0.2.0-M2.2）：entering 优先级 > loading
- *  - 即使数据脏（旧 entering 数据 + 旧 loading 数据共存），状态仍卡在 entering
- *  - 库房员必须主动点「通知装货」才能推到 loading
- *  - 避免库房员漏点「通知装货」导致订单自动跳到 loading
+ *  1) 所有园区都已 leftAt && 所有园区都已 driverConfirmedAt → completed
+ *  2) 任一园区 driverConfirmedAt 存在 → driver_confirmed
+ *  3) 任一园区 leftAt 存在（未 driverConfirmedAt）→ in_transit
+ *  4) 任一园区 loadingCompletedAt 存在（未 leftAt）→ leaving
+ *  5) 任一园区 loadingNotifiedAt 存在（未 loadingCompletedAt）→ loading
+ *  6) 任一园区 enteredAt 存在（未 loadingNotifiedAt）→ entering
+ *  7) 任一园区 queuedAt 存在（未 enteredAt）→ queued
+ *  8) 默认：dispatched（司机已确认派车，但未登记排队）
  */
 function deriveStatus(d: Dispatch): Dispatch['status'] {
   const tl = d.yardTimelines || []
   if (tl.length === 0) return d.status
 
-  // 客户已签收 → 直接 completed（终态）
-  const anySigned = tl.some((y) => y.signedAt)
-  if (anySigned) return 'completed'
+  // 1) 全部完成（终态）— 所有园区都已离场 + 司机已确认
+  if (tl.every((y) => y.leftAt) && tl.every((y) => y.driverConfirmedAt)) {
+    return 'completed'
+  }
 
-  // 司机已确认 → 等待客户签收
-  const anyDriverConfirmed = tl.some((y) => y.driverConfirmedAt)
-  if (anyDriverConfirmed) return 'driver_confirmed'
+  // 2) 任一园区 driverConfirmedAt 存在 → driver_confirmed
+  if (tl.some((y) => y.driverConfirmedAt)) return 'driver_confirmed'
 
-  // GPS 已到客户园区 → 等待司机确认
-  const anyArrivedByGps = tl.some((y) => y.arrivedByGpsAt)
-  if (anyArrivedByGps) return 'arrived_by_gps'
+  // 3) 任一园区 leftAt 存在（未 driverConfirmedAt）→ in_transit
+  if (tl.some((y) => y.leftAt)) return 'in_transit'
 
-  // 车辆已出厂 → 在途
-  const anyLeftYard = tl.some((y) => y.leftYardAt)
-  if (anyLeftYard) return 'in_transit'
+  // 4) 任一园区 loadingCompletedAt 存在（未 leftAt）→ leaving
+  if (tl.some((y) => y.loadingCompletedAt && !y.leftAt)) return 'leaving'
 
-  // 兼容旧数据：无 leftYardAt 但所有园区都已 leftAt
-  const allLeft = tl.every((y) => y.leftAt)
-  if (allLeft) return 'completed'
+  // 5) 任一园区 loadingNotifiedAt 存在（未 loadingCompletedAt）→ loading
+  if (tl.some((y) => y.loadingNotifiedAt && !y.loadingCompletedAt)) return 'loading'
 
-  const anyLoadingDone = tl.some((y) => y.loadingCompletedAt)
-  if (anyLoadingDone) return 'leaving'
+  // 6) 任一园区 enteredAt 存在（未 loadingNotifiedAt）→ entering
+  if (tl.some((y) => y.enteredAt && !y.loadingNotifiedAt)) return 'entering'
 
-  const anyLoadingNotified = tl.some((y) => y.loadingNotifiedAt && !y.loadingCompletedAt)
-  if (anyLoadingNotified) return 'loading'
+  // 7) 任一园区 queuedAt 存在（未 enteredAt）→ queued
+  if (tl.some((y) => y.queuedAt && !y.enteredAt)) return 'queued'
 
-  const anyEntered = tl.some((y) => y.enteredAt)
-  if (anyEntered) return 'entering'
+  // 8) 默认：dispatched
+  return 'dispatched'
+}
 
-  const anyNotified = tl.some((y) => y.notifyDepartAt || y.notifiedAt)
-  if (anyNotified) return 'dispatched'
-
-  return d.status
+/** 给指定园区的 timeline 字段做 update（找不到则新建一条） */
+function updateTimelineForYard(
+  d: Dispatch,
+  yardId: string,
+  updater: (y: YardTimeline) => YardTimeline,
+): YardTimeline[] {
+  const existing = d.yardTimelines.find((y) => y.yardId === yardId)
+  if (existing) {
+    return d.yardTimelines.map((y) => (y.yardId === yardId ? updater(y) : y))
+  }
+  return [...d.yardTimelines, updater({ yardId })]
 }
 
 /** 给 dispatch 补齐派生字段（enterYardAt / leaveYardAt） */
@@ -184,27 +183,90 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
     await get().save(updated)
   },
 
-  /** 车辆 GPS 入园（mock：来自位置流 tick） */
-  markYardEnteredByGps: async (vehicleId, yardId, enteredAt) => {
-    // 反查：派车后（dispatched）的调度单，且 dispatch.vehicleId = vehicleId，yardTimelines 含 yardId
+  /**
+   * M2.2 v2:车辆 GPS 检测到园区时,统一走 queued 状态
+   *  - 不再直接 entering（必须库房员通知入场 + 道闸放行）
+   *  - 同时写入 arrivedByGpsAt 作为 GPS 检测时间记录（不再驱动状态机）
+   */
+  markYardQueuedByGps: async (vehicleId, yardId, queuedAt) => {
+    // 反查：派车后（dispatched / queued）的调度单
     const d = get().list.find(
       (x) =>
         x.vehicleId === vehicleId &&
-        (x.status === 'dispatched' || x.status === 'entering' || x.status === 'loading') &&
+        (x.status === 'dispatched' || x.status === 'queued' || x.status === 'entering' || x.status === 'loading') &&
         x.yardTimelines.some((y) => y.yardId === yardId),
     )
     if (!d) {
-      console.warn(`[dispatch] GPS 入园未匹配：vehicleId=${vehicleId} yardId=${yardId}`)
+      console.warn(`[dispatch] GPS 检测未匹配：vehicleId=${vehicleId} yardId=${yardId}`)
       return
     }
+    // 用 updateTimelineForYard 统一处理(幂等)
+    const tl = updateTimelineForYard(d, yardId, (y) => ({
+      ...y,
+      queuedAt: y.queuedAt ?? queuedAt,
+      arrivedByGpsAt: y.arrivedByGpsAt ?? queuedAt,
+    }))
+    const updated: Dispatch = { ...d, yardTimelines: tl }
+    await get().save(updated)
+  },
+
+  /**
+   * M2.2 v2:司机扫码排队（无 GPS 场景）
+   *  - 司机在 H5 点【扫码排队】按钮触发
+   *  - 与 GPS 自动检测等价(只记录 queuedAt)
+   */
+  markYardQueuedByScan: async (dispatchId, yardId, queuedAt) => {
+    const d = get().list.find((x) => x.id === dispatchId)
+    if (!d) throw new Error('调车单不存在')
+    // 用 updateTimelineForYard 统一处理(幂等)
+    const tl = updateTimelineForYard(d, yardId, (y) => ({
+      ...y,
+      queuedAt: y.queuedAt ?? queuedAt,
+    }))
+    const updated: Dispatch = { ...d, yardTimelines: tl }
+    await get().save(updated)
+  },
+
+  /**
+   * M2.2 v2:库房员通知入场 + 道闸开闸（queued → entering）
+   *  - 库房员在前端点【通知入场】按钮触发
+   *  - 实际生产: 调用道闸 API；mock 阶段: 由 UI setTimeout 模拟 3 秒后自动调用
+   *  - 写入 notifyDepartAt(库房员通知时间) + enteredAt(道闸开闸时间 = 实际入园时间)
+   */
+  triggerGateOpen: async (dispatchId, yardId, enteredAt) => {
+    const d = get().list.find((x) => x.id === dispatchId)
+    if (!d) throw new Error('调车单不存在')
+    // 状态守卫:仅 queued 状态可通知入场
+    if (d.status !== 'queued') {
+      throw new Error(`当前状态「${d.status}」不允许通知入场（需先进入 queued 状态）`)
+    }
+    const tl = updateTimelineForYard(d, yardId, (y) => ({
+      ...y,
+      enteredAt: y.enteredAt ?? enteredAt,
+      enteredVia: 'manual' as const, // 道闸放行视为人工放行（M2.2 v2:不再依赖 GPS）
+      notifyDepartAt: y.notifyDepartAt ?? enteredAt,
+    }))
+    const updated: Dispatch = { ...d, yardTimelines: tl }
+    await get().save(updated)
+  },
+
+  /**
+   * M2.2 v2:司机确认完成（链式触发 completed）
+   *  - 给所有园区补齐 driverConfirmedAt(若无),设置 dispatch.completedAt
+   *  - 由 confirmArrivalByDriver 自动链式调用
+   */
+  completeByDriverConfirm: async (dispatchId) => {
+    const now = nowIsoString()
+    const d = get().list.find((x) => x.id === dispatchId)
+    if (!d) throw new Error('调车单不存在')
+    const tl = d.yardTimelines.map((y) => ({
+      ...y,
+      driverConfirmedAt: y.driverConfirmedAt ?? now,
+    }))
     const updated: Dispatch = {
       ...d,
-      yardTimelines: d.yardTimelines.map((y) => {
-        if (y.yardId !== yardId) return y
-        // 幂等：已 enteredAt 则不覆盖
-        if (y.enteredAt) return y
-        return { ...y, enteredAt, enteredVia: 'gps' as const }
-      }),
+      yardTimelines: tl,
+      completedAt: now,
     }
     await get().save(updated)
   },
@@ -261,12 +323,14 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
     await get().save(updated)
   },
 
-  /** GPS 入客户园区（mock：来自位置流 tick，自动反查 dispatch） */
+  /** GPS 入客户园区（mock：来自位置流 tick，自动反查 dispatch）
+   *  M2.2 v2:仅写入 arrivedByGpsAt 字段(供后续分析),不再驱动状态机
+   */
   markArrivedByGps: async (vehicleId, arrivedAt) => {
     const d = get().list.find(
       (x) =>
         x.vehicleId === vehicleId &&
-        (x.status === 'in_transit' || x.status === 'arrived_by_gps') &&
+        (x.status === 'in_transit' || x.status === 'driver_confirmed') &&
         x.yardTimelines.length > 0,
     )
     if (!d) {
@@ -284,10 +348,11 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
     await get().save(updated)
   },
 
-  /** 司机手动确认到达 */
+  /** 司机手动确认到达（M2.2 v2：链式触发 completeByDriverConfirm → completed） */
   confirmArrivalByDriver: async (dispatchId, confirmedAt) => {
     const d = get().list.find((x) => x.id === dispatchId)
     if (!d) throw new Error('调车单不存在')
+    // 1. 写 driverConfirmedAt
     const updated: Dispatch = {
       ...d,
       yardTimelines: d.yardTimelines.map((y) =>
@@ -295,58 +360,9 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
       ),
     }
     await get().save(updated)
+    // 2. 链式触发 completed
+    await get().completeByDriverConfirm(dispatchId)
   },
 
-  /** 客户签收完成 */
-  signByCustomer: async (dispatchId, signedAt, photos, note) => {
-    const d = get().list.find((x) => x.id === dispatchId)
-    if (!d) throw new Error('调车单不存在')
-    // 状态守卫：仅允许已到客户园区之后的状态签收
-    const SIGN_ALLOWED_STATUSES: DispatchStatus[] = [
-      'arrived_by_gps',
-      'driver_confirmed',
-      'customer_signed',
-    ]
-    if (!SIGN_ALLOWED_STATUSES.includes(d.status)) {
-      throw new Error(`当前状态「${d.status}」不允许签收（车辆尚未到达客户园区）`)
-    }
-    const updated: Dispatch = {
-      ...d,
-      yardTimelines: d.yardTimelines.map((y) =>
-        !y.signedAt ? { ...y, signedAt, signaturePhotos: photos, signatureNote: note } : y,
-      ),
-    }
-    await get().save(updated)
-  },
-
-  /** 库房员生成客户签收链接（v0.2.0-M2） */
-  generateSignUrl: async (dispatchId, expiresInHours = 24) => {
-    const d = get().list.find((x) => x.id === dispatchId)
-    if (!d) throw new Error('调车单不存在')
-    // 状态守卫：仅允许装货完成及之后的中间态生成签收链接
-    // 业务原因：装货完成意味着货物已离开园区，可发给客户做签收；
-    //         之前的中间态生成会让客户看到"还没装完"的订单，体验混乱。
-    const SIGN_URL_ALLOWED_STATUSES: DispatchStatus[] = [
-      'leaving',
-      'in_transit',
-      'arrived_by_gps',
-      'driver_confirmed',
-      'customer_signed',
-    ]
-    if (!SIGN_URL_ALLOWED_STATUSES.includes(d.status)) {
-      throw new Error(
-        `当前状态「${d.status}」不允许生成签收链接（需进入 leaving 及之后状态）`,
-      )
-    }
-    const token = generateSignToken(dispatchId, expiresInHours)
-    const url = buildSignUrl(token, H5_BASE_URL)
-    const updated: Dispatch = {
-      ...d,
-      signUrl: url,
-      signUrlGeneratedAt: nowIsoString(),
-      signUrlExpiresInHours: expiresInHours,
-    }
-    await get().save(updated)
-    return { url, token }
-  },
+  // ❌ v0.3.0-M2.2 删除:signByCustomer / generateSignUrl（客户签收全链路已下线）
 }))

@@ -29,12 +29,12 @@ export function bindGpsToDispatch(): () => void {
       const nowIn = !!p.inYard
       const store = useDispatchStore.getState()
 
-      // 入园：false → true
+      // 入园：false → true（M2.2 v2:统一走 queued 状态，不再直接 entering）
       if (!wasIn && nowIn && p.inYard) {
         try {
-          await store.markYardEnteredByGps(p.vehicleId, p.inYard.yardId, p.updatedAt)
+          await store.markYardQueuedByGps(p.vehicleId, p.inYard.yardId, p.updatedAt)
         } catch (e) {
-          console.error('[gpsBridge] enter failed', e)
+          console.error('[gpsBridge] queue failed', e)
         }
       }
       // 离厂：true → false（注意：跨园区时 yard 切换也算离厂 → 再次入园）
