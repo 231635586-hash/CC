@@ -28,6 +28,16 @@ import {
   DIRECTION_DELIVERY_SLA_HOURS,
 } from '@/types/dispatch'
 
+/** 比率结果三元组：分子 / 分母 / 百分比 */
+export interface RateTriple {
+  /** 百分比，0-100，无小数 */
+  rate: number
+  /** 分子（满足条件的数量） */
+  numerator: number
+  /** 分母（参与统计的总数） */
+  denominator: number
+}
+
 /**
  * 计算两个时间戳相差的分钟数（精确到分钟）
  */
@@ -232,4 +242,111 @@ export function formatMinutesAsHour(min: number): string {
   if (h === 0) return `${m}m`
   if (m === 0) return `${h}h`
   return `${h}h ${m}m`
+}
+
+// ============================================================================
+// 调度时效指标改造（2026-07-13 · M2 v0.4.0）
+// ----------------------------------------------------------------------------
+// 新增 3 个独立 calc 函数：及时到场率 / 及时装货完成率 / 及时到货率
+//  - 数据源：filteredDispatches（所有被派车辆，含未到场/未到货的）
+//  - 装货完成率分母以 YardTimeline 为单位（B2 关键，多园区调车单每个园区独立计数）
+// ============================================================================
+
+/** 「已被派车」的状态集合（>= dispatched，纳入到场/到货率分母） */
+const DISPATCHED_OR_BEYOND_STATUSES = [
+  'dispatched',
+  'queued',
+  'entering',
+  'loading',
+  'leaving',
+  'in_transit',
+  'driver_confirmed',
+  'completed',
+] as const
+
+/** 判断调车单是否已被派车（内部 helper，不导出） */
+function isDispatchedOrBeyond(d: Dispatch): boolean {
+  return (DISPATCHED_OR_BEYOND_STATUSES as readonly string[]).includes(d.status)
+}
+
+/**
+ * 及时到场率 = 按时到场车辆数 / 所有被派车辆数
+ *  - 分子：analyzeDispatchEfficiency(d).isOnTimeArrival === true
+ *  - 分母：status >= dispatched（含未到场的 queued 等）
+ */
+export function calcOnTimeArrivalRate(dispatches: Dispatch[]): RateTriple {
+  const dispatched = dispatches.filter(isDispatchedOrBeyond)
+  const denominator = dispatched.length
+  const numerator = dispatched.filter((d) => {
+    // 不依赖 analyzeDispatchEfficiency（其在 yardMetrics 为空时返回 null，
+    // 会让"已入场但未装货完成"的车辆被错误排除在分子之外）。
+    // 直接基于 primaryYardId 找到主园区，用 YardTimeline.enteredAt 与 expectedLoadTime 计算。
+    const primaryYard = (d.yardTimelines || []).find((y) => y.yardId === d.primaryYardId)
+    if (!primaryYard?.enteredAt || !d.expectedLoadTime) return false
+    const diffMin = Math.round(
+      (new Date(primaryYard.enteredAt.replace(' ', 'T')).getTime() -
+       new Date(d.expectedLoadTime.replace(' ', 'T')).getTime()) / 60000,
+    )
+    return diffMin <= ON_TIME_ARRIVAL_TOLERANCE_MIN
+  }).length
+  return {
+    rate: denominator > 0 ? Math.round((numerator / denominator) * 100) : 0,
+    numerator,
+    denominator,
+  }
+}
+
+/**
+ * 及时装货完成率（标准 4 小时）= 装货<4h 的园区数 / 已装货完成的所有园区数
+ *  - 关键（B2）：以 YardTimeline 为单位；多园区调车单每个园区独立计数
+ *  - 装货用时 = loadingCompletedAt - enteredAt（分钟）
+ *  - 分母：所有 loadingCompletedAt 存在的 YardTimeline
+ *  - 分子：装货用时 ≤ STANDARD_LOAD_MIN 的 YardTimeline
+ */
+export function calcOnTimeLoadingRate(dispatches: Dispatch[]): RateTriple {
+  let numerator = 0
+  let denominator = 0
+  for (const d of dispatches) {
+    for (const y of d.yardTimelines || []) {
+      // 进入/装货完成缺失则不计入（无法计算装货用时）
+      if (!y.loadingCompletedAt || !y.enteredAt) continue
+      denominator++
+      const completedMs = new Date(y.loadingCompletedAt.replace(' ', 'T')).getTime()
+      const enteredMs = new Date(y.enteredAt.replace(' ', 'T')).getTime()
+      const loadMin = Math.max(0, Math.round((completedMs - enteredMs) / 60000))
+      if (loadMin <= STANDARD_LOAD_MIN) numerator++
+    }
+  }
+  return {
+    rate: denominator > 0 ? Math.round((numerator / denominator) * 100) : 0,
+    numerator,
+    denominator,
+  }
+}
+
+/**
+ * 及时到货率 = 及时到货的车辆数 / 所有被派车辆数
+ *  - 分子：analyzeDispatchEfficiency(d).isOnTimeDelivery === true
+ *  - 分母：status >= dispatched（含未到货的 in_transit / driver_confirmed 等）
+ */
+export function calcOnTimeDeliveryRate(dispatches: Dispatch[]): RateTriple {
+  const dispatched = dispatches.filter(isDispatchedOrBeyond)
+  const denominator = dispatched.length
+  const numerator = dispatched.filter((d) => {
+    // 不依赖 analyzeDispatchEfficiency（其依赖 signedAt 旧字段，且在 yardMetrics 为空时返回 null）。
+    // 直接基于 YardTimeline.driverConfirmedAt / leftAt 计算到货耗时，与 direction SLA 比较。
+    const confirmedYard = (d.yardTimelines || []).find((y) => y.driverConfirmedAt)
+    if (!confirmedYard?.driverConfirmedAt || !confirmedYard.leftAt) return false
+    const hours =
+      (new Date(confirmedYard.driverConfirmedAt.replace(' ', 'T')).getTime() -
+       new Date(confirmedYard.leftAt.replace(' ', 'T')).getTime()) / 3600000
+    const sla =
+      DIRECTION_DELIVERY_SLA_HOURS[d.direction] ?? ON_TIME_DELIVERY_DEFAULT_HOURS
+    return hours <= sla
+  }).length
+  return {
+    rate: denominator > 0 ? Math.round((numerator / denominator) * 100) : 0,
+    numerator,
+    denominator,
+  }
 }
