@@ -1,4 +1,4 @@
-import { Card, Empty, Image, Space, Tag, Timeline, Typography } from 'antd'
+import { Card, Empty, Tag, Timeline } from 'antd'
 import type { Dispatch, YardTimeline } from '@/types/dispatch'
 import { formatDuration, getTotalQueueMs } from '@/utils/dispatchTimeline'
 import { formatDateTime } from '@/utils'
@@ -8,21 +8,23 @@ interface Props {
 }
 
 /**
- * 调车单多园区时间线视图（v0.2.0-M2：库房段 + 到货段 合并到同一条 Timeline）
+ * 调车单多园区时间线视图（v0.3.0-M2.2 状态机 v2）
  *
- * 节点顺序（按时间轴，从左到右一条 Timeline 流）：
+ * 节点顺序（按时间轴，一条 Timeline 流）：
  *  库房段（每园区）：
- *   1. 排队登记（queuedAt）— blue
- *   2. 库房通知出发（notifyDepartAt）— cyan
+ *   1. 排队登记（queuedAt）— blue（M2.2 v2:GPS / 扫码统一入口）
+ *   2. 库房通知出发/道闸放行（notifyDepartAt）— cyan
  *   3. 车辆入园（enteredAt）— geekblue + GPS/扫码/人工 标签
  *   4. 库房通知装货（loadingNotifiedAt）— gold
  *   5. 装货完成（loadingCompletedAt）— purple
  *   6. 车辆离厂（leftAt）— green + GPS/扫码/人工 标签
- *  到货段（M2 新增，跟在库房段后）：
+ *  到货段（仅第一个 timeline 拼接，避免多园区重复）：
  *   7. 车辆出厂（leftYardAt）— gold（链式触发 in_transit）
- *   8. GPS 入客户园区（arrivedByGpsAt）— lime + GPS 标签
+ *   8. GPS 入客户园区（arrivedByGpsAt）— lime（仅作时间记录，不再驱动状态）
  *   9. 司机确认到达（driverConfirmedAt）— cyan + 手动 标签
- *  10. 客户签收（signedAt）— green + 签名照片墙 + 备注
+ *
+ *  ❌ v0.3.0-M2.2 删除：客户签收节点（signedAt/signaturePhotos/signatureNote）
+ *  因为客户签收 H5 已下线，司机 H5 确认即完成
  */
 export function YardTimelineView({ dispatch }: Props) {
   const timelines = dispatch.yardTimelines || []
@@ -146,49 +148,8 @@ export function YardTimelineView({ dispatch }: Props) {
                 },
               ]
             : []),
-          ...(isFirst && y.signedAt
-            ? [
-                {
-                  color: 'green',
-                  children: (
-                    <div>
-                      <Space>
-                        <span>客户签收 {formatDateTime(y.signedAt)}</span>
-                        <Tag color="green">已完成</Tag>
-                      </Space>
-                      {y.signaturePhotos && y.signaturePhotos.length > 0 && (
-                        <div style={{ marginTop: 8 }}>
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                            签收照片（{y.signaturePhotos.length} 张）：
-                          </Typography.Text>
-                          <Image.PreviewGroup>
-                            <Space style={{ marginTop: 4 }} wrap>
-                              {y.signaturePhotos.map((url, i) => (
-                                <Image
-                                  key={i}
-                                  src={url}
-                                  alt={`签收照片 ${i + 1}`}
-                                  width={64}
-                                  height={64}
-                                  style={{ objectFit: 'cover', borderRadius: 4 }}
-                                />
-                              ))}
-                            </Space>
-                          </Image.PreviewGroup>
-                        </div>
-                      )}
-                      {y.signatureNote && (
-                        <div style={{ marginTop: 8 }}>
-                          <Typography.Text type="secondary">备注：</Typography.Text>
-                          <Typography.Text>{y.signatureNote}</Typography.Text>
-                        </div>
-                      )}
-                    </div>
-                  ),
-                },
-              ]
-            : []),
-        ]
+          // ❌ v0.3.0-M2.2 删除:y.signedAt 客户签收节点全段(签名照片 + 备注)
+        ]    // ← 这里为什么要有个换行?
 
         return (
           <Card
