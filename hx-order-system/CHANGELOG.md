@@ -777,4 +777,77 @@ feat/arrival-processing 分支历史 11 个 commit（含 4 个状态机横跳）
 - [ ] 禁行时间配置化（Yard.restrictedHours）
 - [ ] 超时归因规则引擎
 - [ ] 客户/销售/公司登录流程（M3）
+
+---
+
+### v0.5.0-M2.2 - 库房排队状态机 v2 + 移除客户签收(2026-07-13)
+
+#### 🎉 阶段交付:M2.2 v2 状态机重构 — 移除客户签收 + 新增 queued + Mock 道闸放行
+
+**✅ 业务范围**:派车 → GPS/扫码统一入场 → Mock 道闸放行 → 入园 → 装货 → 离场 → 司机自助确认完成,覆盖 8 级状态流转 + 全链路无客户签收。
+
+#### 📦 5 个 commit 单意图交付
+
+| Commit | 文件数 | 主题 |
+|--------|--------|------|
+| `f1b3dc7` | 2 | refactor(types): queued 状态 + 删 customer_signed/arrived_by_gps |
+| `f601334` | 3 | feat(state-machine): 4 个新 API + deriveStatus 重写 8 级 |
+| `679503b` | 2 | feat(warehouse): queued 看板 + 通知入场 Mock 道闸放行 |
+| `1f42b9f` | 7 | feat(h5): 司机扫码排队按钮 + 演示控制台状态机快捷 |
+| `4c9f373` | 13 | refactor: 移除客户签收全链路(4角色→3角色 + 删除 H5) |
+
+#### 🎯 新增功能
+
+##### 状态机 v2
+- ✅ `queued` 状态(扫码排队 / GPS 检测统一)
+- ✅ Mock 道闸放行 API(3 秒自动开闸,M3 接真实 API)
+- ✅ `markYardQueuedByScan` 司机扫码排队
+- ✅ `markYardQueuedByGps` GPS 检测
+- ✅ `triggerGateOpen` 库房员通知入场 + 道闸开闸
+- ✅ `completeByDriverConfirm` 司机确认完成链式 completed
+
+##### 库房员 UI
+- ✅ 新增「🚧 排队中(等待道闸放行)」独立 Card 看板
+- ✅ 「通知入场(Mock 道闸)」按钮 + 3 秒 toast 动画
+- ✅ 状态徽章更新:「等入场」/「待放行」/「待通知装货」
+
+##### 司机 H5
+- ✅ DispatchCard 新增【📱 扫码排队】按钮
+- ✅ queued 状态显示【🚧 排队中 · 等待库房员开闸】提示
+- ✅ 演示控制台新增【⏩ 状态机演示】section
+  - 【🚪 模拟道闸放行(queued → entering)】
+  - 【✅ 模拟完成(driver_confirmed → completed)】
+
+#### ❌ 删除功能
+
+- ❌ 客户签收 H5 页面(mobile-h5/.../customer/sign)
+- ❌ 4 角色 → **3 角色**(删除 customer 角色,DemoControlPanel / role-select 同步)
+- ❌ DispatchStore `signByCustomer` / `generateSignUrl`
+- ❌ YardTimeline `signedAt` / `signaturePhotos` / `signatureNote`
+- ❌ DispatchStatus `customer_signed` / `arrived_by_gps`
+- ❌ `src/utils/signToken.ts` / `src/utils/h5BaseUrl.ts` / `mobile-h5/utils/signToken.ts`
+- ❌ 订单详情页「签收照片 Card」+「客户签收链接 Modal」(含二维码)
+- ❌ 司机订单详情「到达状态横幅(arrived_by_gps / customer_signed)」+「签收链接展示卡」+「签收链接复制/分享」
+
+#### 🔄 修改
+
+- 🔄 `markYardEnteredByGps` → `markYardQueuedByGps`(不再直接 entering,先 queued)
+- 🔄 `confirmArrivalByDriver` 链式触发 completed
+- 🔄 `deriveStatus()` 优先级:11 级 → 8 级(无中间态细分)
+
+#### 📝 文档同步
+
+- 新增 PRD:[docs/PRD/M2-PRD-库房排队v2.md](docs/PRD/M2-PRD-库房排队v2.md)
+- 设计决策与权衡记录在 PRD §1.1 / §5 / §6
+- E2E 场景截图清单记录在 PRD §5.3
+
+#### ⚠️ 已知 TODO(本增量未处理)
+
+- [ ] **效率分析模块清理**:`src/features/logistics/efficiency/EfficiencyAnalysisPage.tsx` 仍读 `y.signedAt`(运行时 undefined,无害)。M2.3 增量处理。
+- [ ] **Excel 导出「签收时间」列**:同样读 `y.signedAt`,改为展示「完成时间」(`completedAt`)。
+- [ ] **dispatchStatusMap.ts**:`src/components/dispatch/dispatchStatusMap.ts` 第 14 行报错'DispatchStatus not exported'(预存在,与本增量无关)。
+- [ ] **DevActions dashed prop 报错**:antd 4 → 5 类型不兼容(预存在)。
+- [ ] **seed.ts materialCode / medium_truck**:预存在测试数据。
+- [ ] **dingtalk.ts `pushSignNotify`**:无 caller,变 orphan,后续单独清理。
+- [ ] **types/dispatch.ts `DispatchEfficiency.signedAt` 字段**:同上,M2.3 处理。
 - [ ] 客户签收 H5 走产品路线决策（用户已反馈"实际客户不会进行该操作"）
