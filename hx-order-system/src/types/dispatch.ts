@@ -141,12 +141,8 @@ export interface YardTimeline {
   arrivedByGpsAt?: Timestamp
   /** 司机手动确认到达时间（H5「确认到达」按钮） */
   driverConfirmedAt?: Timestamp
-  /** 客户签收时间（客户签收 H5 上传照片 + 确认） */
-  signedAt?: Timestamp
-  /** 客户签收照片 URLs（mock 阶段用 data URL / 静态路径） */
-  signaturePhotos?: string[]
-  /** 客户签收备注 */
-  signatureNote?: string
+  // ❌ v0.3.0-M2.2 删除:客户签收相关(signedAt / signaturePhotos / signatureNote)
+  // —— v0.2.0-M2 字段:arrivedByGpsAt 保留,仅作为 GPS 检测时间记录,不再驱动状态机
 }
 
 /**
