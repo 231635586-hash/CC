@@ -1,62 +1,297 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Tag, Space, Card, Row, Col, Statistic, Button, Empty, Tooltip } from 'antd'
-import { ReloadOutlined, EyeOutlined, ClockCircleOutlined, WarningOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import {
+  Table,
+  Tag,
+  Space,
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Button,
+  Empty,
+  Tooltip,
+  Select,
+  DatePicker,
+  Tabs,
+} from 'antd'
+import {
+  ReloadOutlined,
+  EyeOutlined,
+  ClockCircleOutlined,
+  WarningOutlined,
+  CheckCircleOutlined,
+  EnvironmentOutlined,
+  ThunderboltOutlined,
+  DownloadOutlined,
+} from '@ant-design/icons'
+import dayjs, { type Dayjs } from 'dayjs'
 import { PageContainer, SCROLL_PRESETS } from '@/components'
 import { useDispatchStore, useDictStore } from '@/stores'
 import type { Dispatch } from '@/types/dispatch'
-import { analyzeDispatchEfficiency, formatMinutesAsHour } from '@/utils/efficiencyAnalysis'
+import {
+  analyzeDispatchEfficiency,
+  formatMinutesAsHour,
+} from '@/utils/efficiencyAnalysis'
+import {
+  exportDispatchEfficiency,
+  buildYardLookup,
+  buildDispatchLookup,
+} from '@/utils/excelExport'
+import type { GroupRowForExport } from '@/utils/excelExport'
 import type { DispatchEfficiency } from '@/types/dispatch'
+import { SHIPPING_METHOD_LABEL } from '@/types/dispatch'
 
-/**
- * 调度时效分析列表页（M2）
+const { RangePicker } = DatePicker
+
+/** 调度时效分析列表页（M2 增强：5 指标卡 + 5 筛选 + Tab 分组）
  *
- * - 4 统计：已完成单数 / 平均装货用时 / 超时单数 / 超时率
- * - 表格：调车编号 / 公司 / 园区数 / 总装货用时 / 超时分钟 / 最终出厂 / 操作
- * - 点击【详情】跳到 /logistics/efficiency/:id
+ * 5 指标：已完成单数 / 平均装货用时 / 超时单数 / 及时到场率 / 及时到货率
+ * 5 筛选：时间范围（近 30 天默认） / 运输方向 / 发运方式 / 物流公司 / 装货园区
+ * 3 Tab：按公司 / 按园区 / 按方向 排名榜
  */
 export function EfficiencyAnalysisPage() {
   const navigate = useNavigate()
   const { list, load } = useDispatchStore()
-  const { companies, loadCompanies } = useDictStore()
+  const { companies, yards, loadCompanies, loadYards } = useDictStore()
+
+  // 默认时间范围：近 30 天
+  const [timeRange, setTimeRange] = useState<[Dayjs, Dayjs]>([
+    dayjs().subtract(30, 'day'),
+    dayjs(),
+  ])
+  const [selectedDirections, setSelectedDirections] = useState<string[]>([])
+  const [selectedMethods, setSelectedMethods] = useState<string[]>([])
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>([])
+  const [selectedYardIds, setSelectedYardIds] = useState<string[]>([])
 
   useEffect(() => {
     load()
     loadCompanies()
-  }, [load, loadCompanies])
+    loadYards()
+  }, [load, loadCompanies, loadYards])
 
-  // 计算所有已完成调车单的时效分析
+  // 选项字典
+  const directionOptions = useMemo(() => {
+    const set = new Set(list.map((d) => d.direction).filter(Boolean))
+    return Array.from(set).map((v) => ({ label: v, value: v }))
+  }, [list])
+  const methodOptions = useMemo(
+    () =>
+      (Object.keys(SHIPPING_METHOD_LABEL) as Array<keyof typeof SHIPPING_METHOD_LABEL>).map(
+        (k) => ({ label: SHIPPING_METHOD_LABEL[k], value: k }),
+      ),
+    [],
+  )
+  const companyOptions = useMemo(
+    () => companies.map((c) => ({ label: c.name, value: c.id })),
+    [companies],
+  )
+  const yardOptions = useMemo(
+    () => yards.map((y) => ({ label: y.name, value: y.id })),
+    [yards],
+  )
+
+  // 1) 先按 5 维筛选 dispatch（含未完成，但只取 status=completed 做分析）
+  const filteredDispatches = useMemo(() => {
+    const [from, to] = timeRange
+    return list.filter((d) => {
+      if (!d.expectedLoadTime) return false
+      const t = dayjs(d.expectedLoadTime)
+      if (t.isBefore(from) || t.isAfter(to)) return false
+      if (selectedDirections.length > 0 && !selectedDirections.includes(d.direction))
+        return false
+      if (selectedMethods.length > 0 && !selectedMethods.includes(d.shippingMethod))
+        return false
+      if (selectedCompanyIds.length > 0 && !selectedCompanyIds.includes(d.companyId))
+        return false
+      if (selectedYardIds.length > 0) {
+        const hit = d.yardIds?.some((y) => selectedYardIds.includes(y))
+        if (!hit) return false
+      }
+      return true
+    })
+  }, [list, timeRange, selectedDirections, selectedMethods, selectedCompanyIds, selectedYardIds])
+
+  // 2) 仅取 status=completed 跑分析
   const analyses = useMemo<DispatchEfficiency[]>(() => {
     const result: DispatchEfficiency[] = []
-    for (const d of list) {
+    for (const d of filteredDispatches) {
       if (d.status !== 'completed') continue
       const a = analyzeDispatchEfficiency(d)
       if (a) result.push(a)
     }
     return result
-  }, [list])
+  }, [filteredDispatches])
 
+  // 3) 5 指标卡
   const stats = useMemo(() => {
     const completed = analyses.length
     const totalMin = analyses.reduce((s, a) => s + a.totalEffectiveLoadMin, 0)
     const avgMin = completed > 0 ? Math.round(totalMin / completed) : 0
     const overtime = analyses.filter((a) => a.isOvertime).length
-    const overtimeRate = completed > 0 ? Math.round((overtime / completed) * 100) : 0
-    return { completed, avgMin, overtime, overtimeRate }
+
+    // 及时到场率分母 = 有 enteredAt 的 completed 单
+    const arrivalDenom = analyses.filter((a) => a.arrivalDiffMin !== undefined).length
+    const arrivalNum = analyses.filter((a) => a.isOnTimeArrival).length
+    const onTimeArrivalRate = arrivalDenom > 0 ? Math.round((arrivalNum / arrivalDenom) * 100) : 0
+
+    // 及时到货率分母 = 有 signedAt 的 completed 单
+    const deliveryDenom = analyses.filter((a) => a.signedAt).length
+    const deliveryNum = analyses.filter((a) => a.isOnTimeDelivery).length
+    const onTimeDeliveryRate =
+      deliveryDenom > 0 ? Math.round((deliveryNum / deliveryDenom) * 100) : 0
+
+    return {
+      completed,
+      avgMin,
+      overtime,
+      onTimeArrivalRate,
+      onTimeDeliveryRate,
+      arrivalDenom,
+      deliveryDenom,
+    }
   }, [analyses])
+
+  // 4) Tab 分组聚合
+  const groupedByCompany = useMemo(
+    () => groupAggregates(analyses, (a) => a.companyName),
+    [analyses],
+  )
+  const groupedByYard = useMemo(
+    () =>
+      groupAggregates(analyses, (a) => {
+        const names = a.yardIds
+          .map((id) => yards.find((y) => y.id === id)?.name || id)
+          .join('、')
+        return names || '-'
+      }),
+    [analyses, yards],
+  )
+  const groupedByDirection = useMemo(
+    () => groupAggregates(analyses, (a) => a.direction || '-'),
+    [analyses],
+  )
+
+  // 5) 导出工具所需的 Lookup（避免导出时再次穿透 store）
+  const yardLookup = useMemo(() => buildYardLookup(yards), [yards])
+  const dispatchLookup = useMemo(() => buildDispatchLookup(list), [list])
+
+  /** 触发 Excel 导出（4 Sheet：明细 + 3 个分组 Tab） */
+  const handleExport = () => {
+    exportDispatchEfficiency({
+      analyses,
+      groupedByCompany,
+      groupedByYard,
+      groupedByDirection,
+      dispatchLookup,
+      yardLookup,
+    })
+  }
 
   return (
     <PageContainer
       title="调度时效分析"
       extra={
-        <Button icon={<ReloadOutlined />} onClick={() => load()}>
-          手动刷新
-        </Button>
+        <Space>
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={handleExport}
+            disabled={analyses.length === 0}
+          >
+            导出 Excel
+          </Button>
+          <Button icon={<ReloadOutlined />} onClick={() => load()}>
+            手动刷新
+          </Button>
+        </Space>
       }
     >
-      {/* 顶部 4 统计 */}
+      {/* 5 筛选条件 */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Row gutter={[12, 12]} align="middle">
+          <Col>
+            <Space>
+              <span style={{ color: '#666' }}>时间范围：</span>
+              <RangePicker
+                value={timeRange}
+                onChange={(v) => v && v[0] && v[1] && setTimeRange([v[0], v[1]])}
+                presets={[
+                  { label: '近 7 天', value: [dayjs().subtract(7, 'day'), dayjs()] },
+                  { label: '近 30 天', value: [dayjs().subtract(30, 'day'), dayjs()] },
+                  { label: '近 90 天', value: [dayjs().subtract(90, 'day'), dayjs()] },
+                ]}
+                style={{ width: 260 }}
+              />
+            </Space>
+          </Col>
+          <Col>
+            <Space>
+              <span style={{ color: '#666' }}>运输方向：</span>
+              <Select
+                mode="multiple"
+                allowClear
+                placeholder="全部"
+                options={directionOptions}
+                value={selectedDirections}
+                onChange={setSelectedDirections}
+                style={{ minWidth: 180 }}
+                maxTagCount="responsive"
+              />
+            </Space>
+          </Col>
+          <Col>
+            <Space>
+              <span style={{ color: '#666' }}>发运方式：</span>
+              <Select
+                mode="multiple"
+                allowClear
+                placeholder="全部"
+                options={methodOptions}
+                value={selectedMethods}
+                onChange={setSelectedMethods}
+                style={{ minWidth: 180 }}
+                maxTagCount="responsive"
+              />
+            </Space>
+          </Col>
+          <Col>
+            <Space>
+              <span style={{ color: '#666' }}>物流公司：</span>
+              <Select
+                mode="multiple"
+                allowClear
+                placeholder="全部"
+                options={companyOptions}
+                value={selectedCompanyIds}
+                onChange={setSelectedCompanyIds}
+                style={{ minWidth: 200 }}
+                maxTagCount="responsive"
+              />
+            </Space>
+          </Col>
+          <Col>
+            <Space>
+              <span style={{ color: '#666' }}>装货园区：</span>
+              <Select
+                mode="multiple"
+                allowClear
+                placeholder="全部"
+                options={yardOptions}
+                value={selectedYardIds}
+                onChange={setSelectedYardIds}
+                style={{ minWidth: 200 }}
+                maxTagCount="responsive"
+              />
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* 5 统计卡 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="已完成单数"
@@ -66,7 +301,7 @@ export function EfficiencyAnalysisPage() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="平均装货用时"
@@ -76,7 +311,7 @@ export function EfficiencyAnalysisPage() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={4}>
           <Card>
             <Statistic
               title="超时单数"
@@ -86,86 +321,232 @@ export function EfficiencyAnalysisPage() {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={5}>
           <Card>
-            <Statistic
-              title="超时率"
-              value={`${stats.overtimeRate}%`}
-              valueStyle={{ color: stats.overtimeRate > 30 ? '#cf1322' : '#52c41a' }}
-            />
+            <Tooltip title={`分母 = 已入场单数（${stats.arrivalDenom}）`}>
+              <Statistic
+                title="及时到场率"
+                value={`${stats.onTimeArrivalRate}%`}
+                prefix={<ThunderboltOutlined />}
+                valueStyle={{
+                  color: stats.onTimeArrivalRate >= 80 ? '#52c41a' : '#fa8c16',
+                }}
+              />
+            </Tooltip>
+          </Card>
+        </Col>
+        <Col span={5}>
+          <Card>
+            <Tooltip title={`分母 = 已签收单数（${stats.deliveryDenom}）`}>
+              <Statistic
+                title="及时到货率"
+                value={`${stats.onTimeDeliveryRate}%`}
+                prefix={<EnvironmentOutlined />}
+                valueStyle={{
+                  color: stats.onTimeDeliveryRate >= 80 ? '#52c41a' : '#fa8c16',
+                }}
+              />
+            </Tooltip>
           </Card>
         </Col>
       </Row>
 
-      {/* 表格 */}
+      {/* Tab 分组明细 */}
       <Card>
-        <Table<DispatchEfficiency>
-          rowKey="dispatchId"
-          dataSource={analyses}
-          locale={{ emptyText: <Empty description="暂无已完成调车单数据" /> }}
-          columns={[
+        <Tabs
+          defaultActiveKey="detail"
+          items={[
             {
-              title: '调车编号',
-              dataIndex: 'dispatchNo',
-              width: 150,
-              render: (no: string, r) => (
-                <a onClick={() => navigate(`/logistics/efficiency/${r.dispatchId}`)}>{no}</a>
+              key: 'detail',
+              label: '调车单明细',
+              children: (
+                <Table<DispatchEfficiency>
+                  rowKey="dispatchId"
+                  dataSource={analyses}
+                  locale={{ emptyText: <Empty description="暂无已完成调车单数据" /> }}
+                  columns={[
+                    {
+                      title: '调车编号',
+                      dataIndex: 'dispatchNo',
+                      width: 150,
+                      fixed: 'left',
+                      render: (no: string, r) => (
+                        <a onClick={() => navigate(`/logistics/efficiency/${r.dispatchId}`)}>
+                          {no}
+                        </a>
+                      ),
+                    },
+                    { title: '方向', dataIndex: 'direction', width: 80 },
+                    { title: '公司', dataIndex: 'companyName', width: 200, ellipsis: true },
+                    {
+                      title: '及时到场',
+                      dataIndex: 'isOnTimeArrival',
+                      width: 110,
+                      render: (on: boolean, r) => {
+                        if (r.arrivalDiffMin === undefined) return '-'
+                        return on ? (
+                          <Tag color="green">及时</Tag>
+                        ) : (
+                          <Tag color="red">+{r.arrivalDiffMin}min</Tag>
+                        )
+                      },
+                    },
+                    {
+                      title: '及时到货',
+                      dataIndex: 'isOnTimeDelivery',
+                      width: 130,
+                      render: (on: boolean | undefined, r) => {
+                        if (!r.signedAt) return <Tag>未签收</Tag>
+                        if (on === undefined) return '-'
+                        return on ? (
+                          <Tag color="green">
+                            {r.deliveryHours}h 及时
+                          </Tag>
+                        ) : (
+                          <Tag color="red">
+                            {r.deliveryHours}h 超 SLA
+                          </Tag>
+                        )
+                      },
+                    },
+                    {
+                      title: '总装货用时',
+                      dataIndex: 'totalEffectiveLoadMin',
+                      width: 110,
+                      render: (min: number) => (
+                        <span style={{ fontWeight: 500 }}>{formatMinutesAsHour(min)}</span>
+                      ),
+                    },
+                    {
+                      title: '是否超时',
+                      dataIndex: 'isOvertime',
+                      width: 90,
+                      render: (ot: boolean) =>
+                        ot ? <Tag color="red">超时</Tag> : <Tag color="green">未超时</Tag>,
+                    },
+                    {
+                      title: '签收时间',
+                      dataIndex: 'signedAt',
+                      width: 160,
+                      render: (t?: string) => t || '-',
+                    },
+                    {
+                      title: '操作',
+                      fixed: 'right',
+                      width: 80,
+                      render: (_, r) => (
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<EyeOutlined />}
+                          onClick={() => navigate(`/logistics/efficiency/${r.dispatchId}`)}
+                        >
+                          详情
+                        </Button>
+                      ),
+                    },
+                  ]}
+                  scroll={{ x: SCROLL_PRESETS.narrow }}
+                  pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
+                />
               ),
             },
-            { title: '公司', dataIndex: 'companyName', width: 200, ellipsis: true },
             {
-              title: '园区数',
-              dataIndex: 'yardCount',
-              width: 80,
-              align: 'center',
+              key: 'company',
+              label: `按公司（${groupedByCompany.length}）`,
+              children: <GroupRankingTable rows={groupedByCompany} />,
             },
             {
-              title: '总装货用时',
-              dataIndex: 'totalEffectiveLoadMin',
-              width: 130,
-              render: (min: number) => (
-                <span style={{ fontWeight: 500 }}>{formatMinutesAsHour(min)}</span>
-              ),
+              key: 'yard',
+              label: `按装货园区（${groupedByYard.length}）`,
+              children: <GroupRankingTable rows={groupedByYard} />,
             },
             {
-              title: '总超时',
-              dataIndex: 'totalOvertimeMin',
-              width: 110,
-              render: (min: number, r) => {
-                if (min <= 0) return <Tag color="green">未超时</Tag>
-                return (
-                  <Tooltip title="超出标准用时（4h）的总分钟数">
-                    <Tag color="red">+{formatMinutesAsHour(min)}</Tag>
-                  </Tooltip>
-                )
-              },
-            },
-            {
-              title: '最终出厂时间',
-              dataIndex: 'finalExitTime',
-              width: 160,
-              render: (t?: string) => t || '-',
-            },
-            {
-              title: '操作',
-              fixed: 'right',
-              width: 100,
-              render: (_, r) => (
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<EyeOutlined />}
-                  onClick={() => navigate(`/logistics/efficiency/${r.dispatchId}`)}
-                >
-                  详情
-                </Button>
-              ),
+              key: 'direction',
+              label: `按运输方向（${groupedByDirection.length}）`,
+              children: <GroupRankingTable rows={groupedByDirection} />,
             },
           ]}
-          scroll={{ x: SCROLL_PRESETS.narrow }}
-          pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
         />
       </Card>
     </PageContainer>
+  )
+}
+
+// —— 分组聚合类型 ——
+type GroupRow = GroupRowForExport
+
+function groupAggregates(
+  rows: DispatchEfficiency[],
+  keyFn: (a: DispatchEfficiency) => string,
+): GroupRow[] {
+  const map = new Map<string, DispatchEfficiency[]>()
+  for (const a of rows) {
+    const k = keyFn(a)
+    if (!map.has(k)) map.set(k, [])
+    map.get(k)!.push(a)
+  }
+  const out: GroupRow[] = []
+  for (const [name, arr] of map.entries()) {
+    const total = arr.length
+    const aDenom = arr.filter((x) => x.arrivalDiffMin !== undefined).length
+    const aNum = arr.filter((x) => x.isOnTimeArrival).length
+    const dDenom = arr.filter((x) => x.signedAt).length
+    const dNum = arr.filter((x) => x.isOnTimeDelivery).length
+    const totalMin = arr.reduce((s, x) => s + x.totalEffectiveLoadMin, 0)
+    out.push({
+      key: name,
+      name,
+      total,
+      onTimeArrivalRate: aDenom > 0 ? Math.round((aNum / aDenom) * 100) : 0,
+      onTimeArrivalDenom: aDenom,
+      onTimeDeliveryRate: dDenom > 0 ? Math.round((dNum / dDenom) * 100) : 0,
+      onTimeDeliveryDenom: dDenom,
+      avgLoadMin: total > 0 ? Math.round(totalMin / total) : 0,
+    })
+  }
+  // 按及时到货率倒序
+  return out.sort((a, b) => b.onTimeDeliveryRate - a.onTimeDeliveryRate)
+}
+
+function GroupRankingTable({ rows }: { rows: GroupRow[] }) {
+  return (
+    <Table<GroupRow>
+      rowKey="key"
+      dataSource={rows}
+      pagination={false}
+      locale={{ emptyText: <Empty description="暂无数据" /> }}
+      columns={[
+        { title: '排名', key: 'rank', width: 70, render: (_, __, i) => `${i + 1}` },
+        { title: '分组', dataIndex: 'name', width: 280, ellipsis: true },
+        { title: '总单数', dataIndex: 'total', width: 90, align: 'center' },
+        {
+          title: '及时到场率',
+          key: 'arrival',
+          width: 150,
+          render: (_, r) => (
+            <Tag color={r.onTimeArrivalRate >= 80 ? 'green' : 'orange'}>
+              {r.onTimeArrivalRate}%（{r.onTimeArrivalDenom}）
+            </Tag>
+          ),
+        },
+        {
+          title: '及时到货率',
+          key: 'delivery',
+          width: 170,
+          render: (_, r) => (
+            <Tag color={r.onTimeDeliveryRate >= 80 ? 'green' : 'red'}>
+              {r.onTimeDeliveryRate}%（{r.onTimeDeliveryDenom}）
+            </Tag>
+          ),
+        },
+        {
+          title: '平均装货用时',
+          dataIndex: 'avgLoadMin',
+          width: 140,
+          render: (m: number) => formatMinutesAsHour(m),
+        },
+      ]}
+    />
   )
 }

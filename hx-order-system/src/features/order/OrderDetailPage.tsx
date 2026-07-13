@@ -2,18 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Descriptions, Card, Tag, Button, Row, Col, Empty, Space, Steps, Alert,
-  Modal, Form, Select, Radio, Input, message,
+  Modal, Form, Select, Radio, Input, message, Image, QRCode, Typography,
 } from 'antd'
-import { ArrowLeftOutlined } from '@ant-design/icons'
-import { PageContainer, renderYardNames, StatusTag } from '@/components'
+const { Text } = Typography
+import {
+  ArrowLeftOutlined, TruckOutlined, EnvironmentOutlined,
+  CheckCircleOutlined, InboxOutlined,
+} from '@ant-design/icons'
+import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import type { DispatchStatus } from '@/types'
-import { DISPATCH_STATUS_OPTIONS } from '@/types'
-
-/** DispatchStatus 字典（用于 StatusTag 注入） */
-const DISPATCH_STATUS_MAP = Object.fromEntries(
-  DISPATCH_STATUS_OPTIONS.map((o) => [o.value, { label: o.label, color: o.color }]),
-) as Record<DispatchStatus, { label: string; color: string }>
 import {
   SHIPPING_METHOD_LABEL, SHIPPING_METHOD_COLOR, TRUCK_SIZE_LABEL,
   VOID_REASON_OPTIONS, VOID_REASON_LABEL,
@@ -22,13 +20,16 @@ import type { Dispatch } from '@/types/dispatch'
 import { ORDER_BOARD_COLUMNS, ORDER_STATUS_OPTIONS } from '@/types/order'
 import { deriveOrderStatus, orderSubStatusLabel } from '@/utils/orderStatus'
 import { formatDateTime, nowIsoString } from '@/utils'
-import { pushDepartNotify, pushLoadingNotify } from '@/services/dingtalk'
+import { H5_BASE_URL } from '@/utils/h5BaseUrl'
+import { generateSignToken, buildSignUrl, getTokenRemainingHours } from '@/utils/signToken'
+import { copyToClipboard } from '@/utils/clipboard'
 import { GoodsTable } from '@/features/marketing/dispatch/components/GoodsTable'
 import { YardTimelineView } from '@/features/warehouse/components/YardTimelineView'
-import { NotifyDepartModal } from '@/features/warehouse/components/NotifyDepartModal'
+import { NotifyLoadingModal } from '@/features/warehouse/components/NotifyLoadingModal'
+import { DevActions } from '@/devtools/DevActions'
 
 /**
- * 统一订单详情页（M3 阶段：GPS 自动打卡 + 库房主动推进）
+ * 统一订单详情页（v0.2.0-M2：到货处理完整链路）
  *
  * 状态流转操作（按 dispatch.status switch）：
  *  - pending_confirm: 确认受理 / 取消订单
@@ -36,12 +37,18 @@ import { NotifyDepartModal } from '@/features/warehouse/components/NotifyDepartM
  *  - entering:        通知装货（库房主动推进 loading）
  *  - loading:         装货完成（库房主动推进 leaving）
  *  - leaving:         等待 GPS 离厂（仅 Tag）
+ *  - in_transit:      演示：GPS 入客户园区（mock 演示按钮）
+ *  - arrived_by_gps:  等待司机在 H5 手动确认
+ *  - driver_confirmed: 生成签收链接（PC token URL → 客户扫码）
+ *  - customer_signed: 已签收，等待系统自动 completed
  *  - completed/cancelled: 仅 Tag
  */
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { list, load, save, markLoadingCompleted, notifyLoading } = useDispatchStore()
+  const {
+    list, load, save, markLoadingCompleted,
+  } = useDispatchStore()
   const { yards, vehicles, drivers, loadYards, loadVehicles, loadDrivers } = useDictStore()
   const currentUser = useAuthStore((s) => s.currentUser)
 
@@ -50,6 +57,10 @@ export function OrderDetailPage() {
   const [voidModalOpen, setVoidModalOpen] = useState(false)
   const [voidForm] = Form.useForm<{ reasonKey: string; reasonText?: string }>()
   const [departOpen, setDepartOpen] = useState(false)
+  // —— v0.2.0-M2：签收链接 Modal ——
+  const [signUrlOpen, setSignUrlOpen] = useState(false)
+  const [signUrl, setSignUrl] = useState<string>('')
+  const [signTokenTtl, setSignTokenTtl] = useState<number>(0)
 
   useEffect(() => {
     if (!list.length) load()
@@ -112,20 +123,24 @@ export function OrderDetailPage() {
     }
   }
 
-  /** 库房"通知装货" */
-  const handleNotifyLoading = async () => {
-    if (!activeYard) return
-    const ts = nowIsoString()
-    await notifyLoading(record.id, activeYard.yardId, ts)
-    await pushLoadingNotify({ dispatch: record, yardId: activeYard.yardId })
-    message.success(`已通知装货：${activeYard.yardName || activeYard.yardId}`)
-  }
-
   /** 库房"装货完成" */
   const handleLoadingComplete = async () => {
     if (!activeYard) return
     await markLoadingCompleted(record.id, activeYard.yardId, nowIsoString())
     message.success(`已标记 ${activeYard.yardName || activeYard.yardId} 装货完成`)
+  }
+
+  // ====== v0.2.0-M2：到货处理 4 步 ======
+
+  /** 生成客户签收链接（仅 driver_confirmed 状态） */
+  const handleGenerateSignUrl = () => {
+    const token = generateSignToken(record.id, 24)
+    const url = buildSignUrl(token, H5_BASE_URL)
+    setSignUrl(url)
+    setSignTokenTtl(getTokenRemainingHours(JSON.parse(
+      decodeURIComponent(escape(atob(token))),
+    )))
+    setSignUrlOpen(true)
   }
 
   const handleVoidSubmit = async () => {
@@ -172,21 +187,62 @@ export function OrderDetailPage() {
         )
       case 'dispatched':
         return (
-          <Button type="primary" onClick={() => setDepartOpen(true)}>
-            通知出发
-          </Button>
+          <Space>
+            <Tooltip title="真实阶段：车辆硬件 GPS 入园后系统自动转 entering；mock 阶段：用下方「演示：GPS 入库」按钮模拟">
+              <Tag color="cyan" icon={<EnvironmentOutlined />}>等待 GPS 入园</Tag>
+            </Tooltip>
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
+          </Space>
         )
+      // v0.2.0-M2.2：库房员「通知装货」入口（entering 状态点）
       case 'entering':
         return (
           <Space>
-            <Button type="primary" onClick={handleNotifyLoading}>通知装货</Button>
-            <StatusTag value="entering" map={DISPATCH_STATUS_MAP} />
+            <Button type="primary" onClick={() => setDepartOpen(true)}>
+              通知装货
+            </Button>
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
           </Space>
         )
       case 'loading':
         return <Button type="primary" onClick={handleLoadingComplete}>装货完成</Button>
       case 'leaving':
-        return <StatusTag value="leaving" map={DISPATCH_STATUS_MAP} />
+        return (
+          <Space>
+            <StatusTag value="leaving" map={DISPATCH_STATUS_MAP} />
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
+          </Space>
+        )
+      // ====== v0.2.0-M2：到货处理 4 步 ======
+      case 'in_transit':
+        return (
+          <Space>
+            <Tag color="gold" icon={<TruckOutlined />}>在途中</Tag>
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
+          </Space>
+        )
+      case 'arrived_by_gps':
+        return (
+          <Space>
+            <Tag color="lime" icon={<EnvironmentOutlined />}>已到客户园区</Tag>
+            <Tag color="orange">等待司机 H5 确认</Tag>
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
+          </Space>
+        )
+      case 'driver_confirmed':
+        return (
+          <Space>
+            <Tag color="cyan" icon={<CheckCircleOutlined />}>司机已确认到达</Tag>
+            {/* 链接已在 leaving 状态由库房员生成（v0.2.0-M2 流程改进）；演示签收按钮收归 DevActions */}
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
+          </Space>
+        )
+      case 'customer_signed':
+        return (
+          <Space>
+            <Tag color="green" icon={<InboxOutlined />}>已签收（订单即将完成）</Tag>
+          </Space>
+        )
       case 'completed':
         return <StatusTag value="completed" map={DISPATCH_STATUS_MAP} />
       case 'cancelled':
@@ -276,6 +332,74 @@ export function OrderDetailPage() {
           <Card title={`货物清单（${record.goods.length}）`} size="small">
             <GoodsTable goods={record.goods} />
           </Card>
+
+          {/* v0.2.0-M2：签收照片独立卡片（客户签收后显示） */}
+          {(() => {
+            const firstTl = record.yardTimelines?.[0]
+            const photos = firstTl?.signaturePhotos || []
+            const hasSigned = !!firstTl?.signedAt
+            return (
+              <Card
+                title={
+                  <Space>
+                    <Text strong>签收照片</Text>
+                    {photos.length > 0 ? (
+                      <Tag color="green">{photos.length} 张</Tag>
+                    ) : hasSigned ? (
+                      <Tag color="orange">已签收但无照片</Tag>
+                    ) : (
+                      <Tag>未签收</Tag>
+                    )}
+                  </Space>
+                }
+                size="small"
+                style={{ marginTop: 16 }}
+              >
+                {photos.length > 0 ? (
+                  <>
+                    <Image.PreviewGroup>
+                      <Row gutter={[12, 12]}>
+                        {photos.map((url, i) => (
+                          <Col key={i} span={8}>
+                            <Image
+                              src={url}
+                              alt={`签收照片 ${i + 1}`}
+                              width="100%"
+                              height={120}
+                              style={{ objectFit: 'cover', borderRadius: 4 }}
+                            />
+                          </Col>
+                        ))}
+                      </Row>
+                    </Image.PreviewGroup>
+                    {firstTl.signatureNote && (
+                      <Alert
+                        style={{ marginTop: 12 }}
+                        type="info"
+                        showIcon
+                        message={
+                          <Space>
+                            <Text strong>签收备注：</Text>
+                            <Text>{firstTl.signatureNote}</Text>
+                          </Space>
+                        }
+                      />
+                    )}
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                      签收时间：{formatDateTime(firstTl.signedAt!)}
+                    </div>
+                  </>
+                ) : hasSigned ? (
+                  <Alert type="warning" showIcon message="客户已签收但未上传照片" />
+                ) : (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="客户尚未签收；链接生成后客户扫码可上传照片"
+                  />
+                )}
+              </Card>
+            )
+          })()}
         </Col>
 
         <Col span={8}>
@@ -364,14 +488,71 @@ export function OrderDetailPage() {
         </Form>
       </Modal>
 
-      {/* 通知出发 Modal（M3 替换原 NotifyEnterModal） */}
-      <NotifyDepartModal
+      {/* 通知装货 Modal（v0.2.0-M2.2：库房员在 entering 状态点） */}
+      <NotifyLoadingModal
         open={departOpen}
         dispatch={record}
         yardId={activeYard?.yardId || null}
         yardName={activeYard?.yardName}
         onClose={() => setDepartOpen(false)}
       />
+
+      {/* v0.2.0-M2：客户签收链接 Modal（含二维码） */}
+      <Modal
+        title={`客户签收链接 - ${record.dispatchNo}`}
+        open={signUrlOpen}
+        onCancel={() => setSignUrlOpen(false)}
+        footer={[
+          <Button key="copy" type="primary" onClick={async () => {
+            const ok = await copyToClipboard(signUrl)
+            if (ok) message.success('链接已复制到剪贴板')
+            else message.error('复制失败，请手动选中链接复制')
+          }}>
+            复制链接
+          </Button>,
+          <Button key="open" onClick={() => window.open(signUrl, '_blank')}>
+            在新窗口打开
+          </Button>,
+          <Button key="close" onClick={() => setSignUrlOpen(false)}>关闭</Button>,
+        ]}
+        width={560}
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="将链接通过微信/短信发给客户；或让客户扫码。客户在手机上打开即可查看订单 + 上传照片 + 完成签收。"
+        />
+        <Row gutter={16}>
+          <Col span={13}>
+            <Text strong style={{ display: 'block', marginBottom: 6 }}>签收链接</Text>
+            <Input.TextArea
+              value={signUrl}
+              readOnly
+              autoSize={{ minRows: 3, maxRows: 6 }}
+              style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
+            />
+            <div style={{ marginTop: 12 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>有效期：</Text>
+              <Tag color="blue">{signTokenTtl} 小时</Tag>
+            </div>
+          </Col>
+          <Col span={11}>
+            <div style={{ textAlign: 'center' }}>
+              <Text strong style={{ display: 'block', marginBottom: 6 }}>扫码访问</Text>
+              <div style={{
+                display: 'inline-block',
+                padding: 8,
+                background: '#fff',
+                border: '1px solid #d9d9d9',
+                borderRadius: 4,
+              }}>
+                <QRCode value={signUrl} size={140} />
+              </div>
+            </div>
+          </Col>
+        </Row>
+      </Modal>
     </PageContainer>
   )
 }

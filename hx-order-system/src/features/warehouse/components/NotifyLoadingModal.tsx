@@ -3,7 +3,6 @@ import { Modal, Alert, Button, Descriptions, Space, message } from 'antd'
 import { BellOutlined } from '@ant-design/icons'
 import type { Dispatch } from '@/types/dispatch'
 import { useDispatchStore } from '@/stores/dispatch'
-import { pushDepartNotify } from '@/services/dingtalk'
 import { nowIsoString } from '@/utils'
 
 interface Props {
@@ -15,30 +14,32 @@ interface Props {
 }
 
 /**
- * 通知司机出发 Modal（M3 阶段）
+ * 通知司机装货 Modal（v0.2.0-M2.2 业务调整）
  *
- * 业务变更（vs M2 通知入场 Modal）：
- *  - 派车后库房点【通知出发】→ 推送 H5 司机"可以出发了"
- *  - 不再生成 enterToken / 二维码（H5 扫码入场流程废除）
- *  - 入场完全由车辆 GPS 进入园区半径自动触发
+ * 业务变更：
+ *  - 库房员在 entering 状态（GPS 已入园）点【通知装货】
+ *  - 司机收到推送「可以进场装货了」
+ *  - 状态从 entering → loading
+ *
+ * 与旧 NotifyDepartModal 区别：
+ *  - 旧版库房点「通知出发」（dispatched 状态）→ 通知司机出发 → 链式转 loading
+ *  - 新版库房点「通知装货」（entering 状态）→ 通知司机进园装货 → 推 loading
+ *  - 旧版的「通知出发」语义被物流公司的「派车」动作吸收
  */
-export function NotifyDepartModal({ open, dispatch, yardId, yardName, onClose }: Props) {
+export function NotifyLoadingModal({ open, dispatch, yardId, yardName, onClose }: Props) {
   const [loading, setLoading] = useState(false)
-  const notifyDepart = useDispatchStore((s) => s.notifyDepart)
+  const notifyLoading = useDispatchStore((s) => s.notifyLoading)
 
   const handleConfirm = async () => {
     if (!dispatch || !yardId) return
     setLoading(true)
     try {
-      const departAt = nowIsoString()
-      // 1) 写入 dispatch.yardTimelines[].notifyDepartAt
-      await notifyDepart(dispatch.id, yardId, departAt)
-      // 2) 钉钉 / H5 推送（mock 阶段写 pushLogs）
-      await pushDepartNotify({ dispatch, yardId })
-      message.success(`已通知司机出发（${dispatch.vehicleNo} → ${yardName || yardId}）`)
+      const notifiedAt = nowIsoString()
+      await notifyLoading(dispatch.id, yardId, notifiedAt)
+      message.success(`已通知司机装货（${dispatch.vehicleNo} → ${yardName || yardId}）`)
       onClose()
     } catch (e) {
-      message.error('通知出发失败：' + (e as Error).message)
+      message.error('通知装货失败：' + (e as Error).message)
     } finally {
       setLoading(false)
     }
@@ -46,7 +47,7 @@ export function NotifyDepartModal({ open, dispatch, yardId, yardName, onClose }:
 
   return (
     <Modal
-      title={`通知司机出发 - ${dispatch?.dispatchNo || ''}`}
+      title={`通知司机装货 - ${dispatch?.dispatchNo || ''}`}
       open={open}
       onCancel={onClose}
       footer={null}
@@ -56,7 +57,7 @@ export function NotifyDepartModal({ open, dispatch, yardId, yardName, onClose }:
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="派车后通知司机出发。司机到达园区门口后，由车辆硬件 GPS 自动判定入园并触发后续流程。"
+        message="车辆 GPS 已入园。点击确认后通知司机进园装货，状态自动从 entering 推进至 loading。"
       />
 
       <Descriptions size="small" column={1} bordered>
@@ -78,7 +79,7 @@ export function NotifyDepartModal({ open, dispatch, yardId, yardName, onClose }:
           block
           size="large"
         >
-          确认通知出发
+          确认通知装货
         </Button>
       </Space>
     </Modal>

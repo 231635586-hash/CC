@@ -17,11 +17,11 @@ const { Sider, Content, Header } = Layout
 
 /**
  * 移动端 H5 入口地址
- * - 默认本地开发端口 5174（与 memory [代码部署习惯] 一致：`npx serve -l5174`）
+ * - 默认本地开发端口 5181（司机端 H5，uni-app + Vue 3，原 5174 已让位给移动端原型静态服务）
  * - 真实部署时通过环境变量 VITE_H5_URL 覆盖
  */
 const H5_ENTRY_URL =
-  (import.meta.env.VITE_H5_URL as string | undefined) || 'http://localhost:5174/preview.html'
+  (import.meta.env.VITE_H5_URL as string | undefined) || 'http://localhost:5181/'
 
 /**
  * 主布局 - 订单逻辑主线 + 基础档案 + 物流管理 + 系统管理
@@ -120,9 +120,10 @@ export function MainLayout() {
         >
           <Space>
             <span className={styles.headerTitle}>华翔订单管理系统</span>
-            <Tag color="blue">V0.3.0</Tag>
-            <Tag color="cyan">订单逻辑 · M3</Tag>
+            <Tag color="blue">V0.2.0-M2</Tag>
+            <Tag color="cyan">到货处理 · M2</Tag>
             <Tag color="geekblue">GPS 自动打卡</Tag>
+            <Tag color="green">客户签收 H5</Tag>
           </Space>
           <Space size="large">
             <Tooltip title={`司机端 H5（${H5_ENTRY_URL}）`}>
