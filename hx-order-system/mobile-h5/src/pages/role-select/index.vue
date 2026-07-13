@@ -1,16 +1,17 @@
 <script setup lang="ts">
 /**
- * 角色选择页（v0.3-MVP）
+ * 角色选择页（v0.3.0-M2.2：3 角色）
  *
  * 入口：
  *  - 启动 APP → 默认进这里（M3+ 接统一账户后改成登录后跳转）
  *  - 各 TabBar "我的" 页 → 点 [切换角色]
  *
- * 4 角色入口：
+ * 3 角色入口：
  *  - 司机     → /pages/driver/orders/index
  *  - 业务员   → /pages/salesperson/index
  *  - 物流公司 → /pages/company/index
- *  - 客户     → 客户签收链接（外部入口，不在 TabBar）
+ *
+ * ❌ v0.3.0-M2.2 删除：客户入口（已下线客户签收全链路）
  */
 
 import { ref } from 'vue'
@@ -82,7 +83,7 @@ function enterRole(role: UserRole) {
     <!-- 顶部欢迎语 -->
     <view class="hero">
       <text class="hero-title">华翔物流</text>
-      <text class="hero-sub">v0.3-MVP · 4 角色协作</text>
+      <text class="hero-sub">v0.3.0-M2.2 · 3 角色协作</text>
     </view>
 
     <!-- 角色卡片 -->
@@ -103,11 +104,7 @@ function enterRole(role: UserRole) {
       </view>
     </view>
 
-    <!-- 客户入口 -->
-    <view class="customer-entry" @click="uni.reLaunch({ url: '/pages/customer/sign/index' })">
-      <text class="customer-text">我是客户（扫码签收）</text>
-      <text class="customer-arrow">›</text>
-    </view>
+    <!-- ❌ v0.3.0-M2.2 删除：客户入口 -->
   </view>
 </template>
 
@@ -172,24 +169,6 @@ function enterRole(role: UserRole) {
 .role-arrow {
   font-size: 48rpx;
   font-weight: var(--font-weight-regular);
-}
-
-.customer-entry {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-md);
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
-  margin: 0 var(--space-md);
-}
-.customer-text {
-  font-size: var(--font-size-body);
-  color: var(--color-text-regular);
-}
-.customer-arrow {
-  font-size: 32rpx;
-  color: var(--color-text-placeholder);
 }
 
 /* Frame 模式适配 */

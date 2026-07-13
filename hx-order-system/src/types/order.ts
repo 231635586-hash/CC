@@ -53,11 +53,9 @@ export const DISPATCH_TO_ORDER_STATUS: Record<DispatchStatus, OrderStatus> = {
   entering: 'fulfilling',
   loading: 'fulfilling',
   leaving: 'fulfilling',
-  // —— v0.2.0-M2：到货处理 4 步（全归「履约中」列，子状态细化）——
+  // —— M2 到货处理（v0.3.0-M2.2：移除 arrived_by_gps / customer_signed 中间态）——
   in_transit: 'fulfilling',
-  arrived_by_gps: 'fulfilling',
   driver_confirmed: 'fulfilling',
-  customer_signed: 'fulfilling',
   // —— 终态 ——
   completed: 'completed',
   cancelled: 'cancelled',

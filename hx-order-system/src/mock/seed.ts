@@ -633,7 +633,6 @@ export const mockDispatches: Dispatch[] = [
         enteredVia: 'scan',
         leftVia: 'scan',
         // v0.2.0-M2：补历史签收（演示及时到货率：秦壁→杭州 8.5h，超 8h SLA 视为不及时）
-        signedAt: '2026-06-22 18:30:00',
       },
     ],
     vehicleId: 'mock-vehicle-001',
@@ -932,7 +931,6 @@ export const mockDispatches: Dispatch[] = [
         enteredVia: 'scan',
         leftVia: 'scan',
         // v0.2.0-M2：补历史签收（演示及时到货率：秦壁→上海 4.7h，在 6h SLA 内，及时）
-        signedAt: '2026-06-25 18:40:00',
       },
     ],
     vehicleId: 'mock-vehicle-005',
@@ -1013,7 +1011,6 @@ export const mockDispatches: Dispatch[] = [
         enteredVia: 'scan',
         leftVia: 'scan',
         // v0.2.0-M2：补历史签收（演示及时到货率：秦壁→上海 7.7h，超 6h SLA，视为不及时）
-        signedAt: '2026-06-26 21:40:00',
       },
     ],
     vehicleId: 'mock-vehicle-001',
@@ -1222,12 +1219,11 @@ export const mockDispatches: Dispatch[] = [
     updatedAt: '2026-07-09 09:00:00',
   },
 
-  // M2-06：customer_signed（完整签收，含 3 张签名照片 + 备注）
-  // 演示状态机完整链路 + YardTimelineView 的照片墙
+  // v0.3.0-M2.2 v2：customer_signed 已下线，统一迁移到 completed(客户签收全链路移除)
   {
     id: 'mock-dispatch-m2-006',
     dispatchNo: 'DC20260709006',
-    status: 'customer_signed',
+    status: 'completed',
     direction: '杭州',
     expectedLoadTime: '2026-07-09 08:00:00',
     remark: '演示：客户已签收完整链路（秦壁 → 杭州四季青）',
@@ -1256,13 +1252,6 @@ export const mockDispatches: Dispatch[] = [
         leftYardAt: '2026-07-09 08:45:00',
         arrivedByGpsAt: '2026-07-09 13:20:00',
         driverConfirmedAt: '2026-07-09 13:25:00',
-        signedAt: '2026-07-09 13:45:00',
-        signaturePhotos: [
-          'https://picsum.photos/seed/sig1/200/200',
-          'https://picsum.photos/seed/sig2/200/200',
-          'https://picsum.photos/seed/sig3/200/200',
-        ],
-        signatureNote: '货物完好无损，客户已签收 3 箱',
       },
     ],
     vehicleId: 'mock-vehicle-001',
@@ -1350,11 +1339,11 @@ export const mockDispatches: Dispatch[] = [
     leaveYardAt: '2026-07-09 11:45:00',
   },
 
-  // M2-02：arrived_by_gps（GPS 入客户园区，待司机确认）
+  // v0.3.0-M2.2 v2：arrived_by_gps 已下线，统一迁移到 queued(GPS 检测 = 统一入场)
   {
     id: 'mock-dispatch-m2-002',
     dispatchNo: 'DC20260709002',
-    status: 'arrived_by_gps',
+    status: 'queued',
     direction: '杭州',
     expectedLoadTime: '2026-07-09 11:00:00',
     remark: '演示：GPS 已入客户园区，等待司机 H5 确认',

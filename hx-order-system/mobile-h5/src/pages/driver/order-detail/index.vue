@@ -49,9 +49,7 @@ interface DetailData {
   customerContact: string
   customerPhone: string
   /** v0.2.0-M2：客户园区 GPS（用于一键导航到客户地址） */
-  customerSite?: { lng: number; lat: number; radiusM: number }
   /** v0.2.0-M2：库房员已生成的签收链接（司机展示给客户备用） */
-  signUrl?: string
   companyName: string
   companyPhone: string
   vehicleNo: string
@@ -93,17 +91,7 @@ function loadDetail(id: string) {
     customerAddress: mock.customerAddress,
     customerContact: '周婷',
     customerPhone: '13566778899',
-    // v0.2.0-M2：客户园区坐标（按 customerName 映射）
-    customerSite: getCustomerSite(mock.customerName),
-    // v0.2.0-M2：mock 演示用，库房员已生成链接的场景（arrived_by_gps 之后的状态都视为已生成）
-    signUrl: ['arrived_by_gps', 'driver_confirmed', 'customer_signed', 'completed'].includes(mock.status)
-      ? `http://localhost:5181/?token=${btoa(unescape(encodeURIComponent(JSON.stringify({
-          dispatchId: mock.id,
-          issuedAt: Date.now(),
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-          nonce: 'demo',
-        }))))}`
-      : undefined,
+    // ❌ v0.3.0-M2.2 删除:客户园区坐标 / signUrl(客户签收全链路已下线,司机 H5 直接确认到达即完成)
     companyName: mock.companyName,
     companyPhone: '13800138002',
     vehicleNo: mock.vehicleNo || '-',
@@ -128,14 +116,6 @@ function loadDetail(id: string) {
   }
 }
 
-/** v0.2.0-M2：客户园区坐标映射（mock 阶段按客户名硬编码） */
-function getCustomerSite(name: string): { lng: number; lat: number; radiusM: number } | undefined {
-  if (name.includes('华东机械') || name.includes('苏州')) return { lng: 120.708, lat: 31.318, radiusM: 200 }
-  if (name.includes('深圳')) return { lng: 113.945, lat: 22.533, radiusM: 200 }
-  if (name.includes('青岛') || name.includes('海尔')) return { lng: 120.469, lat: 36.103, radiusM: 200 }
-  return undefined
-}
-
 /** v0.2.0-M2：司机手动确认到达（H5 端动作） */
 function confirmArrival() {
   if (!detail.value) return
@@ -157,20 +137,7 @@ function confirmArrival() {
   })
 }
 
-/** v0.2.0-M2：导航到客户园区 */
-function openCustomerNavi() {
-  if (!detail.value?.customerSite) {
-    uni.showToast({ title: '客户园区坐标未配置', icon: 'none' })
-    return
-  }
-  const { lng, lat } = detail.value.customerSite
-  uni.showModal({
-    title: '导航到客户园区',
-    content: `目标：${detail.value.customerName}\n坐标：${lng}, ${lat}\n（真实阶段将调起地图 APP）`,
-    showCancel: false,
-  })
-}
-
+// ❌ v0.3.0-M2.2 删除：openCustomerNavi（客户签收全链路已下线,司机 H5 直接确认到达）
 function callPhone(phone: string, name: string) {
   if (!phone) {
     uni.showToast({ title: `${name}电话未填写`, icon: 'none' })
@@ -199,24 +166,7 @@ function copyAddress() {
   })
 }
 
-/** v0.2.0-M2：复制签收链接 */
-function copySignUrl() {
-  if (!detail.value?.signUrl) return
-  uni.setClipboardData({
-    data: detail.value.signUrl,
-    success: () => uni.showToast({ title: '签收链接已复制', icon: 'success' }),
-  })
-}
-
-/** v0.2.0-M2：分享签收链接（H5 端调 navigator.share；mock 仅 toast） */
-function shareSignUrl() {
-  if (!detail.value?.signUrl) return
-  // 真实环境：uni-app 提供 uni.share；mock 阶段用 clipboard + toast
-  uni.setClipboardData({
-    data: detail.value.signUrl,
-    success: () => uni.showToast({ title: '签收链接已复制，可粘贴到微信/短信', icon: 'none' }),
-  })
-}
+// ❌ v0.3.0-M2.2 删除：shareSignUrl
 
 onLoad((query: any) => {
   dispatchId.value = query?.id || 'mock-dispatch-012'
@@ -340,61 +290,29 @@ onLoad((query: any) => {
       </view>
     </view>
 
-    <!-- v0.2.0-M2：到达状态横幅（arrived_by_gps / driver_confirmed / customer_signed） -->
-    <view v-if="detail.status === 'arrived_by_gps'" class="arrival-banner">
-      <image class="banner-icon" src="/static/icons/pin.svg" mode="aspectFit" />
-      <view class="banner-content">
-        <text class="banner-title">已到达客户园区</text>
-        <text class="banner-tip">请确认到达后通知客户签收</text>
-      </view>
-    </view>
-    <view v-else-if="detail.status === 'driver_confirmed'" class="arrival-banner confirmed">
+    <!-- v0.3.0-M2.2 v2：driver_confirmed/completed 状态横幅 -->
+    <view v-if="detail.status === 'driver_confirmed' || detail.status === 'completed'" class="arrival-banner confirmed">
       <image class="banner-icon" src="/static/icons/checked.svg" mode="aspectFit" />
       <view class="banner-content">
-        <text class="banner-title">司机已确认到达</text>
-        <text class="banner-tip">库房员已生成签收链接，请告知客户扫码签收</text>
-      </view>
-    </view>
-    <view v-else-if="detail.status === 'customer_signed'" class="arrival-banner signed">
-      <image class="banner-icon" src="/static/icons/done.svg" mode="aspectFit" />
-      <view class="banner-content">
-        <text class="banner-title">客户已签收</text>
-        <text class="banner-tip">订单即将完成</text>
-      </view>
-    </view>
-
-    <!-- v0.2.0-M2：签收链接展示卡（arrived_by_gps 之后显示） -->
-    <view v-if="detail.signUrl && ['arrived_by_gps', 'driver_confirmed', 'customer_signed'].includes(detail.status)" class="sign-link-card">
-      <view class="sign-link-header">
-        <view class="sign-link-title-row">
-          <image class="sign-link-title-icon" src="/static/icons/package.svg" mode="aspectFit" />
-          <text class="sign-link-title">客户签收链接</text>
-        </view>
-        <text class="sign-link-tip">库房员已生成，发给客户扫码签收</text>
-      </view>
-      <view class="sign-link-url-row">
-        <text class="sign-link-url">{{ detail.signUrl.length > 50 ? detail.signUrl.slice(0, 50) + '...' : detail.signUrl }}</text>
-      </view>
-      <view class="sign-link-actions">
-        <button class="btn-copy" @click="copySignUrl">复制链接</button>
-        <button class="btn-share" @click="shareSignUrl">分享</button>
+        <text class="banner-title">{{ detail.status === 'completed' ? '订单已完成' : '司机已确认到达' }}</text>
+        <text class="banner-tip">v0.3.0-M2.2 v2: 确认到达即完成,无需客户签收</text>
       </view>
     </view>
 
     <!-- 底部操作栏 -->
     <view class="bottom-bar">
       <button class="btn-secondary" @click="callPhone(detail.companyPhone, '物流公司')">联系物流</button>
-      <!-- v0.2.0-M2：按状态切换主操作按钮 -->
-      <template v-if="detail.status === 'arrived_by_gps'">
+      <!-- v0.3.0-M2.2 v2:按状态切换主操作按钮(司机确认到达 → 自动完成,无客户签收步骤) -->
+      <template v-if="detail.status === 'in_transit'">
         <button class="btn-primary btn-confirm" @click="confirmArrival">
           <image class="btn-icon" src="/static/icons/checked.svg" mode="aspectFit" />
-          确认到达
+          确认到达客户
         </button>
       </template>
-      <template v-else-if="['in_transit', 'arrived_by_gps', 'driver_confirmed', 'customer_signed'].includes(detail.status)">
-        <button class="btn-primary" @click="openCustomerNavi">
-          <image class="btn-icon" src="/static/icons/compass.svg" mode="aspectFit" />
-          客户导航
+      <template v-else-if="detail.status === 'driver_confirmed' || detail.status === 'completed'">
+        <button class="btn-primary" disabled>
+          <image class="btn-icon" src="/static/icons/done.svg" mode="aspectFit" />
+          订单已完成
         </button>
       </template>
       <template v-else>

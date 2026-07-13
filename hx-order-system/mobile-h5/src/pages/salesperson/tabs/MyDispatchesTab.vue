@@ -23,20 +23,20 @@ const sortedDispatches = computed(() => {
   return [...props.dispatches].sort((a, b) => b.id.localeCompare(a.id))
 })
 
-// 状态流转节点(简化为 5 个关键节点)
+// 状态流转节点(简化为 5 个关键节点,v0.3.0-M2.2 移除客户签收,改用司机确认)
 const flowNodes = [
   { key: 'pending_confirm', label: '已创建' },
   { key: 'confirmed', label: '已确认' },
   { key: 'dispatched', label: '已派车' },
   { key: 'entering', label: '司机入场' },
-  { key: 'customer_signed', label: '已签收' },
+  { key: 'driver_confirmed', label: '已确认完成' },
 ]
 
 function getFlowIndex(status: string): number {
   const idx = flowNodes.findIndex((n) => n.key === status)
   if (idx >= 0) return idx
-  // 兼容其他状态(loading/leaving/in_transit/arrived_by_gps/driver_confirmed/completed)
-  if (['loading', 'leaving', 'in_transit', 'arrived_by_gps', 'driver_confirmed', 'completed'].includes(status)) {
+  // 兼容其他状态(loading/leaving/in_transit/driver_confirmed/completed)
+  if (['loading', 'leaving', 'in_transit', 'driver_confirmed', 'completed'].includes(status)) {
     return 3 // 已派车之后
   }
   return -1
@@ -63,7 +63,7 @@ function formatDate(iso?: string): string {
         <text class="stat-label">进行中</text>
       </view>
       <view class="stat-item success">
-        <text class="stat-num">{{ sortedDispatches.filter((d) => ['completed', 'customer_signed'].includes(d.status)).length }}</text>
+        <text class="stat-num">{{ sortedDispatches.filter((d) => d.status === 'completed').length }}</text>
         <text class="stat-label">已完成</text>
       </view>
     </view>

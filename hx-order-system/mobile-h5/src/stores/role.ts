@@ -1,11 +1,11 @@
 /**
- * 用户角色 store（v0.3-MVP：H5 全员化）
+ * 用户角色 store（v0.3.0-M2.2：3 角色模型）
  *
  * 设计动机：
- *  - H5 不再只是司机端，要支持 4 角色：driver / salesperson / company / customer
+ *  - H5 3 个角色:driver / salesperson / company
  *  - 不同角色看到不同的 TabBar 和功能
- *  - 客户（customer）通过 URL ?token= 进入签收页，不需要 TabBar 切换
- *  - 当前 H5 主要承担 3 个有 TabBar 的角色：driver / salesperson / company
+ *  - v0.3.0-M2.2 移除客户角色:
+ *    状态机 v2 抛弃"客户签收"环节,司机 H5【确认到达】即触发 completed
  *
  * 持久化策略：
  *  - 当前角色存 localStorage（'hx_user_role'），重启保留
@@ -54,8 +54,7 @@ export const useRoleStore = defineStore('role', {
     isSalesperson: (s) => s.currentRole === 'salesperson',
     /** 是否在物流公司模式 */
     isCompany: (s) => s.currentRole === 'company',
-    /** 是否有 TabBar 角色（customer 走 URL，不算） */
-    hasTabBar: (s) => s.currentRole !== 'customer',
+    // ❌ v0.3.0-M2.2 删除:hasTabBar（customer 角色已下线，3 角色全有 TabBar）
   },
 
   actions: {

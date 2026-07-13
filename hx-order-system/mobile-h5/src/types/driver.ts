@@ -51,16 +51,18 @@ export interface Yard {
 }
 
 /* ============================================
- * v0.3-MVP：4 角色模型（H5 全员化）
+ * v0.3-MVP → v0.3.0-M2.2：3 角色模型（移除客户）
  * ============================================ */
 
-/** H5 用户角色
- *  - driver     司机：看单 / GPS / 消息（现状保留）
+/** H5 用户角色（v0.3.0-M2.2 移除客户角色）
+ *  - driver     司机：看单 / GPS / 消息
  *  - salesperson 营销业务员：创建调车单
  *  - company    物流公司：确认 + 派车
- *  - customer   客户：通过 URL token 进入签收流程（无 TabBar）
+ *
+ * ❌ 删除 customer：v0.3.0-M2.2 状态机 v2 移除客户签收环节后,
+ *     司机 H5 端【确认到达】即触发 completed,不再需要客户扫码页。
  */
-export type UserRole = 'driver' | 'salesperson' | 'company' | 'customer'
+export type UserRole = 'driver' | 'salesperson' | 'company'
 
 /** 营销业务员 */
 export interface Salesperson {

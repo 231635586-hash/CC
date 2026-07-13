@@ -36,7 +36,7 @@ const roles: RoleConfig[] = [
   { role: 'driver', label: '司机', emoji: '🚚', color: '#1677ff', homePath: '/pages/driver/orders/index', defaultUserId: 'mock-driver-002' },
   { role: 'salesperson', label: '营销业务员', emoji: '📋', color: '#13c2c2', homePath: '/pages/salesperson/index', defaultUserId: 'mock-sp-001' },
   { role: 'company', label: '物流公司', emoji: '🚛', color: '#fa8c16', homePath: '/pages/company/index', defaultUserId: 'mock-co-001' },
-  { role: 'customer', label: '客户', emoji: '📦', color: '#722ed1', homePath: '/pages/customer/sign/index', defaultUserId: '' },
+  // ❌ v0.3.0-M2.2 删除：customer 角色(客户签收全链路已下线)
 ]
 
 const driverShortcuts = [

@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Descriptions, Card, Tag, Button, Row, Col, Empty, Space, Steps, Alert,
-  Modal, Form, Select, Radio, Input, message, Image, QRCode, Typography,
+  Descriptions, Card, Tag, Button, Row, Col, Empty, Space, Steps, Alert, Tooltip,
+  Modal, Form, Select, Radio, Input, message, Typography,
 } from 'antd'
 const { Text } = Typography
 import {
   ArrowLeftOutlined, TruckOutlined, EnvironmentOutlined,
-  CheckCircleOutlined, InboxOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons'
+// ❌ v0.3.0-M2.2 删除:QRCode / Image / InboxOutlined / copyToClipboard(客户签收全链路已下线)
 import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import type { DispatchStatus } from '@/types'
@@ -20,28 +21,30 @@ import type { Dispatch } from '@/types/dispatch'
 import { ORDER_BOARD_COLUMNS, ORDER_STATUS_OPTIONS } from '@/types/order'
 import { deriveOrderStatus, orderSubStatusLabel } from '@/utils/orderStatus'
 import { formatDateTime, nowIsoString } from '@/utils'
-import { H5_BASE_URL } from '@/utils/h5BaseUrl'
-import { generateSignToken, buildSignUrl, getTokenRemainingHours } from '@/utils/signToken'
-import { copyToClipboard } from '@/utils/clipboard'
 import { GoodsTable } from '@/features/marketing/dispatch/components/GoodsTable'
 import { YardTimelineView } from '@/features/warehouse/components/YardTimelineView'
 import { NotifyLoadingModal } from '@/features/warehouse/components/NotifyLoadingModal'
 import { DevActions } from '@/devtools/DevActions'
 
 /**
- * 统一订单详情页（v0.2.0-M2：到货处理完整链路）
+ * 统一订单详情页（v0.3.0-M2.2：状态机 v2 - 移除客户签收）
  *
  * 状态流转操作（按 dispatch.status switch）：
  *  - pending_confirm: 确认受理 / 取消订单
- *  - dispatched:      通知出发（弹 NotifyDepartModal，H5 推送）
+ *  - dispatched:      等待 GPS / 司机扫码入场
+ *  - queued:          等待库房员通知入场(Mock 道闸放行)
  *  - entering:        通知装货（库房主动推进 loading）
  *  - loading:         装货完成（库房主动推进 leaving）
  *  - leaving:         等待 GPS 离厂（仅 Tag）
- *  - in_transit:      演示：GPS 入客户园区（mock 演示按钮）
- *  - arrived_by_gps:  等待司机在 H5 手动确认
- *  - driver_confirmed: 生成签收链接（PC token URL → 客户扫码）
- *  - customer_signed: 已签收，等待系统自动 completed
+ *  - in_transit:      在途中(司机 H5 可确认到达)
+ *  - driver_confirmed: 司机已确认到达 → 链式 completed
  *  - completed/cancelled: 仅 Tag
+ *
+ * ❌ v0.3.0-M2.2 删除：
+ *  - 客户签收链接 Modal（signUrl / 复制 / 二维码）
+ *  - 签收照片 Card（signaturePhotos / signatureNote / signedAt）
+ *  - arrived_by_gps / customer_signed 两个 case
+ *  - 工具：H5_BASE_URL / generateSignToken / buildSignUrl / getTokenRemainingHours
  */
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -57,10 +60,7 @@ export function OrderDetailPage() {
   const [voidModalOpen, setVoidModalOpen] = useState(false)
   const [voidForm] = Form.useForm<{ reasonKey: string; reasonText?: string }>()
   const [departOpen, setDepartOpen] = useState(false)
-  // —— v0.2.0-M2：签收链接 Modal ——
-  const [signUrlOpen, setSignUrlOpen] = useState(false)
-  const [signUrl, setSignUrl] = useState<string>('')
-  const [signTokenTtl, setSignTokenTtl] = useState<number>(0)
+  // ❌ v0.3.0-M2.2 删除：signUrlOpen / signUrl / signTokenTtl 状态
 
   useEffect(() => {
     if (!list.length) load()
@@ -132,16 +132,7 @@ export function OrderDetailPage() {
 
   // ====== v0.2.0-M2：到货处理 4 步 ======
 
-  /** 生成客户签收链接（仅 driver_confirmed 状态） */
-  const handleGenerateSignUrl = () => {
-    const token = generateSignToken(record.id, 24)
-    const url = buildSignUrl(token, H5_BASE_URL)
-    setSignUrl(url)
-    setSignTokenTtl(getTokenRemainingHours(JSON.parse(
-      decodeURIComponent(escape(atob(token))),
-    )))
-    setSignUrlOpen(true)
-  }
+  // ❌ v0.3.0-M2.2 删除:handleGenerateSignUrl(客户签收全链路已下线)
 
   const handleVoidSubmit = async () => {
     if (!currentUser) return
@@ -221,28 +212,18 @@ export function OrderDetailPage() {
             <DevActions record={record} activeYardId={activeYard?.yardId} />
           </Space>
         )
-      case 'arrived_by_gps':
-        return (
-          <Space>
-            <Tag color="lime" icon={<EnvironmentOutlined />}>已到客户园区</Tag>
-            <Tag color="orange">等待司机 H5 确认</Tag>
-            <DevActions record={record} activeYardId={activeYard?.yardId} />
-          </Space>
-        )
+      // ❌ v0.3.0-M2.2 删除:case 'arrived_by_gps'(GPS 入客户园区统一合并到 queued)
       case 'driver_confirmed':
         return (
           <Space>
             <Tag color="cyan" icon={<CheckCircleOutlined />}>司机已确认到达</Tag>
-            {/* 链接已在 leaving 状态由库房员生成（v0.2.0-M2 流程改进）；演示签收按钮收归 DevActions */}
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              （系统自动链式 completed）
+            </Text>
             <DevActions record={record} activeYardId={activeYard?.yardId} />
           </Space>
         )
-      case 'customer_signed':
-        return (
-          <Space>
-            <Tag color="green" icon={<InboxOutlined />}>已签收（订单即将完成）</Tag>
-          </Space>
-        )
+      // ❌ v0.3.0-M2.2 删除:case 'customer_signed'(客户签收全链路已下线,completed 直接由 driver_confirmed 触发)
       case 'completed':
         return <StatusTag value="completed" map={DISPATCH_STATUS_MAP} />
       case 'cancelled':
@@ -333,73 +314,6 @@ export function OrderDetailPage() {
             <GoodsTable goods={record.goods} />
           </Card>
 
-          {/* v0.2.0-M2：签收照片独立卡片（客户签收后显示） */}
-          {(() => {
-            const firstTl = record.yardTimelines?.[0]
-            const photos = firstTl?.signaturePhotos || []
-            const hasSigned = !!firstTl?.signedAt
-            return (
-              <Card
-                title={
-                  <Space>
-                    <Text strong>签收照片</Text>
-                    {photos.length > 0 ? (
-                      <Tag color="green">{photos.length} 张</Tag>
-                    ) : hasSigned ? (
-                      <Tag color="orange">已签收但无照片</Tag>
-                    ) : (
-                      <Tag>未签收</Tag>
-                    )}
-                  </Space>
-                }
-                size="small"
-                style={{ marginTop: 16 }}
-              >
-                {photos.length > 0 ? (
-                  <>
-                    <Image.PreviewGroup>
-                      <Row gutter={[12, 12]}>
-                        {photos.map((url, i) => (
-                          <Col key={i} span={8}>
-                            <Image
-                              src={url}
-                              alt={`签收照片 ${i + 1}`}
-                              width="100%"
-                              height={120}
-                              style={{ objectFit: 'cover', borderRadius: 4 }}
-                            />
-                          </Col>
-                        ))}
-                      </Row>
-                    </Image.PreviewGroup>
-                    {firstTl.signatureNote && (
-                      <Alert
-                        style={{ marginTop: 12 }}
-                        type="info"
-                        showIcon
-                        message={
-                          <Space>
-                            <Text strong>签收备注：</Text>
-                            <Text>{firstTl.signatureNote}</Text>
-                          </Space>
-                        }
-                      />
-                    )}
-                    <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
-                      签收时间：{formatDateTime(firstTl.signedAt!)}
-                    </div>
-                  </>
-                ) : hasSigned ? (
-                  <Alert type="warning" showIcon message="客户已签收但未上传照片" />
-                ) : (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="客户尚未签收；链接生成后客户扫码可上传照片"
-                  />
-                )}
-              </Card>
-            )
-          })()}
         </Col>
 
         <Col span={8}>
@@ -497,62 +411,7 @@ export function OrderDetailPage() {
         onClose={() => setDepartOpen(false)}
       />
 
-      {/* v0.2.0-M2：客户签收链接 Modal（含二维码） */}
-      <Modal
-        title={`客户签收链接 - ${record.dispatchNo}`}
-        open={signUrlOpen}
-        onCancel={() => setSignUrlOpen(false)}
-        footer={[
-          <Button key="copy" type="primary" onClick={async () => {
-            const ok = await copyToClipboard(signUrl)
-            if (ok) message.success('链接已复制到剪贴板')
-            else message.error('复制失败，请手动选中链接复制')
-          }}>
-            复制链接
-          </Button>,
-          <Button key="open" onClick={() => window.open(signUrl, '_blank')}>
-            在新窗口打开
-          </Button>,
-          <Button key="close" onClick={() => setSignUrlOpen(false)}>关闭</Button>,
-        ]}
-        width={560}
-      >
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="将链接通过微信/短信发给客户；或让客户扫码。客户在手机上打开即可查看订单 + 上传照片 + 完成签收。"
-        />
-        <Row gutter={16}>
-          <Col span={13}>
-            <Text strong style={{ display: 'block', marginBottom: 6 }}>签收链接</Text>
-            <Input.TextArea
-              value={signUrl}
-              readOnly
-              autoSize={{ minRows: 3, maxRows: 6 }}
-              style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
-            />
-            <div style={{ marginTop: 12 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>有效期：</Text>
-              <Tag color="blue">{signTokenTtl} 小时</Tag>
-            </div>
-          </Col>
-          <Col span={11}>
-            <div style={{ textAlign: 'center' }}>
-              <Text strong style={{ display: 'block', marginBottom: 6 }}>扫码访问</Text>
-              <div style={{
-                display: 'inline-block',
-                padding: 8,
-                background: '#fff',
-                border: '1px solid #d9d9d9',
-                borderRadius: 4,
-              }}>
-                <QRCode value={signUrl} size={140} />
-              </div>
-            </div>
-          </Col>
-        </Row>
-      </Modal>
+      {/* ❌ v0.3.0-M2.2 删除:客户签收链接 Modal(全链路已下线) */}
     </PageContainer>
   )
 }
