@@ -16,7 +16,7 @@
  *  8. 最终出厂时间：多园区取最后园区 leftAt
  */
 
-import type { Dispatch, YardTimeline, DispatchEfficiency, YardEfficiency, Yard } from '@/types/dispatch'
+import type { Dispatch, YardTimeline, DispatchEfficiency, YardEfficiency, Yard, Company } from '@/types/dispatch'
 import {
   calcRestrictedMinutes,
   STANDARD_LOAD_MIN,
@@ -661,6 +661,155 @@ export function buildYardMonthlyRows(input: {
   rows.sort((a, b) => {
     if (a.yardName !== b.yardName) return a.yardName.localeCompare(b.yardName, 'zh-CN')
     return a.monthLabel < b.monthLabel ? 1 : -1
+  })
+
+  return rows
+}
+
+// ============================================================================
+// 按公司 × 运输方向 透视表聚合（M2.6 · 2026-07-14）
+// ----------------------------------------------------------------------------
+// 业务口径（用户决策）：
+//  - 行维度：物流公司 → 运输方向（路线）
+//  - 列字段：时效要求(SLA) / 应到数量 / 需求到场车辆 / 按时到场 / 及时装货 / 按时到货
+//  - 应到数量 = 被派车辆（status >= dispatched, 已在路上）
+//  - 需求到场车辆 = planned（expectedLoadTime ∈ range, 业务计划口径）
+//  - 按时到场 = isOnTimeArrival === true
+//  - 及时装货完成 = per YardTimeline effectiveLoadMin ≤ 4h（与 calcOnTimeLoadingRate 一致）
+//  - 按时到货 = isOnTimeDelivery === true
+//  - 注：「按运输方向」Tab 已废弃并入「按公司」Tab
+// ============================================================================
+
+/** 透视表单行（公司 + 方向 + 5 metrics） */
+export interface CompanyDirectionRow {
+  companyId: string
+  companyName: string
+  /** 运输方向（如 上海/苏州/北京） */
+  direction: string
+  /** 该方向的 SLA 小时数 */
+  slaHours: number
+  /** 应到数量（辆）：被派车辆 status >= dispatched */
+  assigned: number
+  /** 需求到场车辆（辆）：planned, expectedLoadTime ∈ range */
+  planned: number
+  /** 按时到场车辆（辆）：isOnTimeArrival === true */
+  onTimeArrival: number
+  /** 及时装货完成车辆（辆）：per YardTimeline effectiveLoadMin ≤ 4h */
+  onTimeLoading: number
+  /** 按时到货车辆（辆）：isOnTimeDelivery === true */
+  onTimeDelivery: number
+}
+
+/** 公司被派状态集合（与 calcOnTimeArrivalRate 的 DISPATCHED_OR_BEYOND 一致） */
+const COMPANY_DIRECTION_DISPATCHED_STATUSES = [
+  'dispatched',
+  'queued',
+  'entering',
+  'loading',
+  'leaving',
+  'in_transit',
+  'driver_confirmed',
+  'completed',
+] as const
+
+function isCompanyDirectionDispatched(d: Dispatch): boolean {
+  return (COMPANY_DIRECTION_DISPATCHED_STATUSES as readonly string[]).includes(d.status)
+}
+
+/**
+ * 按 (公司, 运输方向) 聚合 5 指标透视表行。
+ * 排序：companyName 字典序 → direction 字典序。
+ *
+ * 数据源：
+ *  - dispatches: filteredDispatches（5 维筛选后的全部车辆）
+ *  - analyses: status=completed 子集（用于取 isOnTimeArrival/Loading/Delivery）
+ *  - companies: 公司字典（用于名称回填）
+ */
+export function buildCompanyDirectionRows(input: {
+  dispatches: Dispatch[]
+  analyses: DispatchEfficiency[]
+  companies: Company[]
+}): CompanyDirectionRow[] {
+  const companyNameById = new Map<string, string>()
+  for (const c of input.companies) companyNameById.set(c.id, c.name)
+
+  type Bucket = {
+    companyId: string
+    companyName: string
+    direction: string
+    assigned: number
+    planned: number
+    onTimeArrival: number
+    onTimeLoading: number
+    onTimeDelivery: number
+  }
+  const buckets = new Map<string, Bucket>()
+
+  const ensureBucket = (companyId: string, companyName: string, direction: string): Bucket => {
+    const key = `${companyId}|${direction}`
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        companyId,
+        companyName,
+        direction,
+        assigned: 0,
+        planned: 0,
+        onTimeArrival: 0,
+        onTimeLoading: 0,
+        onTimeDelivery: 0,
+      })
+    }
+    return buckets.get(key)!
+  }
+
+  // 遍历 dispatches 计算 assigned / planned
+  for (const d of input.dispatches) {
+    if (!d.direction) continue
+    const companyId = d.companyId
+    const companyName = companyNameById.get(companyId) || d.companyName || companyId
+    const b = ensureBucket(companyId, companyName, d.direction)
+
+    // planned：所有 expectedLoadTime ∈ range 的都算（filteredDispatches 已筛）
+    b.planned++
+    // assigned：被派车辆 status >= dispatched
+    if (isCompanyDirectionDispatched(d)) b.assigned++
+  }
+
+  // 遍历 analyses 计算 onTimeArrival / Loading / Delivery
+  for (const a of input.analyses) {
+    if (!a.direction) continue
+    const b = buckets.get(`${a.companyId}|${a.direction}`)
+    if (!b) continue // 没有匹配的 planned 桶（理论上不会出现）
+
+    if (a.isOnTimeArrival === true) b.onTimeArrival++
+
+    // 及时装货完成：per YardTimeline（与 calcOnTimeLoadingRate 一致）
+    for (const y of a.yards || []) {
+      if (y.effectiveLoadMin <= STANDARD_LOAD_MIN) b.onTimeLoading++
+    }
+
+    if (a.isOnTimeDelivery === true) b.onTimeDelivery++
+  }
+
+  const rows: CompanyDirectionRow[] = []
+  for (const b of buckets.values()) {
+    rows.push({
+      companyId: b.companyId,
+      companyName: b.companyName,
+      direction: b.direction,
+      slaHours: DIRECTION_DELIVERY_SLA_HOURS[b.direction] ?? ON_TIME_DELIVERY_DEFAULT_HOURS,
+      assigned: b.assigned,
+      planned: b.planned,
+      onTimeArrival: b.onTimeArrival,
+      onTimeLoading: b.onTimeLoading,
+      onTimeDelivery: b.onTimeDelivery,
+    })
+  }
+
+  // 排序：公司字典序 → 方向字典序
+  rows.sort((a, b) => {
+    if (a.companyName !== b.companyName) return a.companyName.localeCompare(b.companyName, 'zh-CN')
+    return a.direction.localeCompare(b.direction, 'zh-CN')
   })
 
   return rows
