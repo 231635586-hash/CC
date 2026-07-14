@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Descriptions, Card, Tag, Button, Row, Col, Empty, Space, Steps, Alert, Tooltip,
+  Descriptions, Card, Tag, Button, Row, Col, Empty, Space, Alert, Tooltip,
   Modal, Form, Select, Radio, Input, message, Typography,
 } from 'antd'
 const { Text } = Typography
@@ -10,7 +10,7 @@ import {
   CheckCircleOutlined,
 } from '@ant-design/icons'
 // ❌ v0.3.0-M2.2 删除:QRCode / Image / InboxOutlined / copyToClipboard(客户签收全链路已下线)
-import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP } from '@/components'
+import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP, DispatchFlowHeader } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import type { DispatchStatus } from '@/types'
 import {
@@ -18,8 +18,6 @@ import {
   VOID_REASON_OPTIONS, VOID_REASON_LABEL,
 } from '@/types/dispatch'
 import type { Dispatch } from '@/types/dispatch'
-import { ORDER_BOARD_COLUMNS, ORDER_STATUS_OPTIONS } from '@/types/order'
-import { deriveOrderStatus, orderSubStatusLabel } from '@/utils/orderStatus'
 import { formatDateTime, nowIsoString } from '@/utils'
 import { GoodsTable } from '@/features/marketing/dispatch/components/GoodsTable'
 import { YardTimelineView } from '@/features/warehouse/components/YardTimelineView'
@@ -84,10 +82,6 @@ export function OrderDetailPage() {
       </PageContainer>
     )
   }
-
-  const orderStatus = deriveOrderStatus(record)
-  const orderOpt = ORDER_STATUS_OPTIONS.find((o) => o.value === orderStatus)
-  const boardIndex = ORDER_BOARD_COLUMNS.indexOf(orderStatus)
 
   // —— 状态流转操作 ——
 
@@ -240,39 +234,8 @@ export function OrderDetailPage() {
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>返回</Button>
       }
     >
-      {/* 订单主状态进度条 + 操作区 */}
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Row align="middle" gutter={16}>
-          <Col flex="auto">
-            {orderStatus === 'cancelled' || orderStatus === 'draft' ? (
-              <Space>
-                <span>订单主状态：</span>
-                <Tag color={orderOpt?.color}>{orderOpt?.emoji} {orderOpt?.label}</Tag>
-                <span style={{ color: '#999' }}>当前子状态</span>
-                <StatusTag value={record.status} map={DISPATCH_STATUS_MAP} />
-              </Space>
-            ) : (
-              <Steps
-                size="small"
-                current={boardIndex}
-                items={ORDER_BOARD_COLUMNS.map((c) => {
-                  const o = ORDER_STATUS_OPTIONS.find((x) => x.value === c)!
-                  return {
-                    title: o.label,
-                    description: c === orderStatus ? orderSubStatusLabel(record) : o.dept,
-                  }
-                })}
-              />
-            )}
-          </Col>
-          <Col>
-            <Space direction="vertical" align="end" size={4}>
-              <span style={{ fontSize: 12, color: '#999' }}>推进部门：{orderOpt?.dept}</span>
-              {renderActions()}
-            </Space>
-          </Col>
-        </Row>
-      </Card>
+      {/* 订单主状态进度条 + 操作区(统一调车单流程栏,与 DispatchDetailPage/WarehouseDispatchDetailPage 一致) */}
+      <DispatchFlowHeader dispatch={record} renderActions={renderActions} />
 
       <Row gutter={16}>
         <Col span={16}>
