@@ -184,7 +184,7 @@ export function EfficiencyAnalysisPage() {
   const yardLookup = useMemo(() => buildYardLookup(yards), [yards])
   const dispatchLookup = useMemo(() => buildDispatchLookup(list), [list])
 
-  /** 触发 Excel 导出（4 Sheet：明细 + 3 个分组 Tab） */
+  /** 触发 Excel 导出（6 Sheet：明细 + 3 个分组 Tab + 漏斗计数 + 园区对比） */
   const handleExport = () => {
     exportDispatchEfficiency({
       analyses,
@@ -193,6 +193,8 @@ export function EfficiencyAnalysisPage() {
       groupedByDirection,
       dispatchLookup,
       yardLookup,
+      funnelCounts,
+      yardChartRows,
     })
   }
 

@@ -2,11 +2,12 @@
  * 调度时效分析 Excel 导出工具
  *
  * 设计要点：
- *  1. 单文件 4 Sheet：明细 / 按公司 / 按装货园区 / 按运输方向
+ *  1. 单文件 6 Sheet：明细 / 按公司 / 按装货园区 / 按运输方向 / 漏斗计数 / 园区对比
  *  2. 仅导出当前筛选结果（由 Page 端先过滤再传入）
  *  3. 文件名固定模板：调度时效分析_YYYYMMDD_HHmm.xlsx
  *  4. 时间戳本地展示为 YYYY-MM-DD HH:mm（不再透出 ISO）
  *  5. 百分比统一为 "xx.x%" 文本格式，避免 Excel 把 50% 解读为 0.5
+ *  6. v0.6.0-M2.4 增量：Sheet 5「漏斗计数」+ Sheet 6「园区对比」
  *
  * Why 不复用 utils/index.ts 的 parseTimestamp：
  *   parseTimestamp 对 "YYYY-MM-DD HH:mm:ss" 会替换为 "YYYY/MM/DDTHH:mm:ss"，
@@ -16,6 +17,7 @@
 import * as XLSX from 'xlsx'
 import type { Dispatch, DispatchEfficiency, Yard } from '@/types/dispatch'
 import { DIRECTION_DELIVERY_SLA_HOURS, ON_TIME_DELIVERY_DEFAULT_HOURS } from '@/types/dispatch'
+import type { FunnelCounts, YardComparisonRow } from './efficiencyAnalysis'
 
 /** 工具入参（Page 端聚合好直接传） */
 export interface ExportParams {
@@ -31,6 +33,10 @@ export interface ExportParams {
   dispatchLookup: Record<string, Dispatch>
   /** yard 索引（yardId → yardName，用于明细 Sheet 显示装货园区名） */
   yardLookup: Record<string, string>
+  /** 5 漏斗计数（v0.6.0-M2.4 新增，Sheet 5 数据源） */
+  funnelCounts: FunnelCounts
+  /** 园区对比 4 系列（v0.6.0-M2.4 新增，Sheet 6 数据源） */
+  yardChartRows: YardComparisonRow[]
 }
 
 export interface GroupRowForExport {
@@ -110,7 +116,29 @@ function flattenDetailRows(params: ExportParams): Record<string, unknown>[] {
   })
 }
 
-/** 主入口：导出当前筛选结果到 4 Sheet xlsx */
+/** Sheet 5：5 漏斗计数（v0.6.0-M2.4） */
+function flattenFunnelCounts(fc: FunnelCounts): Record<string, unknown>[] {
+  return [
+    { 排名: 1, 指标: '需求到场', 当前计数: fc.expected, 公式: '需求时间(expectedLoadTime)在筛选范围内车辆总数' },
+    { 排名: 2, 指标: '实际到场', 当前计数: fc.arrived, 公式: '排队时间(queuedAt)在筛选范围内车辆总数' },
+    { 排名: 3, 指标: '已装完', 当前计数: fc.loaded, 公式: '装货完成时间(loadingCompletedAt)在筛选范围内车辆总数' },
+    { 排名: 4, 指标: '已出场', 当前计数: fc.exited, 公式: '出场时间(leftAt)在筛选范围内车辆总数' },
+    { 排名: 5, 指标: '已到货', 当前计数: fc.delivered, 公式: '到货时间(driverConfirmedAt)在筛选范围内车辆总数' },
+  ]
+}
+
+/** Sheet 6：园区对比 4 系列（v0.6.0-M2.4） */
+function flattenYardChartRows(rows: YardComparisonRow[]): Record<string, unknown>[] {
+  return rows.map((r) => ({
+    园区: r.yardName,
+    需求到场数: r.expected,
+    按时到场数: r.onTimeArrival,
+    及时装货完成数: r.onTimeLoading,
+    按时到货数: r.onTimeDelivery,
+  }))
+}
+
+/** 主入口：导出当前筛选结果到 6 Sheet xlsx */
 export function exportDispatchEfficiency(params: ExportParams): void {
   const wb = XLSX.utils.book_new()
 
@@ -137,6 +165,14 @@ export function exportDispatchEfficiency(params: ExportParams): void {
   }))
   const directionSheet = XLSX.utils.json_to_sheet(directionRows)
   XLSX.utils.book_append_sheet(wb, directionSheet, '按运输方向')
+
+  // Sheet 5：漏斗计数（v0.6.0-M2.4）
+  const funnelSheet = XLSX.utils.json_to_sheet(flattenFunnelCounts(params.funnelCounts))
+  XLSX.utils.book_append_sheet(wb, funnelSheet, '漏斗计数')
+
+  // Sheet 6：园区对比（v0.6.0-M2.4）
+  const yardChartSheet = XLSX.utils.json_to_sheet(flattenYardChartRows(params.yardChartRows))
+  XLSX.utils.book_append_sheet(wb, yardChartSheet, '园区对比')
 
   // 文件名：调度时效分析_YYYYMMDD_HHmm.xlsx
   const now = new Date()
