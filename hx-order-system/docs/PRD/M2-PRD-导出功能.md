@@ -372,4 +372,148 @@ const handleExport = () => {
 
 ---
 
+## 10. M2.5+M2.6+M2.7 增量(2026-07-14):按园区月度透视 + 按公司×方向透视 + Excel 6 Sheet 对齐
+
+### 10.1 背景与目标
+
+**业务动机**(3 个连续迭代):
+1. **M2.5**:原「按装货园区」Tab 只有全期汇总,无法回答"2026 年 6 月秦壁园区的 4 小时装货达成率是多少" — 补齐时间维度
+2. **M2.6**:原「按公司」和「按运输方向」Tab 是两个独立聚合视角,业务方需要交叉维度(某公司在某方向的达成情况)只能人工 join — 合并为 (公司 × 方向) 二维透视表
+3. **M2.7**:Excel 导出 Sheet 与 UI Tab 内容不一致(UI 看透视表、Excel 看聚合表) — 同步对齐
+
+**目标**:在 M2.4(3 比率 + 5 漏斗 + 图表)基础上,新增 2 个透视表(按园区月度 + 按公司方向),Excel 6 Sheet 与 UI Tab 1:1 对齐。
+
+### 10.2 新增功能
+
+#### 10.2.1 按装货园区月度透视表(M2.5)
+
+| 项目 | 设计 |
+|------|------|
+| 组件 | `YardMonthlyPivot.tsx` |
+| 列数 | 7 |
+| 列字段 | 园区(合并) / 月份 / 调车需求(辆) / 未按时到场(辆) / 及时到场率 / 未达成4小时装货(辆) / 4小时装货达成率 |
+| 排序 | yardName 字典序 → monthLabel 倒序 |
+| 比率列 Tag | `>= 80` 绿 / `< 80` 红 |
+| 防空显示 | `demand=0` 时比率列显示 `-`(替代 `#DIV/0!`) |
+| utils | `buildYardMonthlyRows({ dispatches, analyses, yards })` |
+
+#### 10.2.2 按公司×方向透视表(M2.6)
+
+| 项目 | 设计 |
+|------|------|
+| 组件 | `CompanyDirectionPivot.tsx` |
+| 列数 | 8 |
+| 列字段 | 物流公司 / 路线 / 时效要求 / 应到数量 / 需求到场车辆 / 按时到场车辆 / 及时装货完成车辆 / 按时到货车辆 |
+| 合并 | 公司 rowSpan(同公司多方向合并) |
+| 排序 | companyName 字典序 → direction 字典序 |
+| 数据语义 | 全部为车辆绝对数(无数值比率)— 与用户截图样式一致 |
+| utils | `buildCompanyDirectionRows({ dispatches, analyses, companies })` |
+
+**字段语义对齐**(业务方原话):
+- `assigned`(应到数量)= 被派车辆(`status >= dispatched`)
+- `planned`(需求到场车辆)= `expectedLoadTime ∈ 筛选时间范围`
+- `onTimeArrival`(按时到场车辆)= `isOnTimeArrival === true`(30 分钟内)
+- `onTimeLoading`(及时装货完成车辆)= `per YardTimeline, effectiveLoadMin ≤ 4h`
+- `onTimeDelivery`(按时到货车辆)= `isOnTimeDelivery === true`(≤ SLA)
+
+#### 10.2.3 Tab 调整
+
+| Tab | M2.4 | M2.5 | M2.6 | M2.7 |
+|-----|------|------|------|------|
+| 调车单明细 | ✅ | ✅ | ✅ | ✅ |
+| 按公司 | 聚合表 | 聚合表 | **透视表** | **透视表** |
+| 按装货园区 | 全期汇总 | **月度透视(默认)+ 全期汇总** | ✅ | ✅ |
+| 按运输方向 | 排名榜 | ✅ | **❌ 移除(并入按公司)** | ❌ 移除 |
+
+**Tab 总数**:4 → 3(M2.6 移除「按运输方向」)
+
+#### 10.2.4 Excel 6 Sheet 新结构(M2.7)
+
+| # | Sheet 名 | 列数 | 数据源 | 对应 UI Tab |
+|:-:|---------|:-:|------|----------|
+| 1 | 调车单明细 | 12 | `analyses` | 调车单明细 Tab |
+| 2 | **按公司×方向透视** | **8** | `companyDirectionRows` ← 新 | 按公司 Tab |
+| 3 | **按装货园区月度透视** | **7** | `yardMonthlyRows` ← 新 | 按装货园区 Tab 上半 |
+| 4 | **按装货园区全期汇总** | 5 | `groupedByYard` | 按装货园区 Tab 下半 |
+| 5 | 漏斗计数 | 4 | `funnelCounts` | 顶部 5 漏斗卡 |
+| 6 | 园区对比 | 5 | `yardChartRows` | 柱状图 |
+
+**删除**:旧 Sheet「按运输方向」(Tab 已废弃)
+
+### 10.3 关键决策(7 项已对齐)
+
+| # | 决策点 | 选择 | 理由 |
+|---|--------|------|------|
+| 1 | M2.5 表格形态 | 月度透视表(7 列) | 用户截图样式对齐 + 时间维度下钻 |
+| 2 | M2.5 排序 | yardName 字典序 → monthLabel 倒序 | 最新月份优先展示 |
+| 3 | M2.5 4 小时定义 | 沿用 M2.4 卡片定义 | 全产品口径统一 |
+| 4 | M2.6 表格形态 | 扁平透视表(8 列,合并公司) | 用户截图样式对齐 |
+| 5 | M2.6 Tab 合并 | 合并(移除按方向 Tab) | 透视表已涵盖 (公司 × 方向) 二维信息 |
+| 6 | M2.7 Sheet 形态 | 完全镜像 UI Tab(6 Sheet) | UI/Excel 一致性,降低业务方认知成本 |
+| 7 | M2.7 旧 Sheet 处理 | 删除(不保留 deprecated) | Tab 已移除,Sheet 保留无意义 |
+
+### 10.4 验收标准(AC)
+
+#### M2.5 AC
+
+- [x] 「按装货园区」Tab 默认位显示月度透视表(7 列)
+- [x] 园区列按 rowSpan 合并
+- [x] 月份倒序展示(最新月份在最上)
+- [x] 比率列 Tag 着色(>= 80 绿 / < 80 红)
+- [x] demand=0 时显示 `-` 不报错
+
+#### M2.6 AC
+
+- [x] 「按公司」Tab 显示 8 列透视表
+- [x] 公司列按 rowSpan 合并
+- [x] 「按运输方向」Tab 已移除
+- [x] 字段语义对齐业务方原话(应到数量/需求到场车辆/按时到场车辆/及时装货完成车辆/按时到货车辆)
+
+#### M2.7 AC
+
+- [x] Excel 导出 6 Sheet,Sheet 名与 UI Tab 一致
+- [x] Sheet 2「按公司×方向透视」8 列与 UI 一致
+- [x] Sheet 3「按装货园区月度透视」7 列与 UI 一致
+- [x] Sheet 4「按装货园区全期汇总」5 列与 UI 一致
+- [x] 旧 Sheet「按运输方向」已删除
+
+### 10.5 技术决策
+
+#### M2.5 + M2.6 utils 层
+
+- **新函数**:`buildYardMonthlyRows`(3 入参)/ `buildCompanyDirectionRows`(3 入参)
+- **关键修复**:`import { Company } from '@/types/dispatch'` + `dayjs.extend(isBetween)`
+- **聚合模式**:Map 二维 group → sort → flat(复用 M2.4 模式)
+
+#### M2.7 excelExport.ts 重构
+
+- **`ExportParams` 字段调整**:
+  - ➕ `companyDirectionRows: CompanyDirectionRow[]`(Sheet 2)
+  - ➕ `yardMonthlyRows: YardMonthlyRow[]`(Sheet 3)
+  - ➖ 移除 `groupedByCompany`(已废弃)
+  - ➖ 移除 `groupedByDirection`(已废弃)
+  - 保留 `groupedByYard`(Sheet 4 + Tab 全期汇总)
+- **`Page.handleExport` 调整**:传入新字段 + 删除旧字段
+- **`Page` useMemo 清理**:删除 `groupedByCompany` + `groupedByDirection`
+
+### 10.6 已知限制与修复
+
+#### 已知限制
+
+- **Mock 数据稀疏**:mock 仅覆盖 2026-06~07 月份,演示时月度数据有限 — 真实数据无此问题
+- **M2.6 字段重命名**:原 `按公司` Tab 的 6 列拆为 8 列后,Excel 旧数据无对应 — 一次性迁移,无向后兼容需求
+
+#### 本里程碑内 fixup 修复
+
+| Commit | 现象 | 根因 | 修复 |
+|--------|------|------|------|
+| `0e22404` fixup #1 | `Syntax error "\u{5c0f}"` dev server 500 | esbuild 严格遵循 ES2015:`{ 4小时装货达成率: 1 }` 中 "4" 不是 ID_Start 字符 | 加引号改为字符串 key `{ '4小时装货达成率': 1 }` |
+| `0e22404` fixup #2 | `ReferenceError: Can't find variable: DIRECTION_DELIVERY_SLA_HOURS` | `excelExport.ts` 顶部 import 区只 `import type`,无运行时常量 import;re-export 不会让本文件内部引用 | 顶部 `import { DIRECTION_DELIVERY_SLA_HOURS, ON_TIME_DELIVERY_DEFAULT_HOURS } from '@/types/dispatch'` |
+
+**Why 这 2 个 fixup 不占独立 slot**:都属 M2.7 单一交付意图的子修复,且 M2.7 验收前已通过 git fixup + autosquash 合并回主 commit。
+
+---
+
+*最后更新: 2026-07-14 — 来源: M2.5 + M2.6 + M2.7 调度时效分析透视化与导出对齐*
+
 *最后更新: 2026-07-14 — 来源: M2.4 调度时效可视化升级需求*

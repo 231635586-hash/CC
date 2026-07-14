@@ -54,7 +54,7 @@ v0.1.0-M1    主版本.次版本.修订号-功能版本
 | M1 | 调车员管理 | P1 | ✅ 已完成 |
 | M1 | 车辆位置 | P1 | ✅ 已完成 |
 | **M2** | **库房管理 + 司机扫码流程** | **P0** | ✅ **已完成（v0.2.0-M2）** |
-| **M2** | **调度时效分析** | **P1** | ✅ **已完成（v0.6.0-M2.4）** |
+| **M2** | **调度时效分析** | **P1** | ✅ **已完成（v0.8.0-M2.7）** |
 | - | 代码层优化 | - | ✅ 23 项已完成（详见下文 v0.1.x 增量版本） |
 
 ---
@@ -925,3 +925,160 @@ feat/arrival-processing 分支历史 11 个 commit（含 4 个状态机横跳）
 #### ✅ 用户验收
 
 - 2026-07-14 用户验收通过(`6550a36` v3 拆分图 + 轴标题后),交付完成
+
+---
+
+### v0.7.0-M2.5 - 按园区 Tab 月度透视表(2026-07-14)
+
+#### 🎉 阶段交付:M2.5 园区×月度透视表 — Tab 默认位 + 全期汇总保留
+
+**✅ 业务范围**:在 M2.4 基础上,「按园区」Tab 新增「按月度」透视表(放首位作为默认视图),保留原「全期汇总」表格(下移)。
+
+**业务动机**:当前「按园区」Tab 只有全期汇总,无法回答"2026 年 6 月秦壁园区的 4 小时装货达成率是多少"。月度透视表补齐时间维度,支持「按月下钻园区表现」。
+
+#### 📦 3 个 commit 单意图交付
+
+| Commit | 主题 |
+|--------|------|
+| `c1cce40` | feat(utils): 新增 `buildYardMonthlyRows` 按园区×月度聚合 |
+| `3ce7a0d` | feat(efficiency): 新增 `YardMonthlyPivot` 透视表组件 |
+| `252f1e1` | feat(efficiency): 按园区 Tab 新增月度透视表(默认位) + 全期汇总保留 |
+
+#### 🎯 新增功能
+
+##### YardMonthlyPivot 透视表组件
+
+- ✅ **7 列**:园区(合并) / 月份 / 调车需求(辆) / 未按时到场(辆) / 及时到场率 / 未达成4小时装货(辆) / 4小时装货达成率
+- ✅ **园区合并**:`rowSpan` 实现(同园区多月份合并园区名)
+- ✅ **排序**:yardName 字典序 → monthLabel 倒序(最新月在上)
+- ✅ **比率列 Tag 着色**:`>= 80` 绿 / `< 80` 红(对齐 M2.4 图表配色)
+- ✅ **demand=0 防空**:`-` 显示替代 `#DIV/0!`
+- ✅ **月份 Tooltip**:`monthStart.format('YYYY-MM-DD')` 展示完整日期
+- ✅ **数据源**:`utils/efficiencyAnalysis.ts` → `buildYardMonthlyRows`
+
+##### 按园区 Tab 默认位调整
+
+- ✅ **顺序变更**:月度透视表移到 Tab 上半(默认显示),全期汇总下移并加 `Typography.Title level=5` "全期汇总" 标题区分
+- ✅ **复用 Page**:Tab 内容改为 `<Space direction="vertical">` 包裹两层(月度透视 + 全期汇总)
+- ✅ **不变**:5 筛选条件 + 3 比率卡 + 5 漏斗卡 + 园区对比柱状图(全部保持)
+
+#### 🔧 技术决策
+
+- **新 utils 函数**:`buildYardMonthlyRows({ dispatches, analyses, yards })` — 按 `yardId × monthStart` 二维聚合
+- **monthLabel 生成**:`dayjs.monthStart.format('YYYY-MM')` 简洁展示
+- **rowSpan 实现**:组件内 `useMemo` 提前计算(见 `displayRows` 逻辑)
+- **TS 验证**:每 commit 后 `tsc --noEmit` EXIT 0
+
+#### ⚠️ 已知限制
+
+- **Mock 数据稀疏**:mock 仅覆盖 2026-06~07 月份,演示时月度数据有限 — 真实数据无此问题
+
+---
+
+### v0.8.0-M2.6 - 按公司 Tab 透视表 + 移除按方向 Tab(2026-07-14)
+
+#### 🎉 阶段交付:M2.6 公司×方向透视表 — Tab 合并 + 字段语义重构
+
+**✅ 业务范围**:在 M2.5 基础上,「按公司」Tab 由聚合表改造为透视表(8 列),并把原「按运输方向」Tab 吸收合并,Tab 总数从 4 减为 3。
+
+**业务动机**:原 Tab 是「公司聚合」或「方向聚合」两个独立视角,业务方需要交叉维度(某公司在某方向的达成情况)只能人工 join。新透视表直接按 (公司, 方向) 二维聚合,一次性看穿两个维度。
+
+#### 📦 3 个 commit 单意图交付
+
+| Commit | 主题 |
+|--------|------|
+| `c45adb7` | feat(utils): 新增 `buildCompanyDirectionRows` 按公司×方向聚合 |
+| `6fb3d49` | feat(efficiency): 新增 `CompanyDirectionPivot` 透视表组件 |
+| `9312d4f` | feat(efficiency): 按公司 Tab 改造为透视表 + 移除按方向 Tab |
+
+#### 🎯 新增功能
+
+##### CompanyDirectionPivot 透视表组件
+
+- ✅ **8 列**:物流公司 / 路线 / 时效要求 / 应到数量 / 需求到场车辆 / 按时到场车辆 / 及时装货完成车辆 / 按时到货车辆
+- ✅ **公司行合并**:`rowSpan` 实现(同公司多方向合并公司名)
+- ✅ **排序**:companyName 字典序 → direction 字典序
+- ✅ **绝对数语义**:8 列全部为车辆总数(无数值比率)— 与用户截图样式一致
+- ✅ **0 值不显示 Tooltip**:避免噪声
+- ✅ **数据源**:`utils/efficiencyAnalysis.ts` → `buildCompanyDirectionRows({ dispatches, analyses, companies })`
+
+##### 「按公司」Tab 改造
+
+- ✅ **字段语义对齐**:
+  - `assigned`(应到数量) = 被派车辆(`status >= dispatched`)
+  - `planned`(需求到场车辆) = `expectedLoadTime ∈ 筛选时间范围`
+  - `onTimeArrival`(按时到场车辆) = `isOnTimeArrival === true`(30 分钟内)
+  - `onTimeLoading`(及时装货完成车辆) = `per YardTimeline, effectiveLoadMin ≤ 4h`
+  - `onTimeDelivery`(按时到货车辆) = `isOnTimeDelivery === true`(≤ SLA)
+- ✅ **Tab 标签**:`按公司（${companyDirectionRows.length}）`(动态计数)
+
+##### 「按运输方向」Tab 移除
+
+- ✅ **原因**:透视表已涵盖 (公司 × 方向) 二维信息,独立的「按方向」Tab 信息密度低
+- ✅ **副作用**:Page 移除 `groupedByDirection` useMemo(后续 M2.7 Excel 同步删除)
+
+#### 🔧 技术决策
+
+- **新 utils 函数**:`buildCompanyDirectionRows({ dispatches, analyses, companies })` — 按 `companyId × direction` 二维聚合
+- **关键 import 修复**:`Company` 类型从 `@/types/dispatch` 导入,`dayjs/plugin/isBetween` 显式 extend
+- **Page 简化**:移除 `groupedByDirection` useMemo + Tab items 删 1 项(3 → 2 Tab)
+- **TS 验证**:每 commit 后 `tsc --noEmit` EXIT 0
+
+---
+
+### v0.8.0-M2.7 - Excel 6 Sheet 与 UI Tab 完全对齐(2026-07-14)
+
+#### 🎉 阶段交付:M2.7 Excel 导出重构 — Sheet 与 UI Tab 一一对应
+
+**✅ 业务范围**:在 M2.6 基础上,Excel 导出从 6 Sheet 改造为 6 Sheet(数量不变,内容与 UI Tab 1:1 对齐),并删除已废弃的「按运输方向」Sheet。
+
+**业务动机**:原 Sheet 2「按公司」、Sheet 4「按运输方向」是旧聚合形态,UI 已改造为透视表后导出仍是旧结构,出现「UI 看透视表、Excel 看聚合表」的割裂。本增量让 Excel 与 UI 完全同步,业务方打开 xlsx 看到的内容就是 UI 上 Tab 的内容。
+
+#### 📦 2 个 commit 单意图交付
+
+| Commit | 主题 |
+|--------|------|
+| `0e22404` | refactor(efficiency): Excel 6 Sheet 与 UI Tab 完全对齐(含 2 个 fixup) |
+| `6b18aad` | refactor(efficiency): handleExport 参数调整 + 移除 groupedByCompany/Direction |
+
+#### 🎯 Excel 6 Sheet 新结构
+
+| # | Sheet | 列数 | 数据源 | 对应 UI Tab |
+|:-:|------|:-:|------|------|
+| 1 | 调车单明细 | 12 | `analyses` | 调车单明细 Tab |
+| **2** | **按公司×方向透视** | **8** | `companyDirectionRows` ← 新 | 按公司 Tab |
+| **3** | **按装货园区月度透视** | **7** | `yardMonthlyRows` ← 新 | 按装货园区 Tab 上半 |
+| **4** | **按装货园区全期汇总** | 5 | `groupedByYard` | 按装货园区 Tab 下半 |
+| 5 | 漏斗计数 | 4 | `funnelCounts` | 顶部 5 漏斗卡 |
+| 6 | 园区对比 | 5 | `yardChartRows` | 柱状图 |
+
+**删除**:旧 Sheet「按运输方向」(Tab 已废弃)
+
+#### 🔧 技术决策
+
+- **`ExportParams` 字段调整**:
+  - ➕ `companyDirectionRows: CompanyDirectionRow[]`(Sheet 2)
+  - ➕ `yardMonthlyRows: YardMonthlyRow[]`(Sheet 3)
+  - ➖ 移除 `groupedByCompany`(已废弃)
+  - ➖ 移除 `groupedByDirection`(已废弃)
+  - 保留 `groupedByYard`(Sheet 4 + Tab 全期汇总)
+- **`Page.handleExport` 调整**:传入新字段 + 删除旧字段
+- **`Page` useMemo 清理**:删除 `groupedByCompany` + `groupedByDirection`
+- **TS 验证**:每 commit 后 `tsc --noEmit` EXIT 0
+
+#### 🐛 修复(本里程碑内 fixup)
+
+| Commit | 现象 | 根因 | 修复 |
+|--------|------|------|------|
+| `0e22404` fixup | `Syntax error "\u{5c0f}"` dev server 500 | esbuild 严格遵循 ES2015:`{ 4小时装货达成率: 1 }` 中 "4" 不是 ID_Start 字符 | 加引号改为字符串 key `{ '4小时装货达成率': 1 }` |
+| `0e22404` fixup | `ReferenceError: Can't find variable: DIRECTION_DELIVERY_SLA_HOURS` | `excelExport.ts` 顶部 import 区只 `import type`,无运行时常量 import;re-export 不会让本文件内部引用 | 顶部 `import { DIRECTION_DELIVERY_SLA_HOURS, ON_TIME_DELIVERY_DEFAULT_HOURS } from '@/types/dispatch'` |
+
+**Why 这 2 个 fixup 不占独立 slot**:都属 M2.7 单一交付意图的子修复,且 M2.7 验收前已通过 git fixup + autosquash 合并回主 commit。
+
+#### 📝 文档同步
+
+- 新增 PRD §10 「Excel 6 Sheet 与 UI Tab 对齐」
+
+#### ✅ 用户验收
+
+- 2026-07-14 用户验收通过(刷新页面 + 导出 xlsx 后 6 Sheet 标签栏全部可见 + 列名匹配),交付完成
