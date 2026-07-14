@@ -42,6 +42,7 @@ import {
 } from '@/utils/efficiencyAnalysis'
 import type { YardComparisonRow } from '@/utils/efficiencyAnalysis'
 import { FunnelCountCards, type FunnelCardSpec } from './components/FunnelCountCards'
+import { YardComparisonChart } from './components/YardComparisonChart'
 import {
   exportDispatchEfficiency,
   buildYardLookup,
@@ -356,6 +357,11 @@ export function EfficiencyAnalysisPage() {
       {/* 5 漏斗计数卡（v0.6.0-M2.4 增量） */}
       <div style={{ marginBottom: 16 }}>
         <FunnelCountCards cards={buildFunnelCards(funnelCounts)} />
+      </div>
+
+      {/* 园区时效对比柱状图（v0.6.0-M2.4 增量） */}
+      <div style={{ marginBottom: 16 }}>
+        <YardComparisonChart rows={yardChartRows} />
       </div>
 
       {/* Tab 分组明细 */}
