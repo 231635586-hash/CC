@@ -18,7 +18,11 @@ export const DISPATCH_STATUS_MAP: Record<DispatchStatus, StatusOption> = {
   pending_confirm:    { label: '待确认',   cssClass: 'cancelled' },
   confirmed:          { label: '已确认',   cssClass: 'cancelled' },
   dispatching:        { label: '派车中',   cssClass: 'cancelled' },
-  dispatched:         { label: '待出发',   cssClass: 'pending' },
+  // ❗ FIX(2026-07-14): 修正与 Web 端文案不一致
+  //   Web (src/types/index.ts:36) 显示「已派车」,H5 历史显示「待出发」
+  //   跨端演示时司机(H5)与库房员(Web)口径错位,统一改回「已派车」
+  //   cssClass 'pending' 保持不变(状态机语义未改)
+  dispatched:         { label: '已派车',   cssClass: 'pending' },
   // —— v0.3.0-M2.2 v2：GPS / 扫码统一入场 ——
   queued:             { label: '排队中',   cssClass: 'pending' },
   entering:           { label: '入园中',   cssClass: 'entering' },
