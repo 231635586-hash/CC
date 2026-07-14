@@ -41,7 +41,6 @@ export interface GroupRowForExport {
   onTimeArrivalDenom: number
   onTimeDeliveryRate: number
   onTimeDeliveryDenom: number
-  avgLoadMin: number
 }
 
 /** "2026-07-22 18:30:00" → "2026-07-22 18:30"（展示用，不做时间计算） */
@@ -79,7 +78,6 @@ function flattenGroupRow(rows: GroupRowForExport[]): Record<string, unknown>[] {
     排名: i + 1,
     分组: r.name,
     总单数: r.total,
-    平均装货用时: formatMinutes(r.avgLoadMin),
     及时到场率: formatPercent(r.onTimeArrivalRate, r.onTimeArrivalDenom),
     及时到货率: formatPercent(r.onTimeDeliveryRate, r.onTimeDeliveryDenom),
   }))
@@ -106,8 +104,6 @@ function flattenDetailRows(params: ExportParams): Record<string, unknown>[] {
       主园区入场时间: formatTime(primaryEnteredAt),
       到场差异: a.arrivalDiffMin !== undefined ? a.arrivalDiffMin : '-',
       及时到场: a.isOnTimeArrival === true ? '是' : a.isOnTimeArrival === false ? '否' : '-',
-      签收时间: formatTime(a.signedAt),
-      到货用时: a.deliveryHours !== undefined ? `${a.deliveryHours}h` : '-',
       方向SLA: `${getSLA(a.direction)}h`,
       及时到货: a.isOnTimeDelivery === true ? '是' : a.isOnTimeDelivery === false ? '否' : '-',
     }

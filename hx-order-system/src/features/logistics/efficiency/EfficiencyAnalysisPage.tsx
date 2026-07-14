@@ -19,8 +19,6 @@ import {
   ReloadOutlined,
   EyeOutlined,
   ClockCircleOutlined,
-  WarningOutlined,
-  CheckCircleOutlined,
   EnvironmentOutlined,
   ThunderboltOutlined,
   DownloadOutlined,
@@ -47,11 +45,11 @@ import { SHIPPING_METHOD_LABEL } from '@/types/dispatch'
 
 const { RangePicker } = DatePicker
 
-/** 调度时效分析列表页（M2 增强：5 指标卡 + 5 筛选 + Tab 分组）
+/** 调度时效分析列表页（v0.4.0-M2.3 业务视角：3 指标卡 + 5 筛选 + Tab 分组）
  *
- * 5 指标：已完成单数 / 平均装货用时 / 超时单数 / 及时到场率 / 及时到货率
+ * 3 指标：及时到场率 / 及时装货完成率(标准4小时) / 及时到货率
  * 5 筛选：时间范围（近 30 天默认） / 运输方向 / 发运方式 / 物流公司 / 装货园区
- * 3 Tab：按公司 / 按园区 / 按方向 排名榜
+ * 4 Tab：调车单明细 / 按公司 / 按园区 / 按方向 排名榜
  */
 export function EfficiencyAnalysisPage() {
   const navigate = useNavigate()
@@ -95,7 +93,7 @@ export function EfficiencyAnalysisPage() {
     [yards],
   )
 
-  // 1) 先按 5 维筛选 dispatch（含未完成，但只取 status=completed 做分析）
+  // 1) 按 5 维筛选 dispatch（含未完成，用于 KPI 卡分母）
   const filteredDispatches = useMemo(() => {
     const [from, to] = timeRange
     return list.filter((d) => {
@@ -378,16 +376,16 @@ export function EfficiencyAnalysisPage() {
                       dataIndex: 'isOnTimeDelivery',
                       width: 130,
                       render: (on: boolean | undefined, r) => {
-                        if (!r.signedAt) return <Tag>未签收</Tag>
+                        const dispatch = dispatchLookup[r.dispatchId]
+                        const anyConfirmed = dispatch?.yardTimelines?.some(
+                          (y) => y.driverConfirmedAt,
+                        )
+                        if (!anyConfirmed) return <Tag>未到货</Tag>
                         if (on === undefined) return '-'
                         return on ? (
-                          <Tag color="green">
-                            {r.deliveryHours}h 及时
-                          </Tag>
+                          <Tag color="green">及时</Tag>
                         ) : (
-                          <Tag color="red">
-                            {r.deliveryHours}h 超 SLA
-                          </Tag>
+                          <Tag color="red">超 SLA</Tag>
                         )
                       },
                     },
@@ -398,19 +396,6 @@ export function EfficiencyAnalysisPage() {
                       render: (min: number) => (
                         <span style={{ fontWeight: 500 }}>{formatMinutesAsHour(min)}</span>
                       ),
-                    },
-                    {
-                      title: '是否超时',
-                      dataIndex: 'isOvertime',
-                      width: 90,
-                      render: (ot: boolean) =>
-                        ot ? <Tag color="red">超时</Tag> : <Tag color="green">未超时</Tag>,
-                    },
-                    {
-                      title: '签收时间',
-                      dataIndex: 'signedAt',
-                      width: 160,
-                      render: (t?: string) => t || '-',
                     },
                     {
                       title: '操作',
@@ -475,7 +460,6 @@ function groupAggregates(
     const aNum = arr.filter((x) => x.isOnTimeArrival).length
     const dDenom = arr.filter((x) => x.signedAt).length
     const dNum = arr.filter((x) => x.isOnTimeDelivery).length
-    const totalMin = arr.reduce((s, x) => s + x.totalEffectiveLoadMin, 0)
     out.push({
       key: name,
       name,
@@ -484,7 +468,6 @@ function groupAggregates(
       onTimeArrivalDenom: aDenom,
       onTimeDeliveryRate: dDenom > 0 ? Math.round((dNum / dDenom) * 100) : 0,
       onTimeDeliveryDenom: dDenom,
-      avgLoadMin: total > 0 ? Math.round(totalMin / total) : 0,
     })
   }
   // 按及时到货率倒序
@@ -521,12 +504,6 @@ function GroupRankingTable({ rows }: { rows: GroupRow[] }) {
               {r.onTimeDeliveryRate}%（{r.onTimeDeliveryDenom}）
             </Tag>
           ),
-        },
-        {
-          title: '平均装货用时',
-          dataIndex: 'avgLoadMin',
-          width: 140,
-          render: (m: number) => formatMinutesAsHour(m),
         },
       ]}
     />
