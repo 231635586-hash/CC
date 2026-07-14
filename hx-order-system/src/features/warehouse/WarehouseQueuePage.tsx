@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Table, Tag, Space, Card, Row, Col, Statistic, Button, message, Empty, Tooltip } from 'antd'
+import { Table, Tag, Space, Card, Row, Col, Statistic, Button, message, Empty, Tooltip, Popconfirm } from 'antd'
 import { ReloadOutlined, EyeOutlined, ClockCircleOutlined, TruckOutlined, EnvironmentOutlined, GatewayOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { PageContainer, SearchForm, SCROLL_PRESETS, StatusTag, DISPATCH_STATUS_MAP } from '@/components'
@@ -219,14 +219,17 @@ export function WarehouseQueuePage() {
               width: 220,
               render: (_, r) => (
                 <Space size="small">
-                  <Button
-                    type="primary"
-                    size="small"
-                    icon={<GatewayOutlined />}
-                    onClick={() => handleNotifyEntry(r)}
+                  <Popconfirm
+                    title="确认通知该车辆放行入场?"
+                    description={`${r.vehicleNo || '该车'} 即将进入排队园区,3 秒后自动开闸。真实接入道闸后此操作不可撤销。`}
+                    okText="确认放行"
+                    cancelText="取消"
+                    onConfirm={() => handleNotifyEntry(r)}
                   >
-                    🚪 通知入场(Mock 道闸)
-                  </Button>
+                    <Button type="primary" size="small" icon={<GatewayOutlined />}>
+                      🚪 通知入场(Mock 道闸)
+                    </Button>
+                  </Popconfirm>
                   <Button
                     type="link"
                     size="small"
@@ -319,14 +322,17 @@ export function WarehouseQueuePage() {
                   <Space size="small">
                     {/* queued → 通知入场 */}
                     {r.status === 'queued' && (
-                      <Button
-                        type="primary"
-                        size="small"
-                        icon={<GatewayOutlined />}
-                        onClick={() => handleNotifyEntry(r)}
+                      <Popconfirm
+                        title="确认通知该车辆放行入场?"
+                        description="真实接入道闸后此操作不可撤销"
+                        okText="确认放行"
+                        cancelText="取消"
+                        onConfirm={() => handleNotifyEntry(r)}
                       >
-                        通知入场
-                      </Button>
+                        <Button type="primary" size="small" icon={<GatewayOutlined />}>
+                          通知入场
+                        </Button>
+                      </Popconfirm>
                     )}
                     {/* entering → 通知装货 */}
                     {r.status === 'entering' && (
