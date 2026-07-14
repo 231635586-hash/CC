@@ -16,7 +16,7 @@
  *  8. 最终出厂时间：多园区取最后园区 leftAt
  */
 
-import type { Dispatch, YardTimeline, DispatchEfficiency, YardEfficiency } from '@/types/dispatch'
+import type { Dispatch, YardTimeline, DispatchEfficiency, YardEfficiency, Yard } from '@/types/dispatch'
 import {
   calcRestrictedMinutes,
   STANDARD_LOAD_MIN,
@@ -27,6 +27,10 @@ import {
   ON_TIME_DELIVERY_DEFAULT_HOURS,
   DIRECTION_DELIVERY_SLA_HOURS,
 } from '@/types/dispatch'
+import dayjs, { type Dayjs } from 'dayjs'
+import isBetween from 'dayjs/plugin/isBetween'
+
+dayjs.extend(isBetween)
 
 /** 比率结果三元组：分子 / 分母 / 百分比 */
 export interface RateTriple {
@@ -349,4 +353,177 @@ export function calcOnTimeDeliveryRate(dispatches: Dispatch[]): RateTriple {
     numerator,
     denominator,
   }
+}
+
+// ============================================================================
+// 调度时效漏斗计数 + 园区对比聚合（M2.4 v0.6.0 · 2026-07-14）
+// ----------------------------------------------------------------------------
+// 5 个绝对数漏斗指标（卡片）+ 园区对比矩阵（图表）
+//  - 数据源：filteredDispatches（按 5 维筛选后的全部车辆）
+//  - 时间字段：expectedLoadTime / queuedAt / loadingCompletedAt / leftAt / driverConfirmedAt
+//  - "在筛选范围内" = dayjs(ts).isBetween(from, to, 'minute', '[]')
+//  - Safari 兼容：与 .replace(' ', 'T') 模式保持一致
+// ============================================================================
+
+/** 5 漏斗节点的计数结果（每辆车最多计 1 次，符合"车辆总数"语义） */
+export interface FunnelCounts {
+  /** 需求到场数：dispatch.expectedLoadTime ∈ 筛选范围 */
+  expected: number
+  /** 实际到场数：任一 YardTimeline.queuedAt ∈ 筛选范围 */
+  arrived: number
+  /** 已装完数：任一 YardTimeline.loadingCompletedAt ∈ 筛选范围 */
+  loaded: number
+  /** 已出场数：任一 YardTimeline.leftAt ∈ 筛选范围 */
+  exited: number
+  /** 已到货数：任一 YardTimeline.driverConfirmedAt ∈ 筛选范围 */
+  delivered: number
+}
+
+/** 时间戳 ∈ 筛选范围（含端点，按分钟精度） */
+function inFilterRange(ts: string | undefined, range: [Dayjs, Dayjs]): boolean {
+  if (!ts) return false
+  const t = dayjs(ts.replace(' ', 'T'))
+  return t.isValid() && t.isBetween(range[0], range[1], 'minute', '[]')
+}
+
+/** 取 dispatch 第一个匹配时间字段的非空值（任一园区任一非空时间戳） */
+function pickFirstYardTimestamp(
+  dispatch: Dispatch,
+  field: 'queuedAt' | 'loadingCompletedAt' | 'leftAt' | 'driverConfirmedAt',
+): string | undefined {
+  for (const y of dispatch.yardTimelines || []) {
+    const ts = y[field]
+    if (ts) return ts
+  }
+  return undefined
+}
+
+/** 5 个独立计数函数（语义上"车辆总数"，按 dispatch 唯一计数） */
+export function calcExpectedArrivalCount(
+  dispatches: Dispatch[],
+  range: [Dayjs, Dayjs],
+): number {
+  return dispatches.filter((d) => inFilterRange(d.expectedLoadTime, range)).length
+}
+
+export function calcActualArrivalCount(
+  dispatches: Dispatch[],
+  range: [Dayjs, Dayjs],
+): number {
+  return dispatches.filter((d) =>
+    inFilterRange(pickFirstYardTimestamp(d, 'queuedAt'), range),
+  ).length
+}
+
+export function calcLoadedCount(
+  dispatches: Dispatch[],
+  range: [Dayjs, Dayjs],
+): number {
+  return dispatches.filter((d) =>
+    inFilterRange(pickFirstYardTimestamp(d, 'loadingCompletedAt'), range),
+  ).length
+}
+
+export function calcExitedCount(
+  dispatches: Dispatch[],
+  range: [Dayjs, Dayjs],
+): number {
+  return dispatches.filter((d) =>
+    inFilterRange(pickFirstYardTimestamp(d, 'leftAt'), range),
+  ).length
+}
+
+export function calcDeliveredCount(
+  dispatches: Dispatch[],
+  range: [Dayjs, Dayjs],
+): number {
+  return dispatches.filter((d) =>
+    inFilterRange(pickFirstYardTimestamp(d, 'driverConfirmedAt'), range),
+  ).length
+}
+
+/** 5 漏斗计数合并 helper（Page 端单次 useMemo 调用即可） */
+export function calcFunnelCounts(
+  dispatches: Dispatch[],
+  range: [Dayjs, Dayjs],
+): FunnelCounts {
+  return {
+    expected: calcExpectedArrivalCount(dispatches, range),
+    arrived: calcActualArrivalCount(dispatches, range),
+    loaded: calcLoadedCount(dispatches, range),
+    exited: calcExitedCount(dispatches, range),
+    delivered: calcDeliveredCount(dispatches, range),
+  }
+}
+
+// ---------- 园区对比聚合 ----------
+
+/** 园区对比图 / Sheet 单行结构 */
+export interface YardComparisonRow {
+  yardId: string
+  yardName: string
+  /** 需求到场数：per-yard（多园区调车单每个园区各计 1） */
+  expected: number
+  /** 按时到场数：per-dispatch（任一 yardId 匹配） */
+  onTimeArrival: number
+  /** 及时装货完成数：per-YardTimeline */
+  onTimeLoading: number
+  /** 按时到货数：per-dispatch（任一 yardId 匹配） */
+  onTimeDelivery: number
+}
+
+/**
+ * 按 yard 聚合 4 系列计数（图表 + Sheet 6 共用）。
+ * 数据源：
+ *  - expected：dispatches（含未完成的）+ yardIds.includes(yardId)
+ *  - onTimeArrival / onTimeDelivery：analyses（已完成,任一 yardId 匹配）
+ *  - onTimeLoading：analyses[].yards[].effectiveLoadMin ≤ STANDARD_LOAD_MIN 的 YardTimeline
+ *
+ * 注意：dispatches 入参应是 Page 端已按 5 维筛选的 filteredDispatches，
+ *      analyses 入参应是 status=completed 的子集。
+ */
+export function buildYardComparisonRows(input: {
+  dispatches: Dispatch[]
+  analyses: DispatchEfficiency[]
+  yards: Yard[]
+}): YardComparisonRow[] {
+  return input.yards.map((yard) => {
+    const yardId = yard.id
+
+    // expected：所有包含该 yard 的被派车辆
+    const expected = input.dispatches.filter(
+      (d) => !!d.expectedLoadTime && (d.yardIds || []).includes(yardId),
+    ).length
+
+    // onTimeArrival：已完成 + yardIds 包含该 yard + 入场偏差 ≤ 30min
+    const onTimeArrival = input.analyses.filter((a) => {
+      if (!a.yardIds.includes(yardId)) return false
+      if (a.arrivalDiffMin === undefined) return false
+      return a.arrivalDiffMin <= ON_TIME_ARRIVAL_TOLERANCE_MIN
+    }).length
+
+    // onTimeLoading：per-YardTimeline（与 calcOnTimeLoadingRate 口径一致）
+    let onTimeLoading = 0
+    for (const a of input.analyses) {
+      for (const y of a.yards || []) {
+        if (y.yardId !== yardId) continue
+        if (y.effectiveLoadMin <= STANDARD_LOAD_MIN) onTimeLoading++
+      }
+    }
+
+    // onTimeDelivery：已完成 + yardIds 包含该 yard + 到货及时
+    const onTimeDelivery = input.analyses.filter((a) => {
+      if (!a.yardIds.includes(yardId)) return false
+      return a.isOnTimeDelivery === true
+    }).length
+
+    return {
+      yardId,
+      yardName: yard.name,
+      expected,
+      onTimeArrival,
+      onTimeLoading,
+      onTimeDelivery,
+    }
+  })
 }
