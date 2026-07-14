@@ -14,6 +14,7 @@ import {
   Select,
   DatePicker,
   Tabs,
+  Typography,
 } from 'antd'
 import {
   ReloadOutlined,
@@ -39,10 +40,12 @@ import {
   calcOnTimeDeliveryRate,
   calcFunnelCounts,
   buildYardComparisonRows,
+  buildYardMonthlyRows,
 } from '@/utils/efficiencyAnalysis'
 import type { YardComparisonRow } from '@/utils/efficiencyAnalysis'
 import { FunnelCountCards, type FunnelCardSpec } from './components/FunnelCountCards'
 import { YardComparisonChart } from './components/YardComparisonChart'
+import { YardMonthlyPivot } from './components/YardMonthlyPivot'
 import {
   exportDispatchEfficiency,
   buildYardLookup,
@@ -157,6 +160,12 @@ export function EfficiencyAnalysisPage() {
   // 3.6) 园区对比图表数据（4 系列 × N 园区）
   const yardChartRows = useMemo<YardComparisonRow[]>(
     () => buildYardComparisonRows({ dispatches: filteredDispatches, analyses, yards }),
+    [filteredDispatches, analyses, yards],
+  )
+
+  // 3.7) 园区 × 月度 透视表数据（v0.7.0-M2.5 增量）
+  const yardMonthlyRows = useMemo(
+    () => buildYardMonthlyRows({ dispatches: filteredDispatches, analyses, yards }),
     [filteredDispatches, analyses, yards],
   )
 
@@ -461,7 +470,17 @@ export function EfficiencyAnalysisPage() {
             {
               key: 'yard',
               label: `按装货园区（${groupedByYard.length}）`,
-              children: <GroupRankingTable rows={groupedByYard} />,
+              children: (
+                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                  <YardMonthlyPivot rows={yardMonthlyRows} />
+                  <div>
+                    <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 12 }}>
+                      全期汇总
+                    </Typography.Title>
+                    <GroupRankingTable rows={groupedByYard} />
+                  </div>
+                </Space>
+              ),
             },
             {
               key: 'direction',
