@@ -21,7 +21,7 @@ import {
   calcRestrictedMinutes,
   STANDARD_LOAD_MIN,
 } from './restrictedHours'
-import { nowIsoString, parseTimestamp } from './index'
+import { nowIsoString, parseTimestamp, localDateMs } from './index'
 import {
   ON_TIME_ARRIVAL_TOLERANCE_MIN,
   ON_TIME_DELIVERY_DEFAULT_HOURS,
@@ -202,8 +202,8 @@ export function analyzeDispatchEfficiency(dispatch: Dispatch): DispatchEfficienc
   let deliveryHours: number | undefined
   let isOnTimeDelivery: boolean | undefined
   if (signedAt && dispatch.expectedLoadTime) {
-    const a = new Date(signedAt.replace(' ', 'T')).getTime()
-    const b = new Date(dispatch.expectedLoadTime.replace(' ', 'T')).getTime()
+    const a = localDateMs(signedAt)
+    const b = localDateMs(dispatch.expectedLoadTime)
     if (Number.isFinite(a) && Number.isFinite(b) && a >= b) {
       deliveryHours = Math.round(((a - b) / 3600000) * 10) / 10 // 1 位小数
       const sla =
@@ -288,8 +288,8 @@ export function calcOnTimeArrivalRate(dispatches: Dispatch[]): RateTriple {
     const primaryYard = (d.yardTimelines || []).find((y) => y.yardId === d.primaryYardId)
     if (!primaryYard?.enteredAt || !d.expectedLoadTime) return false
     const diffMin = Math.round(
-      (new Date(primaryYard.enteredAt.replace(' ', 'T')).getTime() -
-       new Date(d.expectedLoadTime.replace(' ', 'T')).getTime()) / 60000,
+      (localDateMs(primaryYard.enteredAt) -
+       localDateMs(d.expectedLoadTime)) / 60000,
     )
     return diffMin <= ON_TIME_ARRIVAL_TOLERANCE_MIN
   }).length
@@ -315,8 +315,8 @@ export function calcOnTimeLoadingRate(dispatches: Dispatch[]): RateTriple {
       // 进入/装货完成缺失则不计入（无法计算装货用时）
       if (!y.loadingCompletedAt || !y.enteredAt) continue
       denominator++
-      const completedMs = new Date(y.loadingCompletedAt.replace(' ', 'T')).getTime()
-      const enteredMs = new Date(y.enteredAt.replace(' ', 'T')).getTime()
+      const completedMs = localDateMs(y.loadingCompletedAt)
+      const enteredMs = localDateMs(y.enteredAt)
       const loadMin = Math.max(0, Math.round((completedMs - enteredMs) / 60000))
       if (loadMin <= STANDARD_LOAD_MIN) numerator++
     }
@@ -342,8 +342,8 @@ export function calcOnTimeDeliveryRate(dispatches: Dispatch[]): RateTriple {
     const confirmedYard = (d.yardTimelines || []).find((y) => y.driverConfirmedAt)
     if (!confirmedYard?.driverConfirmedAt || !confirmedYard.leftAt) return false
     const hours =
-      (new Date(confirmedYard.driverConfirmedAt.replace(' ', 'T')).getTime() -
-       new Date(confirmedYard.leftAt.replace(' ', 'T')).getTime()) / 3600000
+      (localDateMs(confirmedYard.driverConfirmedAt) -
+       localDateMs(confirmedYard.leftAt)) / 3600000
     const sla =
       DIRECTION_DELIVERY_SLA_HOURS[d.direction] ?? ON_TIME_DELIVERY_DEFAULT_HOURS
     return hours <= sla
@@ -622,8 +622,8 @@ export function buildYardMonthlyRows(input: {
       const primaryYard = (d.yardTimelines || []).find((y) => y.yardId === d.primaryYardId)
       if (primaryYard?.enteredAt) {
         const diff = Math.round(
-          (new Date(primaryYard.enteredAt.replace(' ', 'T')).getTime() -
-           new Date(d.expectedLoadTime.replace(' ', 'T')).getTime()) / 60000,
+          (localDateMs(primaryYard.enteredAt) -
+           localDateMs(d.expectedLoadTime)) / 60000,
         )
         if (diff > ON_TIME_ARRIVAL_TOLERANCE_MIN) b.lateArrival++
       }
