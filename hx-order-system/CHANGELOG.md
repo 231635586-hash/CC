@@ -54,7 +54,7 @@ v0.1.0-M1    主版本.次版本.修订号-功能版本
 | M1 | 调车员管理 | P1 | ✅ 已完成 |
 | M1 | 车辆位置 | P1 | ✅ 已完成 |
 | **M2** | **库房管理 + 司机扫码流程** | **P0** | ✅ **已完成（v0.2.0-M2）** |
-| **M2** | **调度时效分析** | **P1** | ✅ **已完成（v0.3.0-M2）** |
+| **M2** | **调度时效分析** | **P1** | ✅ **已完成（v0.6.0-M2.4）** |
 | - | 代码层优化 | - | ✅ 23 项已完成（详见下文 v0.1.x 增量版本） |
 
 ---
@@ -851,3 +851,77 @@ feat/arrival-processing 分支历史 11 个 commit（含 4 个状态机横跳）
 - [ ] **dingtalk.ts `pushSignNotify`**:无 caller,变 orphan,后续单独清理。
 - [ ] **types/dispatch.ts `DispatchEfficiency.signedAt` 字段**:同上,M2.3 处理。
 - [ ] 客户签收 H5 走产品路线决策（用户已反馈"实际客户不会进行该操作"）
+
+---
+
+### v0.6.0-M2.4 - 调度时效 5 漏斗计数 + 园区对比柱状图(2026-07-14)
+
+#### 🎉 阶段交付:M2.4 调度时效可视化升级 — 绝对数漏斗 + 园区对比
+
+**✅ 业务范围**:在 v0.5.0-M2.2(3 比率卡)基础上,新增 5 个绝对数漏斗计数卡(车辆总数) + 1 套按园区拆分的 ECharts 对比柱状图 + Excel 导出加 2 个 Sheet。
+
+#### 📦 6 个 commit 单意图交付
+
+| Commit | 文件数 | 主题 |
+|--------|--------|------|
+| `2e8a5cc` | 2 | refactor(efficiency): 删超时/签收/平均装货列(表格/分组/Excel 联动) |
+| `848c925` | 2 | chore(deps): 新增 echarts + echarts-for-react 依赖 + 同步完整 deps |
+| `4b7c68c` | 1 | feat(utils): 5 漏斗计数函数 + 园区对比聚合(含 dayjs 修复) |
+| `a525df4` | 2 | feat(efficiency): 第 2 行新增 5 漏斗计数卡 |
+| `6550a36` | 1 | feat(efficiency): 园区时效对比柱状图(拆分图 + 轴标题) |
+| `e6b7bcb` | 2 | feat(efficiency): Excel 导出新增「漏斗计数」「园区对比」2 个 Sheet |
+
+#### 🎯 新增功能
+
+##### 5 漏斗计数卡(车辆总数)
+- ✅ **需求到场**:`dispatch.expectedLoadTime ∈ 筛选范围` 的车辆总数
+- ✅ **实际到场**:任一 `YardTimeline.queuedAt ∈ 筛选范围` 的车辆总数
+- ✅ **已装完**:任一 `YardTimeline.loadingCompletedAt ∈ 筛选范围` 的车辆总数
+- ✅ **已出场**:任一 `YardTimeline.leftAt ∈ 筛选范围` 的车辆总数
+- ✅ **已到货**:任一 `YardTimeline.driverConfirmedAt ∈ 筛选范围` 的车辆总数
+- 配色梯度:紫(需求)→蓝(实际)→青(装完)→绿(出场)→橙(到货)
+- 公式文案按用户原话保留(非语义重写)
+
+##### 园区时效对比柱状图(ECharts 5)
+- ✅ **拆分图设计**:1 园区 1 独立 Chart(横排并排)
+- ✅ **4 指标 X 轴**:需求到场 / 按时到场 / 及时装货完成 / 按时到货
+- ✅ **柱顶 label 默认显示**:`数量\n(占比%)`,0 值不显示
+- ✅ **占比分母按各 metric 语义**:
+  - 需求到场 = 100%(自身即分母)
+  - 按时到场 / 及时装货完成 / 按时到货 = `该值 / 该 yard 的 expected`
+- ✅ **轴标题**:X 轴「业务指标」/ Y 轴「车辆数(辆)」(12px 灰字)
+- ✅ **配色**:秦壁蓝 `#1677ff` / 甘亭紫 `#722ed1`
+- ✅ **空数据回退**:`<Empty>` 占位,无脏图表
+
+##### Excel 导出扩展(4 Sheet → 6 Sheet)
+- ✅ **Sheet 5「漏斗计数」**:5 行 × 4 列(排名/指标/当前计数/公式)
+- ✅ **Sheet 6「园区对比」**:N 行 × 5 列(园区/需求到场数/按时到场数/及时装货完成数/按时到货数)
+- 文件名不变:`调度时效分析_YYYYMMDD_HHmm.xlsx`
+
+#### 🔧 技术决策
+
+- **新增依赖**:echarts@^5.6.0 + echarts-for-react@^3.0.6
+- **tree-shaken import**:`BarChart + GridComponent + TooltipComponent + LegendComponent + TitleComponent + CanvasRenderer`,体积约 ~200KB gzipped(vs 全量 ~900KB)
+- **Safari 兼容**:`.replace(' ', 'T')` + `dayjs/plugin/isBetween` 显式 extend
+- **utils 复用**:5 个独立 calc 函数 + `calcFunnelCounts` 合并 helper + `buildYardComparisonRows` 聚合函数
+- **TS 验证**:每 commit 后 `tsc --noEmit` EXIT 0
+
+#### 📝 文档同步
+
+- 新增 PRD:[docs/PRD/M2-PRD-调度时效指标改造.md §6](docs/PRD/M2-PRD-调度时效指标改造.md)
+- 设计决策:漏斗卡片语义 / 图表轴向选择 / Sheet 5/6 设计
+
+#### ⚠️ 已知限制
+
+- **Mock 数据稀疏**:`driverConfirmedAt` 仅 3/18 条 mock 有,「已到货」柱常显示低值或 0 — 演示数据限制,真实数据无此问题
+- **多园区调车单 per-yard 计数**:1 张 dispatch 含多园区时,会按园区重复计入(图表「需求到场」柱可能 > 唯一车辆数),Tooltip 已标注
+- **echarts 200KB 体积**:tree-shake 后约 200KB gzipped;若需进一步控制可改用 `React.lazy` 延迟加载(本增量未做)
+
+#### 🐛 修复
+
+- `efficiencyAnalysis.ts` 缺 `import dayjs` + `dayjs.extend(isBetween)`(M2 utils 用 `dayjs().isBetween()`,原文件用 `new Date()` 不需要 dayjs)— squash 进 M2 commit 不占独立 slot
+- package.json amend(原文件未入 git,首次提交触发完整 deps 同步)— amend M1 不占独立 slot
+
+#### ✅ 用户验收
+
+- 2026-07-14 用户验收通过(`6550a36` v3 拆分图 + 轴标题后),交付完成
