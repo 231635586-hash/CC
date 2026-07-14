@@ -19,13 +19,22 @@
  */
 
 import { defineStore } from 'pinia'
-import type { TabKey, OrderSubTab, GpsSubTab, MessageFilter } from '@/types/driver'
+import type { TabKey, UserRole, OrderSubTab, GpsSubTab, MessageFilter } from '@/types/driver'
 
 interface UiState {
   activeTab: TabKey
   orderSubTab: OrderSubTab
   msgFilter: MessageFilter
   gpsSubTab: GpsSubTab
+}
+
+/** 按角色给定 activeTab 默认值（司机端首屏 = 工作台，业务员/公司端首屏 = 派车单/待确认） */
+function defaultActiveTabForRole(role: UserRole): TabKey {
+  switch (role) {
+    case 'driver': return 'workbench'
+    case 'salesperson':
+    case 'company': return 'orders'
+  }
 }
 
 export const useUiStore = defineStore('ui', {
@@ -48,6 +57,14 @@ export const useUiStore = defineStore('ui', {
     },
     setGpsSubTab(t: GpsSubTab) {
       this.gpsSubTab = t
+    },
+    /**
+     * 按角色重置 activeTab（解决角色切换后 activeTab 残留导致内容空白）
+     * 调用时机：salesperson/index.vue + company/index.vue + driver/orders/index.vue onLoad
+     * 不重置 orderSubTab / msgFilter / gpsSubTab（用户在这些 Tab 内的子 Tab 选择是有意义的本地状态）
+     */
+    resetForRole(role: UserRole) {
+      this.activeTab = defaultActiveTabForRole(role)
     },
   },
 })
