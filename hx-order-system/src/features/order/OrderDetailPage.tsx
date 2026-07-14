@@ -10,7 +10,7 @@ import {
   CheckCircleOutlined,
 } from '@ant-design/icons'
 // ❌ v0.3.0-M2.2 删除:QRCode / Image / InboxOutlined / copyToClipboard(客户签收全链路已下线)
-import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP, DispatchFlowHeader } from '@/components'
+import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP, DispatchFlowHeader, DispatchVehicleModal } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import type { DispatchStatus } from '@/types'
 import {
@@ -54,7 +54,7 @@ export function OrderDetailPage() {
   const currentUser = useAuthStore((s) => s.currentUser)
 
   const [dispatchModalOpen, setDispatchModalOpen] = useState(false)
-  const [dispatchForm] = Form.useForm()
+  // 派车 Modal Form 由 <DispatchVehicleModal> 内部自管(无 useForm 必要)
   const [voidModalOpen, setVoidModalOpen] = useState(false)
   const [voidForm] = Form.useForm<{ reasonKey: string; reasonText?: string }>()
   const [departOpen, setDepartOpen] = useState(false)
@@ -95,26 +95,21 @@ export function OrderDetailPage() {
     message.success('已取消订单')
   }
 
-  const handleDispatch = async () => {
-    try {
-      const values = await dispatchForm.validateFields()
-      const vehicle = vehicles.find((v) => v.id === values.vehicleId)
-      const driver = drivers.find((d) => d.id === values.driverId)
-      await save({
-        ...record,
-        status: 'dispatched' as DispatchStatus,
-        vehicleId: vehicle?.id,
-        vehicleNo: vehicle?.plateNo,
-        driverId: driver?.id,
-        driverName: driver?.name,
-        dispatcherName: values.dispatcherName,
-        dispatchedAt: nowIsoString(),
-      })
-      message.success('派车成功')
-      setDispatchModalOpen(false)
-    } catch {
-      // 校验失败
-    }
+  const handleDispatch = async (values: { vehicleId: string; driverId: string; dispatcherName?: string }) => {
+    const vehicle = vehicles.find((v) => v.id === values.vehicleId)
+    const driver = drivers.find((d) => d.id === values.driverId)
+    await save({
+      ...record,
+      status: 'dispatched' as DispatchStatus,
+      vehicleId: vehicle?.id,
+      vehicleNo: vehicle?.plateNo,
+      driverId: driver?.id,
+      driverName: driver?.name,
+      dispatcherName: values.dispatcherName,
+      dispatchedAt: nowIsoString(),
+    })
+    message.success('派车成功')
+    setDispatchModalOpen(false)
   }
 
   /** 库房"装货完成" */
@@ -162,7 +157,7 @@ export function OrderDetailPage() {
       case 'dispatching':
         return (
           <Space>
-            <Button type="primary" onClick={() => { dispatchForm.resetFields(); setDispatchModalOpen(true) }}>
+            <Button type="primary" onClick={() => setDispatchModalOpen(true)}>
               派车
             </Button>
             <Button danger onClick={() => { voidForm.resetFields(); voidForm.setFieldsValue({ reasonKey: 'order_error' }); setVoidModalOpen(true) }}>
@@ -290,45 +285,19 @@ export function OrderDetailPage() {
         </Col>
       </Row>
 
-      {/* 派车 Modal（复用派车调度页逻辑） */}
-      <Modal
-        title={`派车 - ${record.dispatchNo}`}
+      {/* 派车 Modal（统一走公共组件 <DispatchVehicleModal>） */}
+      <DispatchVehicleModal
         open={dispatchModalOpen}
+        dispatchNo={record.dispatchNo}
+        vehicles={vehicles
+          .filter((v) => v.status === 'enabled' && (!record.companyId || v.companyId === record.companyId))
+          .map((v) => ({ id: v.id, plateNo: v.plateNo, maxLoad: v.maxLoad, length: v.length }))}
+        drivers={drivers
+          .filter((d) => d.status === 'enabled' && (!record.companyId || d.companyId === record.companyId))
+          .map((d) => ({ id: d.id, name: d.name, phone: d.phone }))}
         onCancel={() => setDispatchModalOpen(false)}
         onOk={handleDispatch}
-        okText="确认派车"
-        width={600}
-      >
-        <Form form={dispatchForm} layout="vertical">
-          <Form.Item name="vehicleId" label="选择车辆" rules={[{ required: true, message: '请选择车辆' }]}>
-            <Select
-              placeholder="请选择车辆"
-              showSearch
-              optionFilterProp="label"
-              options={vehicles
-                .filter((v) => v.status === 'enabled' && (!record.companyId || v.companyId === record.companyId))
-                .map((v) => ({ value: v.id, label: `${v.plateNo}（${v.maxLoad}t / ${v.length}m）` }))}
-            />
-          </Form.Item>
-          <Form.Item name="driverId" label="选择司机" rules={[{ required: true, message: '请选择司机' }]}>
-            <Select
-              placeholder="请选择司机"
-              showSearch
-              optionFilterProp="label"
-              options={drivers
-                .filter((d) => d.status === 'enabled' && (!record.companyId || d.companyId === record.companyId))
-                .map((d) => ({ value: d.id, label: `${d.name}（${d.phone}）` }))}
-            />
-          </Form.Item>
-          <Form.Item name="dispatcherName" label="调车员（备注）">
-            <Select
-              placeholder="可选"
-              allowClear
-              options={[{ value: '周文', label: '周文' }, { value: '吴峰', label: '吴峰' }]}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+      />
 
       {/* 作废 Modal */}
       <Modal
