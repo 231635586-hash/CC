@@ -36,6 +36,7 @@ import { MOCK_DRIVERS, DEFAULT_DRIVER } from '@/mock/drivers'
 import { MOCK_YARDS } from '@/constants/yards'
 import { getCurrentPosition, detectYard, distanceM } from '@/utils/location'
 import type { TabKey, NotificationItem, Yard } from '@/types/driver'
+import MobileTabBar from '@/components/MobileTabBar.vue'
 
 // 子组件
 import WorkbenchTab from './tabs/WorkbenchTab.vue'
@@ -330,25 +331,18 @@ onPullDownRefresh(async () => {
       />
     </view>
 
-    <!-- 底部 TabBar（5 Tab 切换）-->
-    <view class="tabbar">
-      <view
-        v-for="t in [
-          { key: 'workbench' as TabKey, label: '工作台', icon: '/static/icons/dashboard.svg' },
-          { key: 'orders' as TabKey, label: '派车单', icon: '/static/icons/list.svg' },
-          { key: 'messages' as TabKey, label: '消息', icon: '/static/icons/bell.svg' },
-          { key: 'gps' as TabKey, label: 'GPS', icon: '/static/icons/pin.svg' },
-          { key: 'me' as TabKey, label: '我的', icon: '/static/icons/user.svg' },
-        ]"
-        :key="t.key"
-        class="tabbar-item"
-        :class="{ active: activeTab === t.key }"
-        @click="switchTab(t.key)"
-      >
-        <image class="tabbar-icon" :src="t.icon" mode="aspectFit" />
-        <text class="tabbar-label">{{ t.label }}</text>
-      </view>
-    </view>
+    <!-- 底部 TabBar（5 Tab 切换）统一走 <MobileTabBar> -->
+    <MobileTabBar
+      :items="[
+        { key: 'workbench', label: '工作台', icon: '/static/icons/dashboard.svg' },
+        { key: 'orders', label: '派车单', icon: '/static/icons/list.svg' },
+        { key: 'messages', label: '消息', icon: '/static/icons/bell.svg' },
+        { key: 'gps', label: 'GPS', icon: '/static/icons/pin.svg' },
+        { key: 'me', label: '我的', icon: '/static/icons/user.svg' },
+      ]"
+      :active-key="activeTab"
+      @change="switchTab"
+    />
   </view>
 </template>
 
@@ -432,55 +426,5 @@ html.hx-frame-on .content {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ===== 底部 TabBar ===== */
-.tabbar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  min-height: 130rpx;
-  background: var(--color-card);
-  border-top: 1rpx solid var(--color-divider);
-  display: flex;
-  align-items: center;
-  z-index: 100;
-  padding-bottom: env(safe-area-inset-bottom);
-  -webkit-tap-highlight-color: transparent;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
-/* Frame 模式：App.vue 已接管 position: absolute + bottom: 0,
-   此处只补宽度约束(max-width 跟 Frame 等宽 390px) */
-html.hx-frame-on .tabbar {
-  max-width: 390px !important;
-}
-.tabbar-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4rpx;
-  transition: color 0.2s ease;
-}
-.tabbar-icon {
-  width: 40rpx;
-  height: 40rpx;
-  line-height: 1;
-}
-.tabbar-label {
-  font-size: var(--font-size-mini);
-  color: var(--color-text-secondary);
-}
-.tabbar-item.active .tabbar-label {
-  color: var(--color-brand);
-  font-weight: var(--font-weight-semibold);
-}
-.tabbar-item.active .tabbar-icon {
-  filter: drop-shadow(0 0 8rpx rgba(22, 119, 255, 0.3));
-  color: var(--color-brand);
-}
-.tabbar-item .tabbar-icon {
-  color: var(--color-text-secondary);
-}
+/* ===== 底部 TabBar 样式已迁出到 <MobileTabBar> 公共组件 ===== */
 </style>
