@@ -259,6 +259,8 @@ onLoad((query: any) => {
   if (!driverStore.currentDriver) {
     driverStore.setDriver(DEFAULT_DRIVER)
   }
+  // 角色进入即重置 activeTab(防御性兜底:从业务员/公司切回司机时也保证回到工作台首屏)
+  uiStore.resetForRole('driver')
   loadDispatchList()
   // v0.3.0-M2.2：演示控制台事件监听
   window.addEventListener('demo-trigger-gate', handleDemoTriggerGate)

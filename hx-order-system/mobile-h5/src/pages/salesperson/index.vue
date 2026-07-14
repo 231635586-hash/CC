@@ -48,6 +48,8 @@ onLoad(() => {
   if (roleStore.currentRole !== 'salesperson') {
     roleStore.setRole('salesperson', currentSalespersonId.value)
   }
+  // 角色进入即重置 activeTab,避免从其他角色切过来时残留的 tab key 命中不到本角色 Tab 列表
+  uiStore.resetForRole('salesperson')
   loadMyDispatches()
 })
 
