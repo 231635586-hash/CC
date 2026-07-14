@@ -21,7 +21,8 @@
  */
 
 import * as XLSX from 'xlsx'
-import type { Dispatch, DispatchEfficiency, Yard } from '@/types/dispatch'
+import type { Dispatch, DispatchEfficiency } from '@/types/dispatch'
+import type { Yard } from '@/types/system'
 import {
   DIRECTION_DELIVERY_SLA_HOURS,
   ON_TIME_DELIVERY_DEFAULT_HOURS,

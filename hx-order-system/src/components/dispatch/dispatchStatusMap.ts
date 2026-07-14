@@ -11,7 +11,7 @@
  */
 
 import { DISPATCH_STATUS_OPTIONS } from '@/types'
-import type { DispatchStatus } from '@/types/dispatch'
+import type { DispatchStatus } from '@/types'
 
 export const DISPATCH_STATUS_MAP = Object.fromEntries(
   DISPATCH_STATUS_OPTIONS.map((o) => [o.value, { label: o.label, color: o.color }]),

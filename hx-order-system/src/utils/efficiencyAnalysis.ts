@@ -16,7 +16,9 @@
  *  8. 最终出厂时间：多园区取最后园区 leftAt
  */
 
-import type { Dispatch, YardTimeline, DispatchEfficiency, YardEfficiency, Yard, Company } from '@/types/dispatch'
+import type { Dispatch, YardTimeline, DispatchEfficiency, YardEfficiency } from '@/types/dispatch'
+import type { Yard } from '@/types/system'
+import type { LogisticsCompany } from '@/types/archives'
 import {
   calcRestrictedMinutes,
   STANDARD_LOAD_MIN,
@@ -189,11 +191,10 @@ export function analyzeDispatchEfficiency(dispatch: Dispatch): DispatchEfficienc
   const isOnTimeArrival =
     arrivalDiffMin !== undefined && arrivalDiffMin <= ON_TIME_ARRIVAL_TOLERANCE_MIN
 
-  // 及时到货 = signedAt 与 expectedLoadTime 间隔 ≤ direction SLA
-  // 注：直接 inline 'YYYY-MM-DD HH:mm:ss' → ISO，避免 parseTimestamp 内部
-  //     replace('-','/').replace(' ','T') 在 Chrome 下产出 NaN 的已知问题
-  const signedAt = timelines
-    .map((y) => y.signedAt)
+  // 及时到货 = driverConfirmedAt 与 expectedLoadTime 间隔 ≤ direction SLA
+  // 注：v0.3.0-M2.2 移除客户签收 signedAt 后，改用司机到货确认时间(语义最接近)
+  const driverConfirmedAt = timelines
+    .map((y) => y.driverConfirmedAt)
     .filter((v): v is string => Boolean(v))
     .reduce<string | undefined>(
       (max, v) => (max === undefined || v > max ? v : max),
@@ -201,8 +202,8 @@ export function analyzeDispatchEfficiency(dispatch: Dispatch): DispatchEfficienc
     )
   let deliveryHours: number | undefined
   let isOnTimeDelivery: boolean | undefined
-  if (signedAt && dispatch.expectedLoadTime) {
-    const a = localDateMs(signedAt)
+  if (driverConfirmedAt && dispatch.expectedLoadTime) {
+    const a = localDateMs(driverConfirmedAt)
     const b = localDateMs(dispatch.expectedLoadTime)
     if (Number.isFinite(a) && Number.isFinite(b) && a >= b) {
       deliveryHours = Math.round(((a - b) / 3600000) * 10) / 10 // 1 位小数
@@ -229,7 +230,7 @@ export function analyzeDispatchEfficiency(dispatch: Dispatch): DispatchEfficienc
     generatedAt: nowIsoString(),
     arrivalDiffMin,
     isOnTimeArrival,
-    signedAt,
+    signedAt: driverConfirmedAt,
     deliveryHours,
     isOnTimeDelivery,
     direction: dispatch.direction,
@@ -728,7 +729,7 @@ function isCompanyDirectionDispatched(d: Dispatch): boolean {
 export function buildCompanyDirectionRows(input: {
   dispatches: Dispatch[]
   analyses: DispatchEfficiency[]
-  companies: Company[]
+  companies: LogisticsCompany[]
 }): CompanyDirectionRow[] {
   const companyNameById = new Map<string, string>()
   for (const c of input.companies) companyNameById.set(c.id, c.name)
