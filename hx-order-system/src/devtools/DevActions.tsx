@@ -82,13 +82,13 @@ export function DevActions({ record, activeYardId }: Props) {
       placement="left"
     >
       <Space size={4} wrap>
-        <Button size="small" dashed icon={<EnvironmentOutlined />} onClick={onSimulateGpsEnter}>
+        <Button size="small" variant="dashed" icon={<EnvironmentOutlined />} onClick={onSimulateGpsEnter}>
           演示：GPS 入库
         </Button>
-        <Button size="small" dashed icon={<CarOutlined />} onClick={onMarkLeftYard}>
+        <Button size="small" variant="dashed" icon={<CarOutlined />} onClick={onMarkLeftYard}>
           演示：车辆出厂
         </Button>
-        <Button size="small" dashed icon={<EnvironmentOutlined />} onClick={onMarkArrivedByGps}>
+        <Button size="small" variant="dashed" icon={<EnvironmentOutlined />} onClick={onMarkArrivedByGps}>
           演示：GPS 入客户园区
         </Button>
         <Button size="small" type="text" icon={<ToolOutlined />} disabled>

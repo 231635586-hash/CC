@@ -1077,9 +1077,9 @@ export const mockDispatches: Dispatch[] = [
     ],
     goods: [
       {
-        materialCode: 'MAT-DEMO-A',
-        materialName: '工业齿轮组件',
-        productName: '齿轮组件',
+        id: 'mock-goods-001',
+        dispatchId: 'mock-dispatch-005',
+        goodsName: '工业齿轮组件',
         quantity: 30,
         unit: '箱',
         weight: 1200,
@@ -1123,9 +1123,9 @@ export const mockDispatches: Dispatch[] = [
     ],
     goods: [
       {
-        materialCode: 'MAT-DEMO-B',
-        materialName: '大型设备配件',
-        productName: '设备配件',
+        id: 'mock-goods-002',
+        dispatchId: 'mock-dispatch-006',
+        goodsName: '大型设备配件',
         quantity: 80,
         unit: '箱',
         weight: 3200,
@@ -1156,7 +1156,7 @@ export const mockDispatches: Dispatch[] = [
     companyName: '华南华运供应链管理有限公司',
     yardIds: ['mock-yard-002'],
     primaryYardId: 'mock-yard-002',
-    shippingMethod: 'medium_truck',
+    shippingMethod: 'big_truck',
     truckSize: '6.8m',
     isCarpool: false,
     isUrgent: false,
@@ -1165,9 +1165,9 @@ export const mockDispatches: Dispatch[] = [
     ],
     goods: [
       {
-        materialCode: 'MAT-DEMO-C',
-        materialName: '精密仪器',
-        productName: '精密仪器',
+        id: 'mock-goods-003',
+        dispatchId: 'mock-dispatch-007',
+        goodsName: '精密仪器',
         quantity: 12,
         unit: '箱',
         weight: 480,
@@ -1205,9 +1205,9 @@ export const mockDispatches: Dispatch[] = [
     ],
     goods: [
       {
-        materialCode: 'MAT-DEMO-D',
-        materialName: '电子元器件',
-        productName: '电子元器件',
+        id: 'mock-goods-004',
+        dispatchId: 'mock-dispatch-008',
+        goodsName: '电子元器件',
         quantity: 60,
         unit: '箱',
         weight: 1500,
@@ -1262,9 +1262,9 @@ export const mockDispatches: Dispatch[] = [
     dispatcherName: '周文',
     goods: [
       {
-        materialCode: 'MAT-DEMO-E',
-        materialName: '服装鞋帽',
-        productName: '服装鞋帽',
+        id: 'mock-goods-005',
+        dispatchId: 'mock-dispatch-009',
+        goodsName: '服装鞋帽',
         quantity: 150,
         unit: '箱',
         weight: 3000,
@@ -1321,9 +1321,9 @@ export const mockDispatches: Dispatch[] = [
     dispatcherName: '吴峰',
     goods: [
       {
-        materialCode: 'MAT-DEMO-F',
-        materialName: '精密齿轮组件',
-        productName: '齿轮组件',
+        id: 'mock-goods-006',
+        dispatchId: 'mock-dispatch-010',
+        goodsName: '精密齿轮组件',
         quantity: 80,
         unit: '箱',
         weight: 2200,
@@ -1380,9 +1380,9 @@ export const mockDispatches: Dispatch[] = [
     dispatcherName: '周文',
     goods: [
       {
-        materialCode: 'MAT-DEMO-G',
-        materialName: '大型设备配件',
-        productName: '设备配件',
+        id: 'mock-goods-007',
+        dispatchId: 'mock-dispatch-011',
+        goodsName: '大型设备配件',
         quantity: 60,
         unit: '箱',
         weight: 2500,
@@ -1440,9 +1440,9 @@ export const mockDispatches: Dispatch[] = [
     dispatcherName: '吴峰',
     goods: [
       {
-        materialCode: 'MAT-DEMO-H',
-        materialName: '电子元器件',
-        productName: '电子元器件',
+        id: 'mock-goods-008',
+        dispatchId: 'mock-dispatch-012',
+        goodsName: '电子元器件',
         quantity: 45,
         unit: '箱',
         weight: 1500,
