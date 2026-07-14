@@ -22,6 +22,10 @@ import {
   EnvironmentOutlined,
   ThunderboltOutlined,
   DownloadOutlined,
+  ScheduleOutlined,
+  InboxOutlined,
+  ExportOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import { PageContainer, SCROLL_PRESETS } from '@/components'
@@ -33,7 +37,11 @@ import {
   calcOnTimeArrivalRate,
   calcOnTimeLoadingRate,
   calcOnTimeDeliveryRate,
+  calcFunnelCounts,
+  buildYardComparisonRows,
 } from '@/utils/efficiencyAnalysis'
+import type { YardComparisonRow } from '@/utils/efficiencyAnalysis'
+import { FunnelCountCards, type FunnelCardSpec } from './components/FunnelCountCards'
 import {
   exportDispatchEfficiency,
   buildYardLookup,
@@ -45,9 +53,11 @@ import { SHIPPING_METHOD_LABEL } from '@/types/dispatch'
 
 const { RangePicker } = DatePicker
 
-/** 调度时效分析列表页（v0.4.0-M2.3 业务视角：3 指标卡 + 5 筛选 + Tab 分组）
+/** 调度时效分析列表页（v0.6.0-M2.4 业务视角：3 比率 + 5 漏斗 + 1 图表 + 4 Tab 分组）
  *
- * 3 指标：及时到场率 / 及时装货完成率(标准4小时) / 及时到货率
+ * 比率卡：及时到场率 / 及时装货完成率(标准4小时) / 及时到货率
+ * 漏斗卡：需求到场 / 实际到场 / 已装完 / 已出场 / 已到货（绝对数）
+ * 图表  ：园区时效对比柱状图（4 系列 × N 园区）
  * 5 筛选：时间范围（近 30 天默认） / 运输方向 / 发运方式 / 物流公司 / 装货园区
  * 4 Tab：调车单明细 / 按公司 / 按园区 / 按方向 排名榜
  */
@@ -136,6 +146,18 @@ export function EfficiencyAnalysisPage() {
       delivery,
     }
   }, [filteredDispatches])
+
+  // 3.5) 5 漏斗计数卡（v0.6.0-M2.4 增量：绝对数漏斗）
+  const funnelCounts = useMemo(
+    () => calcFunnelCounts(filteredDispatches, timeRange),
+    [filteredDispatches, timeRange],
+  )
+
+  // 3.6) 园区对比图表数据（4 系列 × N 园区）
+  const yardChartRows = useMemo<YardComparisonRow[]>(
+    () => buildYardComparisonRows({ dispatches: filteredDispatches, analyses, yards }),
+    [filteredDispatches, analyses, yards],
+  )
 
   // 4) Tab 分组聚合
   const groupedByCompany = useMemo(
@@ -331,6 +353,11 @@ export function EfficiencyAnalysisPage() {
         </Col>
       </Row>
 
+      {/* 5 漏斗计数卡（v0.6.0-M2.4 增量） */}
+      <div style={{ marginBottom: 16 }}>
+        <FunnelCountCards cards={buildFunnelCards(funnelCounts)} />
+      </div>
+
       {/* Tab 分组明细 */}
       <Card>
         <Tabs
@@ -508,4 +535,58 @@ function GroupRankingTable({ rows }: { rows: GroupRow[] }) {
       ]}
     />
   )
+}
+
+/**
+ * 构造 5 漏斗卡 spec（顺序固定，公式按用户原话）
+ * 配色梯度：紫(需求)→蓝(实际)→青(装完)→绿(出场)→橙(到货)
+ */
+function buildFunnelCards(c: ReturnType<typeof calcFunnelCounts>): [FunnelCardSpec, FunnelCardSpec, FunnelCardSpec, FunnelCardSpec, FunnelCardSpec] {
+  return [
+    {
+      key: 'expected',
+      title: '需求到场',
+      value: c.expected,
+      formula: '需求时间在目标时间内车辆总数',
+      tooltip: 'dispatch.expectedLoadTime ∈ 筛选时间范围',
+      icon: <ScheduleOutlined />,
+      color: '#722ed1',
+    },
+    {
+      key: 'arrived',
+      title: '实际到场',
+      value: c.arrived,
+      formula: '排队时间在目标时间内车辆总数',
+      tooltip: '任一 YardTimeline.queuedAt ∈ 筛选时间范围',
+      icon: <EnvironmentOutlined />,
+      color: '#1677ff',
+    },
+    {
+      key: 'loaded',
+      title: '已装完',
+      value: c.loaded,
+      formula: '装货完成时间在目标时间内车辆总数',
+      tooltip: '任一 YardTimeline.loadingCompletedAt ∈ 筛选时间范围',
+      icon: <InboxOutlined />,
+      color: '#13c2c2',
+    },
+    {
+      key: 'exited',
+      title: '已出场',
+      value: c.exited,
+      formula: '出场时间在目标时间内车辆总数',
+      tooltip: '任一 YardTimeline.leftAt ∈ 筛选时间范围',
+      icon: <ExportOutlined />,
+      color: '#52c41a',
+    },
+    {
+      key: 'delivered',
+      title: '已到货',
+      value: c.delivered,
+      formula: '到货时间在目标时间内车辆总数',
+      tooltip: '任一 YardTimeline.driverConfirmedAt ∈ 筛选时间范围',
+      icon: <CheckCircleOutlined />,
+      color: '#fa8c16',
+    },
+  ]
 }
