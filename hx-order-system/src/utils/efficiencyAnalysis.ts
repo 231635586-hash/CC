@@ -527,3 +527,141 @@ export function buildYardComparisonRows(input: {
     }
   })
 }
+
+// ============================================================================
+// 按园区 × 月度 透视表聚合（M2.5 · 2026-07-14）
+// ----------------------------------------------------------------------------
+// 业务口径（用户 4 轮决策后定稿）：
+//  - 月份归属：dispatch.expectedLoadTime ∈ 该月（业务计划口径）
+//  - 调车需求：月份内的 dispatch 计数（分母）
+//  - 未按时到场：enteredAt - expectedLoadTime > ON_TIME_ARRIVAL_TOLERANCE_MIN
+//  - 未达成4小时装货：YardTimeline.effectiveLoadMin > STANDARD_LOAD_MIN
+//  - 比率：分子分母同月份；分母=0 时显示 "-" 而非 #DIV/0!
+// ============================================================================
+
+/** 透视表单行结构（园区 + 月份 + 5 指标） */
+export interface YardMonthlyRow {
+  yardId: string
+  yardName: string
+  /** 月份标签，格式 YYYY-MM（如 "2026-07"） */
+  monthLabel: string
+  /** 月份起始时间（Dayjs 截断到月初） */
+  monthStart: Dayjs
+  /** 调车需求（辆）：该月 expectedLoadTime 的 dispatch 计数 */
+  demand: number
+  /** 未按时到场（辆）：enteredAt - expectedLoadTime > 30min */
+  lateArrival: number
+  /** 及时到场率（%）：1 - lateArrival/demand × 100，demand=0 时为 null */
+  arrivalRate: number | null
+  /** 未达成4小时装货（辆）：YardTimeline.effectiveLoadMin > 4h */
+  lateLoading: number
+  /** 4小时装货达成率（%）：1 - lateLoading/demand × 100，demand=0 时为 null */
+  loadingRate: number | null
+}
+
+/**
+ * 按园区 × 月度聚合透视表数据。
+ * 排序：先 yardName 字典序，再 monthLabel 倒序（最新月在上）。
+ *
+ * 数据源：
+ *  - dispatches: filteredDispatches（5 维筛选后的全部车辆）
+ *  - analyses: status=completed 子集（用于取 effectiveLoadMin）
+ *  - yards: yard 字典
+ */
+export function buildYardMonthlyRows(input: {
+  dispatches: Dispatch[]
+  analyses: DispatchEfficiency[]
+  yards: Yard[]
+}): YardMonthlyRow[] {
+  // 用 analysisById 索引，便于查 effectiveLoadMin
+  const analysisById = new Map<string, DispatchEfficiency>()
+  for (const a of input.analyses) analysisById.set(a.dispatchId, a)
+
+  // 月份集合（每个园区各自独立的月份桶）
+  const buckets = new Map<
+    string,
+    {
+      yardId: string
+      yardName: string
+      monthLabel: string
+      monthStart: Dayjs
+      demand: number
+      lateArrival: number
+      lateLoading: number
+    }
+  >()
+
+  const ensureBucket = (yardId: string, yardName: string, monthStart: Dayjs) => {
+    const monthLabel = monthStart.format('YYYY-MM')
+    const key = `${yardId}|${monthLabel}`
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        yardId,
+        yardName,
+        monthLabel,
+        monthStart,
+        demand: 0,
+        lateArrival: 0,
+        lateLoading: 0,
+      })
+    }
+    return buckets.get(key)!
+  }
+
+  for (const d of input.dispatches) {
+    if (!d.expectedLoadTime) continue
+    // 只在 dispatch.yardIds 中存在的园区落桶（按 yard 维度展开）
+    for (const yardId of d.yardIds || []) {
+      const yard = input.yards.find((y) => y.id === yardId)
+      const yardName = yard?.name || yardId
+      const monthStart = dayjs(d.expectedLoadTime.replace(' ', 'T')).startOf('month')
+      const b = ensureBucket(yardId, yardName, monthStart)
+      b.demand++
+
+      // 未按时到场：主园区 enteredAt - expectedLoadTime > 30min
+      const primaryYard = (d.yardTimelines || []).find((y) => y.yardId === d.primaryYardId)
+      if (primaryYard?.enteredAt) {
+        const diff = Math.round(
+          (new Date(primaryYard.enteredAt.replace(' ', 'T')).getTime() -
+           new Date(d.expectedLoadTime.replace(' ', 'T')).getTime()) / 60000,
+        )
+        if (diff > ON_TIME_ARRIVAL_TOLERANCE_MIN) b.lateArrival++
+      }
+
+      // 未达成4小时装货：任一 YardTimeline.effectiveLoadMin > 4h
+      const a = analysisById.get(d.id)
+      if (a) {
+        for (const y of a.yards || []) {
+          if (y.yardId !== yardId) continue
+          if (y.effectiveLoadMin > STANDARD_LOAD_MIN) b.lateLoading++
+        }
+      }
+    }
+  }
+
+  // 转 Row 数组 + 计算比率
+  const rows: YardMonthlyRow[] = []
+  for (const b of buckets.values()) {
+    rows.push({
+      yardId: b.yardId,
+      yardName: b.yardName,
+      monthLabel: b.monthLabel,
+      monthStart: b.monthStart,
+      demand: b.demand,
+      lateArrival: b.lateArrival,
+      arrivalRate:
+        b.demand > 0 ? Math.round(((b.demand - b.lateArrival) / b.demand) * 100) : null,
+      lateLoading: b.lateLoading,
+      loadingRate:
+        b.demand > 0 ? Math.round(((b.demand - b.lateLoading) / b.demand) * 100) : null,
+    })
+  }
+
+  // 排序：yardName 字典序 → monthLabel 倒序
+  rows.sort((a, b) => {
+    if (a.yardName !== b.yardName) return a.yardName.localeCompare(b.yardName, 'zh-CN')
+    return a.monthLabel < b.monthLabel ? 1 : -1
+  })
+
+  return rows
+}
