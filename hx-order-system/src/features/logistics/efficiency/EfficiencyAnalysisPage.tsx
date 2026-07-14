@@ -178,10 +178,8 @@ export function EfficiencyAnalysisPage() {
   )
 
   // 4) Tab 分组聚合
-  const groupedByCompany = useMemo(
-    () => groupAggregates(analyses, (a) => a.companyName),
-    [analyses],
-  )
+//    v0.8.0-M2.7 改造: 移除 groupedByCompany/groupedByDirection
+//    groupedByYard 保留(供「按装货园区」Tab 全期汇总 + Excel Sheet 4)
   const groupedByYard = useMemo(
     () =>
       groupAggregates(analyses, (a) => {
@@ -192,22 +190,18 @@ export function EfficiencyAnalysisPage() {
       }),
     [analyses, yards],
   )
-  const groupedByDirection = useMemo(
-    () => groupAggregates(analyses, (a) => a.direction || '-'),
-    [analyses],
-  )
 
   // 5) 导出工具所需的 Lookup（避免导出时再次穿透 store）
   const yardLookup = useMemo(() => buildYardLookup(yards), [yards])
   const dispatchLookup = useMemo(() => buildDispatchLookup(list), [list])
 
-  /** 触发 Excel 导出（6 Sheet：明细 + 3 个分组 Tab + 漏斗计数 + 园区对比） */
+  /** 触发 Excel 导出（6 Sheet：与 UI Tab 一一对应） */
   const handleExport = () => {
     exportDispatchEfficiency({
       analyses,
-      groupedByCompany,
+      companyDirectionRows,
+      yardMonthlyRows,
       groupedByYard,
-      groupedByDirection,
       dispatchLookup,
       yardLookup,
       funnelCounts,
@@ -472,7 +466,7 @@ export function EfficiencyAnalysisPage() {
             },
             {
               key: 'company',
-              label: `按公司（${groupedByCompany.length}）`,
+              label: `按公司（${companyDirectionRows.length}）`,
               children: <CompanyDirectionPivot rows={companyDirectionRows} />,
             },
             {
@@ -491,7 +485,7 @@ export function EfficiencyAnalysisPage() {
               ),
             },
             // 原「按运输方向」Tab 已废弃（v0.8.0-M2.6），数据并入「按公司」Tab 透视表
-            // groupedByDirection 仍保留 useMemo 供 Excel 导出（按运输方向 Sheet）使用
+            // Excel Sheet 也同步删除（v0.8.0-M2.7）
           ]}
         />
       </Card>
