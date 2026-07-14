@@ -16,12 +16,6 @@
       }
     },
     {
-      "path": "pages/customer/sign/index",
-      "style": {
-        "navigationBarTitleText": "客户签收"
-      }
-    },
-    {
       "path": "pages/role-select/index",
       "style": {
         "navigationBarTitleText": "选择角色",
