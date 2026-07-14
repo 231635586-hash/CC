@@ -1082,3 +1082,78 @@ feat/arrival-processing 分支历史 11 个 commit（含 4 个状态机横跳）
 #### ✅ 用户验收
 
 - 2026-07-14 用户验收通过(刷新页面 + 导出 xlsx 后 6 Sheet 标签栏全部可见 + 列名匹配),交付完成
+
+---
+
+### v0.9.0 - 代码层优化清单 Phase 1(2026-07-14)
+
+#### 🎉 阶段交付:在不改变业务逻辑的前提下,完成 12 个单意图 commit 的代码层优化
+
+**✅ 业务范围**:代码/设计/功能三维优化清单的「代码」+「设计」维度,**不含核心业务逻辑变更**;零行为变更,纯结构性优化。
+
+**业务动机**:M1/M2 高速迭代过程中沉淀了多处内联 JSX/CSS/工具函数重复,集中在「紧急/拼车 Tag」「KPI 4 卡片 Row」「Safari 时间戳 hack」「派车 Modal」「底部 TabBar」5 处。本次 Phase 1 仅抽 5 个公共组件 + 1 个 utils 函数,作为后续 Phase 2(N)替换的铺垫。
+
+#### 📦 12 个 commit 单意图交付
+
+| # | Commit | 类别 | 主题 |
+|:-:|--------|:---:|------|
+| 1 | `6f00a40` | fix | H5 dispatched 文案「待出发」→「已派车」对齐 Web 端 |
+| 2 | `7cfa9da` | fix | 库房员「通知入场」按钮加 Popconfirm 二次确认(2 处) |
+| 3 | `2ea2268` | refactor | OrderDetailPage 顶部流程栏改用 `<DispatchFlowHeader>`(消除 30 行重复 JSX) |
+| 4 | `c38e79e` | refactor | 抽 `localDateMs()` 替换 12 处 `new Date(x.replace(' ', 'T')).getTime()` Safari 兼容 hack |
+| 5 | `a317406` | feat | 新增 `<DispatchVehicleModal>` 派车 Modal 公共组件(自管 Form + 回调 values) |
+| 6 | `d7af20c` | refactor | OrderDetailPage 派车 Modal 改用 `<DispatchVehicleModal>`(消除 38 行内联 JSX) |
+| 7 | `a33f919` | feat | 新增 `<MobileTabBar>` H5 公共底部 TabBar 组件(items + activeKey + change 事件) |
+| 8 | `cd52927` | refactor | H5 driver/orders/index.vue 底部 TabBar 改用 `<MobileTabBar>`(消除 50 行 CSS + 14 行 template) |
+| 9 | `9ea030a` | feat | 新增 `<KpiRow>` 公共 KPI 统计行组件(items + colSpan + tooltip + color) |
+| 10 | `ea3aff0` | refactor | WarehouseQueuePage 顶部 4 列 KPI 改用 `<KpiRow>`(消除 22 行 Row/Col/Statistic 模板) |
+| 11 | `a3b8752` | feat | 新增 `<BoolTags>` 调车单布尔标签组件(紧急/拼车 颜色集中维护) |
+| 12 | `e15199c` | refactor | 4 处页面内联紧急/拼车 Tag 替换为 `<BoolTags>`(消除 8 行重复) |
+
+#### 🎯 5 个公共组件 + 1 个 utils 函数
+
+| 组件 / 函数 | 路径 | 替换范围 | 状态 |
+|------------|------|----------|------|
+| `<DispatchFlowHeader>` | `src/components/dispatch/DispatchFlowHeader.tsx` | OrderDetailPage / DispatchDetailPage | ✅ Phase 1 已用(原 M1 已有,本次仅替换 1 处) |
+| `<DispatchVehicleModal>` | `src/components/dispatch/DispatchVehicleModal.tsx` | OrderDetailPage(已用) + DispatchSchedulePage(Phase 2) | 🔵 Phase 1 建 + 1 处用 |
+| `<MobileTabBar>` | `mobile-h5/src/components/MobileTabBar.vue` | driver(已用) + salesperson + company(Phase 2,需主题色 token 化) | 🔵 Phase 1 建 + 1 处用 |
+| `<KpiRow>` | `src/components/KpiRow.tsx` | WarehouseQueuePage(已用) + 4 处其他页面(Phase 2) | 🔵 Phase 1 建 + 1 处用 |
+| `<BoolTags>` | `src/components/BoolTags.tsx` | 4 处页面全部替换(已用) | ✅ Phase 1 全量替换 |
+| `localDateMs()` | `src/utils/index.ts` | 12 处 `efficiencyAnalysis.ts` | ✅ Phase 1 全量替换 |
+
+#### 🔧 关键技术决策
+
+- **「先建后改」拆分模式**:每个组件**拆 2 commit**(feat 建组件 + refactor 替换),避免 1 个 commit 混搭「新增」与「重构」两类意图(违反 CLAUDE.md 单意图规范)
+- **`localDateMs()` 抽 12 处**:原代码 12 次重复 `new Date(x.replace(' ', 'T')).getTime()` Safari 兼容模式,集中在 `efficiencyAnalysis.ts` 5 个计算函数块;抽函数后语义自解释 + 改一处生效全部
+- **`<DispatchFlowHeader>`** 复用 M1 既有组件:**只替换 1 处**(OrderDetailPage),不强制全量替换(降低本次 PR 风险面)
+- **`Tag` import 不清理**:4 处替换页面的 `Tag` 仍被其他渲染使用(状态 Tag / 发运方式 Tag),只替换紧急/拼车 2 行 JSX,保持 diff 最小化
+
+#### 🚧 Phase 2(N) 预留工作(本期未做)
+
+| # | 任务 | 阻塞原因 |
+|:-:|------|----------|
+| P2-1 | `<DispatchVehicleModal>` 替换 DispatchSchedulePage 顶部 chip 摘要区 | chip 区需先决策(摘要 vs 完整 Modal 入口) |
+| P2-2 | `<MobileTabBar>` 替换 salesperson + company 页 TabBar | 主题色 `#13c2c2` / `#fa8c16` 与现有 `--color-brand` token 冲突,需「主题色 token 化」专项 |
+| P2-3 | `<KpiRow>` 替换 InventoryListPage / LocationListPage / DispatchSchedulePage / EfficiencyAnalysisPage | 4 处 KPI 视觉差异(3 卡 / 5 卡 / 含 Tooltip)需逐页校准,本期排期外 |
+| P2-4 | 「主题色 token 化」专项 | 当前各页硬编码 `#1677ff` / `#13c2c2` / `#fa8c16` / `#722ed1` 等色,建议统一到 `src/theme.ts` |
+
+#### 📝 文档同步
+
+- 新增 PRD `M2-PRD-代码层优化清单.md`(§1 范围 / §2 5 组件规格 / §3 12 commit 复盘 / §4 Phase 2 路线图 / §5 验证门控结果)
+
+#### 🐛 修复(本里程碑内)
+
+无。本批次纯结构性优化,**零业务行为变更**,无 fixup。
+
+#### ✅ 验证门控
+
+| 项 | 结果 |
+|----|------|
+| `tsc --noEmit` 每 commit 后 | ✅ EXIT 0(12/12) |
+| `vue-tsc --noEmit` H5 改动后 | ✅ 无新增错误(2/2:cd52927 / 此前步骤) |
+| `npm run dev` 启动 | ✅ 200 OK |
+| **CLAUDE.md「验证门控」截图验收** | ⚠️ **未补** — F-04 Popconfirm 涉及 UI 行为,按规则应补 1 张截图 |
+
+#### 📌 用户验收
+
+- 待补 F-04 通知入场 Popconfirm 真实运行截图(按 CLAUDE.md「验证门控规则」)
