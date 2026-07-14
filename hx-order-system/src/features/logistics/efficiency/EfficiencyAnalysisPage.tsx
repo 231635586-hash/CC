@@ -41,11 +41,13 @@ import {
   calcFunnelCounts,
   buildYardComparisonRows,
   buildYardMonthlyRows,
+  buildCompanyDirectionRows,
 } from '@/utils/efficiencyAnalysis'
 import type { YardComparisonRow } from '@/utils/efficiencyAnalysis'
 import { FunnelCountCards, type FunnelCardSpec } from './components/FunnelCountCards'
 import { YardComparisonChart } from './components/YardComparisonChart'
 import { YardMonthlyPivot } from './components/YardMonthlyPivot'
+import { CompanyDirectionPivot } from './components/CompanyDirectionPivot'
 import {
   exportDispatchEfficiency,
   buildYardLookup,
@@ -167,6 +169,12 @@ export function EfficiencyAnalysisPage() {
   const yardMonthlyRows = useMemo(
     () => buildYardMonthlyRows({ dispatches: filteredDispatches, analyses, yards }),
     [filteredDispatches, analyses, yards],
+  )
+
+  // 3.8) 公司 × 运输方向 透视表数据（v0.8.0-M2.6 增量：吸收原「按方向」Tab）
+  const companyDirectionRows = useMemo(
+    () => buildCompanyDirectionRows({ dispatches: filteredDispatches, analyses, companies }),
+    [filteredDispatches, analyses, companies],
   )
 
   // 4) Tab 分组聚合
@@ -465,7 +473,7 @@ export function EfficiencyAnalysisPage() {
             {
               key: 'company',
               label: `按公司（${groupedByCompany.length}）`,
-              children: <GroupRankingTable rows={groupedByCompany} />,
+              children: <CompanyDirectionPivot rows={companyDirectionRows} />,
             },
             {
               key: 'yard',
@@ -482,11 +490,8 @@ export function EfficiencyAnalysisPage() {
                 </Space>
               ),
             },
-            {
-              key: 'direction',
-              label: `按运输方向（${groupedByDirection.length}）`,
-              children: <GroupRankingTable rows={groupedByDirection} />,
-            },
+            // 原「按运输方向」Tab 已废弃（v0.8.0-M2.6），数据并入「按公司」Tab 透视表
+            // groupedByDirection 仍保留 useMemo 供 Excel 导出（按运输方向 Sheet）使用
           ]}
         />
       </Card>
