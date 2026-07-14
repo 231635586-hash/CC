@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Table, Tag, Space, Card, Row, Col, Statistic, Button, message, Empty, Tooltip, Popconfirm } from 'antd'
+import { Table, Tag, Space, Card, Button, message, Empty, Tooltip, Popconfirm } from 'antd'
 import { ReloadOutlined, EyeOutlined, ClockCircleOutlined, TruckOutlined, EnvironmentOutlined, GatewayOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { PageContainer, SearchForm, SCROLL_PRESETS, StatusTag, DISPATCH_STATUS_MAP } from '@/components'
+import { PageContainer, SearchForm, SCROLL_PRESETS, StatusTag, DISPATCH_STATUS_MAP, KpiRow } from '@/components'
 import { useDispatchStore, useDictStore } from '@/stores'
 import { DISPATCH_STATUS_OPTIONS } from '@/types'
 import type { Dispatch } from '@/types/dispatch'
@@ -137,29 +137,16 @@ export function WarehouseQueuePage() {
         </Button>
       }
     >
-      {/* 顶部统计 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
-          <Card>
-            <Statistic title="排队/入场中" value={stats.queueing} prefix={<ClockCircleOutlined />} valueStyle={{ color: '#fa8c16' }} />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic title="装货/离场中" value={stats.loading} prefix={<TruckOutlined />} valueStyle={{ color: '#1677ff' }} />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic title="今日已完成" value={stats.completedToday} valueStyle={{ color: '#52c41a' }} />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic title="平均等待时长" value={formatDuration(stats.avgMs)} valueStyle={{ color: '#722ed1' }} />
-          </Card>
-        </Col>
-      </Row>
+      {/* 顶部统计(走 <KpiRow> 公共组件) */}
+      <KpiRow
+        style={{ marginBottom: 16 }}
+        items={[
+          { title: '排队/入场中', value: stats.queueing, prefix: <ClockCircleOutlined />, color: '#fa8c16' },
+          { title: '装货/离场中', value: stats.loading, prefix: <TruckOutlined />, color: '#1677ff' },
+          { title: '今日已完成', value: stats.completedToday, color: '#52c41a' },
+          { title: '平均等待时长', value: formatDuration(stats.avgMs), color: '#722ed1' },
+        ]}
+      />
 
       {/* 筛选 */}
       <SearchForm
