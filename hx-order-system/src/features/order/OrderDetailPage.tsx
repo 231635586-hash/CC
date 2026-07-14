@@ -10,7 +10,7 @@ import {
   CheckCircleOutlined,
 } from '@ant-design/icons'
 // ❌ v0.3.0-M2.2 删除:QRCode / Image / InboxOutlined / copyToClipboard(客户签收全链路已下线)
-import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP, DispatchFlowHeader, DispatchVehicleModal } from '@/components'
+import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP, DispatchFlowHeader, DispatchVehicleModal, BoolTags } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import type { DispatchStatus } from '@/types'
 import {
@@ -255,9 +255,7 @@ export function OrderDetailPage() {
                 ) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="拼车 / 紧急">
-                {record.isCarpool && <Tag color="purple">拼车</Tag>}
-                {record.isUrgent && <Tag color="red">紧急</Tag>}
-                {!record.isCarpool && !record.isUrgent && '-'}
+                <BoolTags isUrgent={record.isUrgent} isCarpool={record.isCarpool} />
               </Descriptions.Item>
               <Descriptions.Item label="车辆">{record.vehicleNo || '未派车'}</Descriptions.Item>
               <Descriptions.Item label="司机">{record.driverName || '未派车'}</Descriptions.Item>
