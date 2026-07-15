@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Descriptions, Card, Tag, Timeline, Button, Row, Col, Empty } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
-import { PageContainer, renderYardNames, DispatchFlowHeader } from '@/components'
+import { PageContainer, renderYardNames, DispatchFlowHeader, BoolTags } from '@/components'
 import { useDispatchStore, useDictStore } from '@/stores'
 import { DISPATCH_STATUS_OPTIONS, type DispatchStatus } from '@/types'
 import { SHIPPING_METHOD_LABEL, SHIPPING_METHOD_COLOR, TRUCK_SIZE_LABEL } from '@/types/dispatch'
@@ -68,9 +68,7 @@ export function DispatchDetailPage() {
                 ) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="拼车 / 紧急">
-                {record.isCarpool && <Tag color="purple">拼车</Tag>}
-                {record.isUrgent && <Tag color="red">紧急</Tag>}
-                {!record.isCarpool && !record.isUrgent && '-'}
+                <BoolTags isUrgent={record.isUrgent} isCarpool={record.isCarpool} />
               </Descriptions.Item>
               <Descriptions.Item label="车辆">{record.vehicleNo || '未派车'}</Descriptions.Item>
               <Descriptions.Item label="司机">{record.driverName || '未派车'}</Descriptions.Item>

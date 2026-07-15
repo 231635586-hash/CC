@@ -30,9 +30,15 @@ export type DispatchStatus =
   | 'confirmed'
   | 'dispatching'
   | 'dispatched'
+  // —— v0.3.0-M2.2 v2：GPS/扫码统一入场 ——
+  | 'queued'
   | 'entering'
   | 'loading'
   | 'leaving'
+  // —— 到货处理（在途 → 司机确认 → 完成）——
+  | 'in_transit'
+  | 'driver_confirmed'
+  // —— 终态 ——
   | 'completed'
   | 'cancelled'
 
@@ -141,5 +147,109 @@ export const MOCK_DISPATCHES: DispatchMock[] = [
     vehicleNo: '-',
     driverName: '-',
     goodsSummary: '精密齿轮组件 60 箱 / 1.7 吨',
+  },
+
+  // ===== v0.2.0-M2：到货处理 4 步状态演示样本 =====
+
+  // M2-01：in_transit（装货完成，在途）
+  {
+    id: 'mock-dispatch-m2-001',
+    dispatchNo: 'DC20260709001',
+    status: 'in_transit',
+    direction: '苏州',
+    expectedLoadTime: '2026-07-09 14:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '华东机械制造有限公司',
+    customerAddress: '江苏省苏州市工业园区星湖街 128 号',
+    companyName: '华东快运物流有限公司',
+    vehicleNo: '沪A12345',
+    driverName: '陈大壮',
+    goodsSummary: '精密齿轮组件 80 箱 / 2.2 吨',
+  },
+
+  // v0.3.0-M2.2 v2：arrived_by_gps 已下线，迁移到 queued（GPS 检测 = 统一入场）
+  {
+    id: 'mock-dispatch-m2-002',
+    dispatchNo: 'DC20260709002',
+    status: 'queued',
+    direction: '杭州',
+    expectedLoadTime: '2026-07-09 11:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '杭州智能装备',
+    customerAddress: '浙江省杭州市余杭区文一西路 1818 号',
+    companyName: '北方通远运输股份有限公司',
+    vehicleNo: '沪A23456',
+    driverName: '李建国',
+    goodsSummary: '大型设备配件 60 箱 / 2.5 吨',
+  },
+
+  // M2-03：driver_confirmed（司机已确认，待客户签收）
+  {
+    id: 'mock-dispatch-m2-003',
+    dispatchNo: 'DC20260709003',
+    status: 'driver_confirmed',
+    direction: '深圳',
+    expectedLoadTime: '2026-07-09 09:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '深圳精密科技',
+    customerAddress: '广东省深圳市南山区科技园南区高新南一道',
+    companyName: '华东快运物流有限公司',
+    vehicleNo: '浙C45678',
+    driverName: '王大锤',
+    goodsSummary: '电子元器件 45 箱 / 1.5 吨',
+  },
+
+  // v0.3.0-M2.2 v2：customer_signed 已下线，统一迁移到 completed
+  {
+    id: 'mock-dispatch-m2-004',
+    dispatchNo: 'DC20260709004',
+    status: 'completed',
+    direction: '青岛',
+    expectedLoadTime: '2026-07-09 07:00:00',
+    yardIds: ['mock-yard-002'],
+    yardNames: ['甘亭'],
+    customerName: '青岛海尔智造',
+    customerAddress: '山东省青岛市崂山区海尔路 1 号',
+    companyName: '北方通远运输股份有限公司',
+    vehicleNo: '苏B34567',
+    driverName: '赵铁柱',
+    goodsSummary: '家电配件 35 箱 / 1.2 吨',
+  },
+
+  // M2-05：draft（草稿，业务员录入中，未受理）
+  {
+    id: 'mock-dispatch-m2-005',
+    dispatchNo: 'DC20260709005',
+    status: 'draft',
+    direction: '广州',
+    expectedLoadTime: '2026-07-10 10:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '东莞五金制品厂',
+    customerAddress: '广东省东莞市长安镇振安路 88 号',
+    companyName: '华南华运供应链管理有限公司',
+    vehicleNo: '-',
+    driverName: '-',
+    goodsSummary: '电子元器件 60 箱 / 1.5 吨',
+  },
+
+  // v0.3.0-M2.2 v2：customer_signed 已下线，统一迁移到 completed
+  {
+    id: 'mock-dispatch-m2-006',
+    dispatchNo: 'DC20260709006',
+    status: 'completed',
+    direction: '杭州',
+    expectedLoadTime: '2026-07-09 08:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '杭州智能装备',
+    customerAddress: '浙江省杭州市余杭区文一西路 1818 号',
+    companyName: '华东快运物流有限公司',
+    vehicleNo: '沪A12345',
+    driverName: '陈大壮',
+    goodsSummary: '服装鞋帽 150 箱 / 3.0 吨（已签收 3 张照片）',
   },
 ]

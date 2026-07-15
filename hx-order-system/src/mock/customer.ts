@@ -12,6 +12,8 @@ export const mockCustomers: Customer[] = [
     createdAt: '2026-01-15T08:30:00.000Z',
     creatorId: 'mock-user-005',
     creatorName: '李欣',
+    // M2：客户园区 GPS 坐标（mock 硬编码）
+    site: { lng: 120.708, lat: 31.318, radiusM: 200, contactName: '张志强', contactPhone: '13912345678' },
   },
   {
     id: 'CUS-2026-002',
@@ -23,6 +25,8 @@ export const mockCustomers: Customer[] = [
     createdAt: '2026-02-20T10:15:00.000Z',
     creatorId: 'mock-user-005',
     creatorName: '李欣',
+    // M2：客户园区 GPS 坐标
+    site: { lng: 113.945, lat: 22.533, radiusM: 200, contactName: '李敏', contactPhone: '13687654321' },
   },
   {
     id: 'CUS-2026-003',
@@ -34,6 +38,8 @@ export const mockCustomers: Customer[] = [
     createdAt: '2026-03-05T14:00:00.000Z',
     creatorId: 'mock-user-005',
     creatorName: '李欣',
+    // M2：客户园区 GPS 坐标
+    site: { lng: 120.469, lat: 36.103, radiusM: 200, contactName: '王伟', contactPhone: '13511223344' },
   },
   {
     id: 'CUS-2026-004',

@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { Table, Button, Space, Tag, Popconfirm, message, Tooltip, AutoComplete, Modal, Form, Radio, Input, Alert } from 'antd'
 import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, StopOutlined } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { PageContainer, SearchForm, Empty, renderYardNames, SCROLL_PRESETS } from '@/components'
+import { PageContainer, SearchForm, Empty, renderYardNames, SCROLL_PRESETS, BoolTags } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import { DISPATCH_STATUS_OPTIONS, type DispatchStatus } from '@/types'
 import {
@@ -226,8 +226,7 @@ export function DispatchListPage() {
               return (
                 <Space size={4} wrap>
                   <Tag color={opt?.color}>{opt?.label || s}</Tag>
-                  {r.isUrgent && <Tag color="red">紧急</Tag>}
-                  {r.isCarpool && <Tag color="purple">拼车</Tag>}
+                  <BoolTags isUrgent={r.isUrgent} isCarpool={r.isCarpool} />
                 </Space>
               )
             },

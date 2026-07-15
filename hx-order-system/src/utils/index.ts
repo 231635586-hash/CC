@@ -62,6 +62,19 @@ export function nowIsoString(d: Date = new Date()): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
+/**
+ * 把本地/ISO 时间戳字符串转为毫秒数（NaN-safe）
+ *
+ * 用途：替换散落 6 处的 `new Date(x.replace(' ', 'T')).getTime()`(Safari 兼容 hack)
+ * 实现：复用 parseTimestamp,支持 ISO 8601 + 本地格式 + Date 对象输入
+ * 失败返回 NaN(由调用方自行 .isNaN 判断)
+ */
+export function localDateMs(input: string | Date | undefined | null): number {
+  if (!input) return NaN
+  const d = parseTimestamp(input)
+  return d ? d.getTime() : NaN
+}
+
 /** 解析城市字符串为去重数组 */
 export function parseCities(s: string | undefined | null): string[] {
   if (!s) return []

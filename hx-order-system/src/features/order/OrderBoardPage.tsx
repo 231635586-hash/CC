@@ -2,18 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Row, Col, Card, Tag, Space, Input, Select, Button, Empty, Badge } from 'antd'
 import { SearchOutlined, EnvironmentOutlined } from '@ant-design/icons'
-import { PageContainer, renderYardNames, StatusTag } from '@/components'
+import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP, BoolTags } from '@/components'
 import { useDispatchStore, useDictStore } from '@/stores'
 import type { Dispatch } from '@/types/dispatch'
-import { DISPATCH_STATUS_OPTIONS } from '@/types'
-import type { DispatchStatus } from '@/types/dispatch'
 import { ORDER_BOARD_COLUMNS, ORDER_STATUS_OPTIONS, type OrderStatus } from '@/types/order'
 import { deriveOrderStatus } from '@/utils/orderStatus'
-
-/** DispatchStatus 字典（用于 StatusTag 注入） */
-const DISPATCH_STATUS_MAP = Object.fromEntries(
-  DISPATCH_STATUS_OPTIONS.map((o) => [o.value, { label: o.label, color: o.color }]),
-) as Record<DispatchStatus, { label: string; color: string }>
 import { formatDateTime } from '@/utils'
 
 /**
@@ -155,8 +148,7 @@ export function OrderBoardPage() {
                           <Space size={4} wrap>
                             <EnvironmentOutlined style={{ color: '#1677ff' }} />
                             <span>{d.direction || '-'}</span>
-                            {d.isUrgent && <Tag color="red">紧急</Tag>}
-                            {d.isCarpool && <Tag color="purple">拼车</Tag>}
+                            <BoolTags isUrgent={d.isUrgent} isCarpool={d.isCarpool} />
                           </Space>
                         </div>
                         <div style={{ marginTop: 4, fontSize: 12, color: '#666' }}>{d.companyName}</div>

@@ -97,6 +97,13 @@ export interface Dispatch {
   voidReason?: string
   // —— M2 多园区时间线 ——
   yardTimelines: YardTimeline[]
+  // —— v0.2.0-M2：客户签收链接（leaving 状态由库房员生成）——
+  /** 客户签收链接（含 token，调度员复制发给客户） */
+  signUrl?: string
+  /** 链接生成时间 */
+  signUrlGeneratedAt?: Timestamp
+  /** 链接有效期（小时） */
+  signUrlExpiresInHours?: number
 }
 
 /**
@@ -123,9 +130,19 @@ export interface YardTimeline {
   loadingCompletedAt?: Timestamp
   /** GPS 离场时间 */
   leftAt?: Timestamp
-  /** 入场方式：'gps'（车辆硬件 GPS）| 'manual'（人工补录） */
-  enteredVia?: 'gps' | 'manual'
-  leftVia?: 'gps' | 'manual'
+  /** 入场方式：'gps'（车辆硬件 GPS）| 'scan'（扫码，已废弃）| 'manual'（人工补录） */
+  enteredVia?: 'gps' | 'scan' | 'manual'
+  leftVia?: 'gps' | 'scan' | 'manual'
+
+  // —— v0.2.0-M2 新增：到货处理字段 ——
+  /** 车辆出厂时间（= 所有园区 leftAt 之最大值；用于判定 in_transit 起点） */
+  leftYardAt?: Timestamp
+  /** GPS 进入客户园区半径时间 */
+  arrivedByGpsAt?: Timestamp
+  /** 司机手动确认到达时间（H5「确认到达」按钮） */
+  driverConfirmedAt?: Timestamp
+  // ❌ v0.3.0-M2.2 删除:客户签收相关(signedAt / signaturePhotos / signatureNote)
+  // —— v0.2.0-M2 字段:arrivedByGpsAt 保留,仅作为 GPS 检测时间记录,不再驱动状态机
 }
 
 /**
@@ -189,6 +206,39 @@ export interface DispatchEfficiency {
   isOvertime: boolean
   finalExitTime?: Timestamp
   generatedAt: Timestamp
+  // —— v0.2.0-M2 调度时效分析：及时到场 / 及时到货 ——
+  /** 主园区 enteredAt 相对 expectedLoadTime 的偏差（分钟，正=迟到） */
+  arrivalDiffMin?: number
+  /** 主园区是否及时到场（±30 min） */
+  isOnTimeArrival?: boolean
+  /** 实际签收时间（任意园区 signedAt 之最大值） */
+  signedAt?: Timestamp
+  /** 签收相对 expectedLoadTime 的总耗时（小时，演示用 1 位小数） */
+  deliveryHours?: number
+  /** 是否及时到货（按 direction SLA 判定，缺省 8h） */
+  isOnTimeDelivery?: boolean
+  /** direction 方向（用于按方向分组） */
+  direction: string
+  /** 发运方式（用于按发运方式分组） */
+  shippingMethod: string
+  /** 园区 ID 列表（用于按装货园区分组） */
+  yardIds: string[]
+}
+
+/** 及时到场阈值（分钟）：主园区 enteredAt 与 expectedLoadTime 偏差在此范围内算及时 */
+export const ON_TIME_ARRIVAL_TOLERANCE_MIN = 30
+
+/** 及时到货默认 SLA（小时）：无 direction 配置时 fallback */
+export const ON_TIME_DELIVERY_DEFAULT_HOURS = 8
+
+/** 各 direction 默认 SLA（小时）— 演示用，越近越短 */
+export const DIRECTION_DELIVERY_SLA_HOURS: Record<string, number> = {
+  苏州: 4,
+  上海: 6,
+  杭州: 8,
+  南京: 8,
+  无锡: 4,
+  常州: 5,
 }
 export const VOID_REASON_LABEL: Record<string, string> = {
   order_error: '订单信息错误',

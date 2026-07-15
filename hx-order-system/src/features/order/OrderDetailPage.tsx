@@ -1,55 +1,64 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Descriptions, Card, Tag, Button, Row, Col, Empty, Space, Steps, Alert,
-  Modal, Form, Select, Radio, Input, message,
+  Descriptions, Card, Tag, Button, Row, Col, Empty, Space, Alert, Tooltip,
+  Modal, Form, Select, Radio, Input, message, Typography,
 } from 'antd'
-import { ArrowLeftOutlined } from '@ant-design/icons'
-import { PageContainer, renderYardNames, StatusTag } from '@/components'
+const { Text } = Typography
+import {
+  ArrowLeftOutlined, TruckOutlined, EnvironmentOutlined,
+  CheckCircleOutlined,
+} from '@ant-design/icons'
+// ❌ v0.3.0-M2.2 删除:QRCode / Image / InboxOutlined / copyToClipboard(客户签收全链路已下线)
+import { PageContainer, renderYardNames, StatusTag, DISPATCH_STATUS_MAP, DispatchFlowHeader, DispatchVehicleModal, BoolTags } from '@/components'
 import { useDispatchStore, useDictStore, useAuthStore } from '@/stores'
 import type { DispatchStatus } from '@/types'
-import { DISPATCH_STATUS_OPTIONS } from '@/types'
-
-/** DispatchStatus 字典（用于 StatusTag 注入） */
-const DISPATCH_STATUS_MAP = Object.fromEntries(
-  DISPATCH_STATUS_OPTIONS.map((o) => [o.value, { label: o.label, color: o.color }]),
-) as Record<DispatchStatus, { label: string; color: string }>
 import {
   SHIPPING_METHOD_LABEL, SHIPPING_METHOD_COLOR, TRUCK_SIZE_LABEL,
   VOID_REASON_OPTIONS, VOID_REASON_LABEL,
 } from '@/types/dispatch'
 import type { Dispatch } from '@/types/dispatch'
-import { ORDER_BOARD_COLUMNS, ORDER_STATUS_OPTIONS } from '@/types/order'
-import { deriveOrderStatus, orderSubStatusLabel } from '@/utils/orderStatus'
 import { formatDateTime, nowIsoString } from '@/utils'
-import { pushDepartNotify, pushLoadingNotify } from '@/services/dingtalk'
 import { GoodsTable } from '@/features/marketing/dispatch/components/GoodsTable'
 import { YardTimelineView } from '@/features/warehouse/components/YardTimelineView'
-import { NotifyDepartModal } from '@/features/warehouse/components/NotifyDepartModal'
+import { NotifyLoadingModal } from '@/features/warehouse/components/NotifyLoadingModal'
+import { DevActions } from '@/devtools/DevActions'
 
 /**
- * 统一订单详情页（M3 阶段：GPS 自动打卡 + 库房主动推进）
+ * 统一订单详情页（v0.3.0-M2.2：状态机 v2 - 移除客户签收）
  *
  * 状态流转操作（按 dispatch.status switch）：
  *  - pending_confirm: 确认受理 / 取消订单
- *  - dispatched:      通知出发（弹 NotifyDepartModal，H5 推送）
+ *  - dispatched:      等待 GPS / 司机扫码入场
+ *  - queued:          等待库房员通知入场(Mock 道闸放行)
  *  - entering:        通知装货（库房主动推进 loading）
  *  - loading:         装货完成（库房主动推进 leaving）
  *  - leaving:         等待 GPS 离厂（仅 Tag）
+ *  - in_transit:      在途中(司机 H5 可确认到达)
+ *  - driver_confirmed: 司机已确认到达 → 链式 completed
  *  - completed/cancelled: 仅 Tag
+ *
+ * ❌ v0.3.0-M2.2 删除：
+ *  - 客户签收链接 Modal（signUrl / 复制 / 二维码）
+ *  - 签收照片 Card（signaturePhotos / signatureNote / signedAt）
+ *  - arrived_by_gps / customer_signed 两个 case
+ *  - 工具：H5_BASE_URL / generateSignToken / buildSignUrl / getTokenRemainingHours
  */
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { list, load, save, markLoadingCompleted, notifyLoading } = useDispatchStore()
+  const {
+    list, load, save, markLoadingCompleted,
+  } = useDispatchStore()
   const { yards, vehicles, drivers, loadYards, loadVehicles, loadDrivers } = useDictStore()
   const currentUser = useAuthStore((s) => s.currentUser)
 
   const [dispatchModalOpen, setDispatchModalOpen] = useState(false)
-  const [dispatchForm] = Form.useForm()
+  // 派车 Modal Form 由 <DispatchVehicleModal> 内部自管(无 useForm 必要)
   const [voidModalOpen, setVoidModalOpen] = useState(false)
   const [voidForm] = Form.useForm<{ reasonKey: string; reasonText?: string }>()
   const [departOpen, setDepartOpen] = useState(false)
+  // ❌ v0.3.0-M2.2 删除：signUrlOpen / signUrl / signTokenTtl 状态
 
   useEffect(() => {
     if (!list.length) load()
@@ -74,10 +83,6 @@ export function OrderDetailPage() {
     )
   }
 
-  const orderStatus = deriveOrderStatus(record)
-  const orderOpt = ORDER_STATUS_OPTIONS.find((o) => o.value === orderStatus)
-  const boardIndex = ORDER_BOARD_COLUMNS.indexOf(orderStatus)
-
   // —— 状态流转操作 ——
 
   const handleConfirm = async () => {
@@ -90,35 +95,21 @@ export function OrderDetailPage() {
     message.success('已取消订单')
   }
 
-  const handleDispatch = async () => {
-    try {
-      const values = await dispatchForm.validateFields()
-      const vehicle = vehicles.find((v) => v.id === values.vehicleId)
-      const driver = drivers.find((d) => d.id === values.driverId)
-      await save({
-        ...record,
-        status: 'dispatched' as DispatchStatus,
-        vehicleId: vehicle?.id,
-        vehicleNo: vehicle?.plateNo,
-        driverId: driver?.id,
-        driverName: driver?.name,
-        dispatcherName: values.dispatcherName,
-        dispatchedAt: nowIsoString(),
-      })
-      message.success('派车成功')
-      setDispatchModalOpen(false)
-    } catch {
-      // 校验失败
-    }
-  }
-
-  /** 库房"通知装货" */
-  const handleNotifyLoading = async () => {
-    if (!activeYard) return
-    const ts = nowIsoString()
-    await notifyLoading(record.id, activeYard.yardId, ts)
-    await pushLoadingNotify({ dispatch: record, yardId: activeYard.yardId })
-    message.success(`已通知装货：${activeYard.yardName || activeYard.yardId}`)
+  const handleDispatch = async (values: { vehicleId: string; driverId: string; dispatcherName?: string }) => {
+    const vehicle = vehicles.find((v) => v.id === values.vehicleId)
+    const driver = drivers.find((d) => d.id === values.driverId)
+    await save({
+      ...record,
+      status: 'dispatched' as DispatchStatus,
+      vehicleId: vehicle?.id,
+      vehicleNo: vehicle?.plateNo,
+      driverId: driver?.id,
+      driverName: driver?.name,
+      dispatcherName: values.dispatcherName,
+      dispatchedAt: nowIsoString(),
+    })
+    message.success('派车成功')
+    setDispatchModalOpen(false)
   }
 
   /** 库房"装货完成" */
@@ -127,6 +118,10 @@ export function OrderDetailPage() {
     await markLoadingCompleted(record.id, activeYard.yardId, nowIsoString())
     message.success(`已标记 ${activeYard.yardName || activeYard.yardId} 装货完成`)
   }
+
+  // ====== v0.2.0-M2：到货处理 4 步 ======
+
+  // ❌ v0.3.0-M2.2 删除:handleGenerateSignUrl(客户签收全链路已下线)
 
   const handleVoidSubmit = async () => {
     if (!currentUser) return
@@ -162,7 +157,7 @@ export function OrderDetailPage() {
       case 'dispatching':
         return (
           <Space>
-            <Button type="primary" onClick={() => { dispatchForm.resetFields(); setDispatchModalOpen(true) }}>
+            <Button type="primary" onClick={() => setDispatchModalOpen(true)}>
               派车
             </Button>
             <Button danger onClick={() => { voidForm.resetFields(); voidForm.setFieldsValue({ reasonKey: 'order_error' }); setVoidModalOpen(true) }}>
@@ -172,21 +167,52 @@ export function OrderDetailPage() {
         )
       case 'dispatched':
         return (
-          <Button type="primary" onClick={() => setDepartOpen(true)}>
-            通知出发
-          </Button>
+          <Space>
+            <Tooltip title="真实阶段：车辆硬件 GPS 入园后系统自动转 entering；mock 阶段：用下方「演示：GPS 入库」按钮模拟">
+              <Tag color="cyan" icon={<EnvironmentOutlined />}>等待 GPS 入园</Tag>
+            </Tooltip>
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
+          </Space>
         )
+      // v0.2.0-M2.2：库房员「通知装货」入口（entering 状态点）
       case 'entering':
         return (
           <Space>
-            <Button type="primary" onClick={handleNotifyLoading}>通知装货</Button>
-            <StatusTag value="entering" map={DISPATCH_STATUS_MAP} />
+            <Button type="primary" onClick={() => setDepartOpen(true)}>
+              通知装货
+            </Button>
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
           </Space>
         )
       case 'loading':
         return <Button type="primary" onClick={handleLoadingComplete}>装货完成</Button>
       case 'leaving':
-        return <StatusTag value="leaving" map={DISPATCH_STATUS_MAP} />
+        return (
+          <Space>
+            <StatusTag value="leaving" map={DISPATCH_STATUS_MAP} />
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
+          </Space>
+        )
+      // ====== v0.2.0-M2：到货处理 4 步 ======
+      case 'in_transit':
+        return (
+          <Space>
+            <Tag color="gold" icon={<TruckOutlined />}>在途中</Tag>
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
+          </Space>
+        )
+      // ❌ v0.3.0-M2.2 删除:case 'arrived_by_gps'(GPS 入客户园区统一合并到 queued)
+      case 'driver_confirmed':
+        return (
+          <Space>
+            <Tag color="cyan" icon={<CheckCircleOutlined />}>司机已确认到达</Tag>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              （系统自动链式 completed）
+            </Text>
+            <DevActions record={record} activeYardId={activeYard?.yardId} />
+          </Space>
+        )
+      // ❌ v0.3.0-M2.2 删除:case 'customer_signed'(客户签收全链路已下线,completed 直接由 driver_confirmed 触发)
       case 'completed':
         return <StatusTag value="completed" map={DISPATCH_STATUS_MAP} />
       case 'cancelled':
@@ -203,39 +229,8 @@ export function OrderDetailPage() {
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>返回</Button>
       }
     >
-      {/* 订单主状态进度条 + 操作区 */}
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Row align="middle" gutter={16}>
-          <Col flex="auto">
-            {orderStatus === 'cancelled' || orderStatus === 'draft' ? (
-              <Space>
-                <span>订单主状态：</span>
-                <Tag color={orderOpt?.color}>{orderOpt?.emoji} {orderOpt?.label}</Tag>
-                <span style={{ color: '#999' }}>当前子状态</span>
-                <StatusTag value={record.status} map={DISPATCH_STATUS_MAP} />
-              </Space>
-            ) : (
-              <Steps
-                size="small"
-                current={boardIndex}
-                items={ORDER_BOARD_COLUMNS.map((c) => {
-                  const o = ORDER_STATUS_OPTIONS.find((x) => x.value === c)!
-                  return {
-                    title: o.label,
-                    description: c === orderStatus ? orderSubStatusLabel(record) : o.dept,
-                  }
-                })}
-              />
-            )}
-          </Col>
-          <Col>
-            <Space direction="vertical" align="end" size={4}>
-              <span style={{ fontSize: 12, color: '#999' }}>推进部门：{orderOpt?.dept}</span>
-              {renderActions()}
-            </Space>
-          </Col>
-        </Row>
-      </Card>
+      {/* 订单主状态进度条 + 操作区(统一调车单流程栏,与 DispatchDetailPage/WarehouseDispatchDetailPage 一致) */}
+      <DispatchFlowHeader dispatch={record} renderActions={renderActions} />
 
       <Row gutter={16}>
         <Col span={16}>
@@ -260,9 +255,7 @@ export function OrderDetailPage() {
                 ) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="拼车 / 紧急">
-                {record.isCarpool && <Tag color="purple">拼车</Tag>}
-                {record.isUrgent && <Tag color="red">紧急</Tag>}
-                {!record.isCarpool && !record.isUrgent && '-'}
+                <BoolTags isUrgent={record.isUrgent} isCarpool={record.isCarpool} />
               </Descriptions.Item>
               <Descriptions.Item label="车辆">{record.vehicleNo || '未派车'}</Descriptions.Item>
               <Descriptions.Item label="司机">{record.driverName || '未派车'}</Descriptions.Item>
@@ -276,6 +269,7 @@ export function OrderDetailPage() {
           <Card title={`货物清单（${record.goods.length}）`} size="small">
             <GoodsTable goods={record.goods} />
           </Card>
+
         </Col>
 
         <Col span={8}>
@@ -289,45 +283,19 @@ export function OrderDetailPage() {
         </Col>
       </Row>
 
-      {/* 派车 Modal（复用派车调度页逻辑） */}
-      <Modal
-        title={`派车 - ${record.dispatchNo}`}
+      {/* 派车 Modal（统一走公共组件 <DispatchVehicleModal>） */}
+      <DispatchVehicleModal
         open={dispatchModalOpen}
+        dispatchNo={record.dispatchNo}
+        vehicles={vehicles
+          .filter((v) => v.status === 'enabled' && (!record.companyId || v.companyId === record.companyId))
+          .map((v) => ({ id: v.id, plateNo: v.plateNo, maxLoad: v.maxLoad, length: v.length }))}
+        drivers={drivers
+          .filter((d) => d.status === 'enabled' && (!record.companyId || d.companyId === record.companyId))
+          .map((d) => ({ id: d.id, name: d.name, phone: d.phone }))}
         onCancel={() => setDispatchModalOpen(false)}
         onOk={handleDispatch}
-        okText="确认派车"
-        width={600}
-      >
-        <Form form={dispatchForm} layout="vertical">
-          <Form.Item name="vehicleId" label="选择车辆" rules={[{ required: true, message: '请选择车辆' }]}>
-            <Select
-              placeholder="请选择车辆"
-              showSearch
-              optionFilterProp="label"
-              options={vehicles
-                .filter((v) => v.status === 'enabled' && (!record.companyId || v.companyId === record.companyId))
-                .map((v) => ({ value: v.id, label: `${v.plateNo}（${v.maxLoad}t / ${v.length}m）` }))}
-            />
-          </Form.Item>
-          <Form.Item name="driverId" label="选择司机" rules={[{ required: true, message: '请选择司机' }]}>
-            <Select
-              placeholder="请选择司机"
-              showSearch
-              optionFilterProp="label"
-              options={drivers
-                .filter((d) => d.status === 'enabled' && (!record.companyId || d.companyId === record.companyId))
-                .map((d) => ({ value: d.id, label: `${d.name}（${d.phone}）` }))}
-            />
-          </Form.Item>
-          <Form.Item name="dispatcherName" label="调车员（备注）">
-            <Select
-              placeholder="可选"
-              allowClear
-              options={[{ value: '周文', label: '周文' }, { value: '吴峰', label: '吴峰' }]}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+      />
 
       {/* 作废 Modal */}
       <Modal
@@ -364,14 +332,16 @@ export function OrderDetailPage() {
         </Form>
       </Modal>
 
-      {/* 通知出发 Modal（M3 替换原 NotifyEnterModal） */}
-      <NotifyDepartModal
+      {/* 通知装货 Modal（v0.2.0-M2.2：库房员在 entering 状态点） */}
+      <NotifyLoadingModal
         open={departOpen}
         dispatch={record}
         yardId={activeYard?.yardId || null}
         yardName={activeYard?.yardName}
         onClose={() => setDepartOpen(false)}
       />
+
+      {/* ❌ v0.3.0-M2.2 删除:客户签收链接 Modal(全链路已下线) */}
     </PageContainer>
   )
 }

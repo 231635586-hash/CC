@@ -11,7 +11,8 @@
 import { onLoad } from '@dcloudio/uni-app'
 import { ref, computed } from 'vue'
 import { MOCK_DISPATCHES, type DispatchMock } from '@/mock/dispatches'
-import { DISPATCH_STATUS_MAP } from '@/constants/dispatchStatus'
+import { DISPATCH_STATUS_MAP, isStepReached } from '@/constants/dispatchStatus'
+import StatusTag from '@/components/StatusTag.vue'
 
 interface YardInfo {
   id: string
@@ -47,6 +48,8 @@ interface DetailData {
   customerAddress: string
   customerContact: string
   customerPhone: string
+  /** v0.2.0-M2：客户园区 GPS（用于一键导航到客户地址） */
+  /** v0.2.0-M2：库房员已生成的签收链接（司机展示给客户备用） */
   companyName: string
   companyPhone: string
   vehicleNo: string
@@ -88,6 +91,7 @@ function loadDetail(id: string) {
     customerAddress: mock.customerAddress,
     customerContact: '周婷',
     customerPhone: '13566778899',
+    // ❌ v0.3.0-M2.2 删除:客户园区坐标 / signUrl(客户签收全链路已下线,司机 H5 直接确认到达即完成)
     companyName: mock.companyName,
     companyPhone: '13800138002',
     vehicleNo: mock.vehicleNo || '-',
@@ -98,18 +102,42 @@ function loadDetail(id: string) {
       { materialCode: 'MAT-DEMO-B2', materialName: '包装箱', quantity: 40, unit: '箱', weight: 800 },
     ],
     timeline: [
-      { status: 'pending', label: '订单待确认', time: '09:00', done: true },
-      { status: 'confirmed', label: '已确认受理', time: '09:30', done: true },
-      { status: 'dispatched', label: '已派车出发', time: '13:30', done: true },
-      { status: 'entering', label: 'GPS 自动入园', time: '13:45', done: true },
-      { status: 'loading', label: '库房通知装货', time: '14:00', done: true },
-      { status: 'leaving', label: '正在装货', time: '14:30', done: mock.status !== 'dispatched' && mock.status !== 'entering' && mock.status !== 'loading' },
-      { status: 'completed', label: '装货完成离厂', time: '16:00', done: mock.status === 'completed' },
+      { status: 'pending_confirm', label: '订单待确认', time: '09:00', done: isStepReached('pending_confirm', mock.status) },
+      { status: 'confirmed', label: '已确认受理', time: '09:30', done: isStepReached('confirmed', mock.status) },
+      { status: 'dispatched', label: '已派车出发', time: '13:30', done: isStepReached('dispatched', mock.status) },
+      { status: 'entering', label: 'GPS 自动入园', time: '13:45', done: isStepReached('entering', mock.status) },
+      { status: 'loading', label: '库房通知装货', time: '14:00', done: isStepReached('loading', mock.status) },
+      { status: 'leaving', label: '装货完成离厂', time: '14:30', done: isStepReached('leaving', mock.status) },
+      // v0.2.0-M2 → v0.3.0-M2.2：到货处理简化（移除 arrived_by_gps / customer_signed 中间态）
+      { status: 'in_transit', label: '在途', time: '15:00', done: isStepReached('in_transit', mock.status) },
+      { status: 'driver_confirmed', label: '司机确认到达', time: '16:05', done: isStepReached('driver_confirmed', mock.status) },
     ],
     remark: '客户催货，优先派车',
   }
 }
 
+/** v0.2.0-M2：司机手动确认到达（H5 端动作） */
+function confirmArrival() {
+  if (!detail.value) return
+  uni.showModal({
+    title: '确认到达客户园区',
+    content: `订单 ${detail.value.dispatchNo} 已到达 ${detail.value.customerName}？\n\n确认后状态将变为「司机确认」，等待客户签收。`,
+    confirmText: '确认到达',
+    success: (res) => {
+      if (res.confirm) {
+        const newStatus = 'driver_confirmed'
+        // 1) 更新本地详情视图
+        detail.value!.status = newStatus
+        // 2) 回写 MOCK_DISPATCHES,确保返回列表时状态一致
+        const idx = MOCK_DISPATCHES.findIndex((d) => d.id === detail.value!.id)
+        if (idx >= 0) MOCK_DISPATCHES[idx].status = newStatus
+        uni.showToast({ title: '已确认到达', icon: 'success' })
+      }
+    },
+  })
+}
+
+// ❌ v0.3.0-M2.2 删除：openCustomerNavi（客户签收全链路已下线,司机 H5 直接确认到达）
 function callPhone(phone: string, name: string) {
   if (!phone) {
     uni.showToast({ title: `${name}电话未填写`, icon: 'none' })
@@ -138,6 +166,8 @@ function copyAddress() {
   })
 }
 
+// ❌ v0.3.0-M2.2 删除：shareSignUrl
+
 onLoad((query: any) => {
   dispatchId.value = query?.id || 'mock-dispatch-012'
   loadDetail(dispatchId.value)
@@ -146,21 +176,11 @@ onLoad((query: any) => {
 
 <template>
   <view class="page" v-if="detail">
-    <!-- 顶部导航 -->
-    <view class="status-bar"></view>
-    <view class="navbar">
-      <view class="nav-back" @click="uni.navigateBack">‹</view>
-      <text class="nav-title">派车单详情</text>
-      <view class="nav-spacer"></view>
-    </view>
-
     <!-- 顶部摘要 -->
     <view class="summary">
       <view class="summary-row">
         <text class="dispatch-no">{{ detail.dispatchNo }}</text>
-        <view :class="['status-tag', 'tag-' + DISPATCH_STATUS_MAP[detail.status as keyof typeof DISPATCH_STATUS_MAP]?.cssClass]">
-          {{ DISPATCH_STATUS_MAP[detail.status as keyof typeof DISPATCH_STATUS_MAP]?.label || detail.status }}
-        </view>
+        <StatusTag :status="detail.status as any" />
       </view>
       <view class="summary-row2">
         <text class="direction">方向：{{ detail.direction }}</text>
@@ -270,10 +290,37 @@ onLoad((query: any) => {
       </view>
     </view>
 
+    <!-- v0.3.0-M2.2 v2：driver_confirmed/completed 状态横幅 -->
+    <view v-if="detail.status === 'driver_confirmed' || detail.status === 'completed'" class="arrival-banner confirmed">
+      <image class="banner-icon" src="/static/icons/checked.svg" mode="aspectFit" />
+      <view class="banner-content">
+        <text class="banner-title">{{ detail.status === 'completed' ? '订单已完成' : '司机已确认到达' }}</text>
+        <text class="banner-tip">v0.3.0-M2.2 v2: 确认到达即完成,无需客户签收</text>
+      </view>
+    </view>
+
     <!-- 底部操作栏 -->
     <view class="bottom-bar">
       <button class="btn-secondary" @click="callPhone(detail.companyPhone, '物流公司')">联系物流</button>
-      <button class="btn-primary" @click="openNavi(detail.yards[0])">🧭 一键导航</button>
+      <!-- v0.3.0-M2.2 v2:按状态切换主操作按钮(司机确认到达 → 自动完成,无客户签收步骤) -->
+      <template v-if="detail.status === 'in_transit'">
+        <button class="btn-primary btn-confirm" @click="confirmArrival">
+          <image class="btn-icon" src="/static/icons/checked.svg" mode="aspectFit" />
+          确认到达客户
+        </button>
+      </template>
+      <template v-else-if="detail.status === 'driver_confirmed' || detail.status === 'completed'">
+        <button class="btn-primary" disabled>
+          <image class="btn-icon" src="/static/icons/done.svg" mode="aspectFit" />
+          订单已完成
+        </button>
+      </template>
+      <template v-else>
+        <button class="btn-primary" @click="openNavi(detail.yards[0])">
+          <image class="btn-icon" src="/static/icons/compass.svg" mode="aspectFit" />
+          一键导航
+        </button>
+      </template>
     </view>
   </view>
 
@@ -289,39 +336,26 @@ onLoad((query: any) => {
   background: var(--color-bg);
   padding-bottom: 160rpx;
 }
-
-.status-bar {
-  height: 40rpx;
-  background: var(--color-brand);
+/* Frame 模式下：用 100% 替代 100vh，避免撑爆 Frame */
+html.hx-frame-on .page {
+  min-height: 100% !important;
+  height: 100%;
+  overflow-y: auto;
 }
 
-.navbar {
-  height: 88rpx;
-  background: var(--color-brand);
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-md);
-  position: sticky;
-  top: 0;
-  z-index: 100;
+/* Frame 模式下：.summary 不再被原生 nav bar 遮挡（nav bar 自带 44px 顶部空间） */
+html.hx-frame-on .summary {
+  margin-top: 0;
 }
-.nav-back {
-  width: 60rpx;
-  height: 60rpx;
-  font-size: 56rpx;
-  color: var(--color-text-on-brand);
-  line-height: 60rpx;
-  text-align: center;
+
+/* Frame 模式下：.bottom-bar 改 absolute + 让 padding-bottom 给 Indie 留位置 */
+html.hx-frame-on .bottom-bar {
+  position: absolute !important;
+  bottom: 0 !important;
+  max-width: 390px !important;
+  width: 100% !important;
+  z-index: 100 !important;
 }
-.nav-title {
-  flex: 1;
-  text-align: center;
-  font-size: var(--font-size-card-title);
-  font-weight: 600;
-  color: var(--color-text-on-brand);
-  margin-right: 60rpx;
-}
-.nav-spacer { width: 60rpx; }
 
 .summary {
   background: var(--gradient-brand);
@@ -345,18 +379,7 @@ onLoad((query: any) => {
   opacity: 0.9;
 }
 
-.status-tag {
-  font-size: var(--font-size-mini);
-  padding: 6rpx 18rpx;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-}
-.tag-pending { color: var(--color-status-pending-text); background: var(--color-status-pending-bg); }
-.tag-entering { color: var(--color-status-entering-text); background: var(--color-status-entering-bg); }
-.tag-loading { color: var(--color-status-loading-text); background: var(--color-status-loading-bg); }
-.tag-leaving { color: var(--color-status-leaving-text); background: var(--color-status-leaving-bg); }
-.tag-completed { color: var(--color-status-completed-text); background: var(--color-status-completed-bg); }
-.tag-cancelled { color: var(--color-status-cancelled-text); background: var(--color-status-cancelled-bg); }
+/* 注：状态 Tag CSS 已在 components/StatusTag.vue 中定义（v0.2.x 重构抽出） */
 
 .card {
   background: var(--color-card);
@@ -582,8 +605,147 @@ onLoad((query: any) => {
   min-height: 100vh;
   background: var(--color-bg);
 }
+/* Frame 模式下：loading 页面也要适配 */
+html.hx-frame-on .loading-page {
+  min-height: 100% !important;
+  height: 100%;
+}
 .loading-text {
   font-size: var(--font-size-body);
   color: var(--color-text-secondary);
+}
+
+/* ====== v0.2.0-M2：确认到达按钮 + 到达状态横幅 ====== */
+.btn-confirm {
+  background: var(--color-status-completed) !important;
+  animation: pulse-confirm 1.5s ease-in-out infinite;
+}
+@keyframes pulse-confirm {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+.arrival-banner {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-status-entering-bg);
+  border: 2rpx solid var(--color-status-entering-text);
+  border-radius: var(--radius-lg);
+}
+.arrival-banner.confirmed {
+  background: var(--color-status-completed-bg);
+  border-color: var(--color-status-completed-text);
+}
+.arrival-banner.signed {
+  background: var(--color-status-completed-bg);
+  border-color: var(--color-status-completed-text);
+}
+.banner-icon {
+  width: 64rpx;
+  height: 64rpx;
+  color: var(--color-status-entering-text);
+  flex-shrink: 0;
+}
+.arrival-banner.confirmed .banner-icon,
+.arrival-banner.signed .banner-icon {
+  color: var(--color-status-completed-text);
+}
+.banner-content {
+  flex: 1;
+}
+.banner-title {
+  display: block;
+  font-size: var(--font-size-card-title);
+  font-weight: 600;
+  color: var(--color-status-entering-text);
+  margin-bottom: 4rpx;
+}
+.arrival-banner.confirmed .banner-title,
+.arrival-banner.signed .banner-title {
+  color: var(--color-status-completed-text);
+}
+.banner-tip {
+  display: block;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-regular);
+}
+
+/* ====== v0.2.0-M2：签收链接展示卡 ====== */
+.sign-link-card {
+  background: var(--color-brand-bg);
+  border: 2rpx solid var(--color-brand);
+  border-radius: var(--radius-lg);
+  margin: var(--space-md);
+  padding: var(--space-md);
+}
+.sign-link-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-sm);
+}
+.sign-link-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: 4rpx;
+}
+.sign-link-title-icon {
+  width: 36rpx;
+  height: 36rpx;
+  color: var(--color-brand);
+}
+.sign-link-title {
+  font-size: var(--font-size-card-title);
+  font-weight: 700;
+  color: var(--color-brand);
+}
+.btn-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: var(--space-xs);
+  vertical-align: middle;
+}
+.sign-link-tip {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+.sign-link-url-row {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+.sign-link-url {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-regular);
+  font-family: monospace;
+  word-break: break-all;
+  display: block;
+}
+.sign-link-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+.btn-copy, .btn-share {
+  flex: 1;
+  height: 72rpx;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sub);
+  font-weight: 500;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-copy {
+  background: var(--color-brand);
+  color: var(--color-text-on-brand);
+}
+.btn-share {
+  background: var(--color-card);
+  color: var(--color-brand);
+  border: 1rpx solid var(--color-brand);
 }
 </style>

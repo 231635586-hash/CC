@@ -9,7 +9,31 @@
     {
       "path": "pages/driver/order-detail/index",
       "style": {
-        "navigationBarTitleText": "派车单详情"
+        "navigationBarTitleText": "派车单详情",
+        "navigationBarTextStyle": "white",
+        "navigationBarBackgroundColor": "#1677ff",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/role-select/index",
+      "style": {
+        "navigationBarTitleText": "选择角色",
+        "navigationBarBackgroundColor": "#1677ff",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/salesperson/index",
+      "style": {
+        "navigationBarTitleText": "业务员工作台"
+      }
+    },
+    {
+      "path": "pages/company/index",
+      "style": {
+        "navigationBarTitleText": "物流公司工作台"
       }
     }
   ],
