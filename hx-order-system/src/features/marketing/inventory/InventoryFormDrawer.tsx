@@ -158,7 +158,7 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
       onCancel={onClose}
       width={1100}
       centered
-      destroyOnClose
+      destroyOnHidden
       footer={
         isView ? (
           [
