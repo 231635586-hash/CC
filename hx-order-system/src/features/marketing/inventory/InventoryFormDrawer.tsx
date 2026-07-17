@@ -366,9 +366,8 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
                 name="stockType"
                 label="现货/等货"
                 rules={[{ required: true, message: '请选择现货/等货' }]}
-                initialValue={'in_stock_now' as StockType}
               >
-                <Select options={STOCK_TYPE_OPTIONS} placeholder="现货 / 等货" />
+                <Select options={STOCK_TYPE_OPTIONS} placeholder="请选择 现货 / 等货" />
               </Form.Item>
             </Col>
             <Col span={6}>
