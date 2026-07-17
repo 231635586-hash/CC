@@ -18,7 +18,6 @@ import { useCurrentOperator, resolveOperator } from '@/hooks/useOperator'
 import { FormSection, RequiredHint } from '@/components'
 import {
   MATERIAL_CATEGORY_OPTIONS,
-  STOCK_TYPE_OPTIONS,
   PACKAGING_OPTIONS,
 } from '@/types/inventory'
 import type { Inventory, StockType } from '@/types/inventory'
@@ -367,7 +366,13 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
                 label="现货/等货"
                 rules={[{ required: true, message: '请选择现货/等货' }]}
               >
-                <Select options={STOCK_TYPE_OPTIONS} placeholder="请选择 现货 / 等货" />
+                <Select
+                  options={[
+                    { value: 'in_stock_now', label: '现货' },
+                    { value: 'waiting', label: '等货' },
+                  ]}
+                  placeholder="请选择 现货 / 等货"
+                />
               </Form.Item>
             </Col>
             <Col span={6}>
