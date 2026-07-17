@@ -86,9 +86,6 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
     return undefined
   }, [quantityPerBox, boxCount])
 
-  // 监听现货/等货 → 联动预计到货时间（仅 waiting 时必填且可填；现货时 disabled；提交时清理）
-  const stockTypeWatch = Form.useWatch('stockType', form) as StockType | undefined
-
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
@@ -377,21 +374,27 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
             </Col>
             <Col span={6}>
               <Form.Item
-                name="expectedArrivalAt"
-                label="预计到货时间"
-                rules={
-                  stockTypeWatch === 'waiting'
-                    ? [{ required: true, message: '请选择预计到货时间' }]
-                    : []
-                }
+                noStyle
+                shouldUpdate={(prev, curr) => prev.stockType !== curr.stockType}
               >
-                <DatePicker
-                  style={{ width: '100%' }}
-                  placeholder={stockTypeWatch === 'waiting' ? '选择日期' : '现货无需填写'}
-                  disabledDate={(current) => !!current && current < dayjs().startOf('day')}
-                  format="YYYY-MM-DD"
-                  disabled={stockTypeWatch !== 'waiting'}
-                />
+                {({ getFieldValue }) => {
+                  const st = getFieldValue('stockType') as StockType | undefined
+                  if (st !== 'waiting') return null
+                  return (
+                    <Form.Item
+                      name="expectedArrivalAt"
+                      label="预计到货时间"
+                      rules={[{ required: true, message: '请选择预计到货时间' }]}
+                    >
+                      <DatePicker
+                        style={{ width: '100%' }}
+                        placeholder="选择日期"
+                        disabledDate={(current) => !!current && current < dayjs().startOf('day')}
+                        format="YYYY-MM-DD"
+                      />
+                    </Form.Item>
+                  )
+                }}
               </Form.Item>
             </Col>
             <Col span={6}>
