@@ -50,7 +50,14 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
   useEffect(() => {
     if (open) {
       if (inventory) {
-        form.setFieldsValue(inventory)
+        // expectedArrivalAt 需转 dayjs 对象（antd DatePicker 要求）；现货状态设为 undefined
+        form.setFieldsValue({
+          ...inventory,
+          expectedArrivalAt:
+            inventory.stockType === 'waiting' && inventory.expectedArrivalAt
+              ? dayjs(inventory.expectedArrivalAt)
+              : undefined,
+        })
         const c = customers.find((c) => c.id === inventory.customerId)
         setSelectedCustomer(c || null)
       } else {
