@@ -131,6 +131,9 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
             // 从来源库存带入业务员（与库存录入人保持一致）
             salesPersonId: inv.salesPersonId,
             salesPersonName: inv.salesPersonName,
+            // 从来源库存快照现货/等货 + 预计到货时间（创建时锁定，库存后续变更不影响）
+            stockType: inv.stockType,
+            expectedArrivalAt: inv.expectedArrivalAt,
             remark: `从库存 ${inv.id} 关联，订单类型：${ORDER_TYPE_LABEL[inv.orderType]}`,
           }))
         form.setFieldValue('_pendingGoods', initial)
@@ -163,6 +166,9 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
         // 从来源库存带入业务员（与库存录入人保持一致）
         salesPersonId: inv.salesPersonId,
         salesPersonName: inv.salesPersonName,
+        // 从来源库存快照现货/等货 + 预计到货时间（创建时锁定，库存后续变更不影响）
+        stockType: inv.stockType,
+        expectedArrivalAt: inv.expectedArrivalAt,
         remark: `从库存 ${inv.id} 关联，订单类型：${ORDER_TYPE_LABEL[inv.orderType]}`,
       }))
     form.setFieldValue('_pendingGoods', [

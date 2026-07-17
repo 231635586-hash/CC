@@ -1,5 +1,7 @@
 import { Table, Tag, Tooltip } from 'antd'
+import dayjs from 'dayjs'
 import type { DispatchGoods } from '@/types/dispatch'
+import { STOCK_TYPE_LABEL } from '@/types/inventory'
 
 interface Props {
   goods: DispatchGoods[]
@@ -23,6 +25,30 @@ export function GoodsTable({ goods }: Props) {
         { title: '数量', dataIndex: 'quantity', width: 80 },
         { title: '单位', dataIndex: 'unit', width: 60 },
         { title: '重量(kg)', dataIndex: 'weight', width: 100 },
+        {
+          title: '现货/等货',
+          dataIndex: 'stockType',
+          width: 100,
+          render: (v: string | undefined) => {
+            if (!v) return <span style={{ color: '#ccc' }}>-</span>
+            const isWaiting = v === 'waiting'
+            return (
+              <Tag color={isWaiting ? 'orange' : 'green'}>
+                {STOCK_TYPE_LABEL[v as keyof typeof STOCK_TYPE_LABEL] ?? v}
+              </Tag>
+            )
+          },
+        },
+        {
+          title: '预计到货时间',
+          dataIndex: 'expectedArrivalAt',
+          width: 130,
+          render: (v: string | undefined, g: { stockType?: string }) => {
+            // 仅等货物显示日期；现货或无值显示 -
+            if (g.stockType !== 'waiting' || !v) return <span style={{ color: '#ccc' }}>-</span>
+            return dayjs(v).format('YYYY-MM-DD')
+          },
+        },
         { title: '客户', dataIndex: 'customerName' },
         {
           title: '库存业务员',
