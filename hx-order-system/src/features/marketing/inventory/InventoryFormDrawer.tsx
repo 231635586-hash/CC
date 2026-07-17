@@ -10,7 +10,9 @@ import {
   Row,
   Col,
   AutoComplete,
+  DatePicker,
 } from 'antd'
+import dayjs from 'dayjs'
 import { useInventoryStore, useDictStore } from '@/stores'
 import { useCurrentOperator, resolveOperator } from '@/hooks/useOperator'
 import { FormSection, RequiredHint } from '@/components'
@@ -77,6 +79,14 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
     }
     return undefined
   }, [quantityPerBox, boxCount])
+
+  // 监听现货/等货 → 联动预计到货时间（仅 waiting 时必填且可填；切换回现货时清空字段）
+  const stockTypeWatch = Form.useWatch('stockType', form) as StockType | undefined
+  useEffect(() => {
+    if (stockTypeWatch !== 'waiting') {
+      form.setFieldValue('expectedArrivalAt', undefined)
+    }
+  }, [stockTypeWatch, form])
 
   const handleSubmit = async () => {
     try {
@@ -352,6 +362,25 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
                 initialValue={'in_stock_now' as StockType}
               >
                 <Select options={STOCK_TYPE_OPTIONS} placeholder="现货 / 等货" />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item
+                name="expectedArrivalAt"
+                label="预计到货时间"
+                rules={
+                  stockTypeWatch === 'waiting'
+                    ? [{ required: true, message: '请选择预计到货时间' }]
+                    : []
+                }
+              >
+                <DatePicker
+                  style={{ width: '100%' }}
+                  placeholder={stockTypeWatch === 'waiting' ? '选择日期' : '现货无需填写'}
+                  disabledDate={(current) => !!current && current < dayjs().startOf('day')}
+                  format="YYYY-MM-DD"
+                  disabled={stockTypeWatch !== 'waiting'}
+                />
               </Form.Item>
             </Col>
             <Col span={6}>

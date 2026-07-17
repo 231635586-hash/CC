@@ -50,7 +50,7 @@ const TEMPLATE_HEADERS = [
   '归属', '客户编号', '客户名称', '发货地',
   '类别', '物料编码', '产品名称', '图号',
   '单箱数量', '箱数', '单重(kg)', '箱重(kg)', '净重(kg)',
-  '单箱隔板重(kg)', '隔板总重(kg)', '吨位/车', '现货/等货',
+  '单箱隔板重(kg)', '隔板总重(kg)', '吨位/车', '现货/等货', '预计到货时间',
   '客户物料编码', '条码编号', '生产编号',
   '订单类型', '包装类型', '库龄(天)', '备注',
 ]
@@ -203,6 +203,38 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
           if (!stockTypeLabel) errors.push('现货/等货必填')
           else if (!stockType) errors.push(`现货/等货【${stockTypeLabel}】只能填 现货 / 等货`)
 
+          // 预计到货时间（仅等货时必填；Excel 日期序列号 → ISO 字符串）
+          const expectedArrivalRaw = row['预计到货时间']
+          let expectedArrivalAt: string | undefined = undefined
+          if (expectedArrivalRaw !== '' && expectedArrivalRaw != null) {
+            // xlsx 解析后日期可能是 number(Excel序列号) 或 string(YYYY-MM-DD 或 YYYY/MM/DD)
+            if (typeof expectedArrivalRaw === 'number') {
+              // Excel 序列号：转 JS Date 再格式化
+              const ms = (expectedArrivalRaw - 25569) * 86400 * 1000
+              expectedArrivalAt = new Date(ms).toISOString()
+            } else {
+              const str = String(expectedArrivalRaw).trim()
+              // 接受 YYYY-MM-DD 或 YYYY/MM/DD 格式
+              const m = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+              if (m) {
+                const [, y, mo, d] = m
+                expectedArrivalAt = `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}T00:00:00.000Z`
+              } else {
+                errors.push(`预计到货时间【${str}】格式错误（请填 YYYY-MM-DD）`)
+              }
+            }
+            // 校验必须 ≥ 今天
+            if (expectedArrivalAt) {
+              const arrival = new Date(expectedArrivalAt)
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+              if (arrival < today) errors.push('预计到货时间不能早于今天')
+            }
+          }
+          if (stockType === 'waiting' && !expectedArrivalAt) {
+            errors.push('等货状态必须填写预计到货时间')
+          }
+
           // 订单类型 / 包装（可选）
           const orderTypeLabel = String(row['订单类型'] || '').trim()
           const orderType = orderTypeLabel ? ORDER_TYPE_VALUE_MAP[orderTypeLabel] : 'normal'
@@ -260,6 +292,7 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
             partitionTotalWeight,
             tonnagePerVehicle,
             stockType,
+            expectedArrivalAt,
             packaging,
             age,
             remark: String(row['备注'] || '').trim() || undefined,
@@ -430,6 +463,13 @@ export function InventoryImportDrawer({ open, onClose, onSuccess }: Props) {
                 dataIndex: ['raw', 'stockType'],
                 width: 90,
                 render: (v: StockType | undefined) => (v ? STOCK_TYPE_LABEL[v] : '-'),
+              },
+              {
+                title: '预计到货时间',
+                dataIndex: ['raw', 'expectedArrivalAt'],
+                width: 120,
+                render: (v: string | undefined) =>
+                  v ? v.slice(0, 10) : '-',
               },
               {
                 title: '校验结果',
