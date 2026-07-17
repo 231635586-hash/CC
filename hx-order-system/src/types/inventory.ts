@@ -1,5 +1,7 @@
 // 库存类型定义 + 枚举常量
 
+import type { Timestamp } from './index'
+
 export type InventoryStatus = 'in_stock' | 'locked' | 'shipped' | 'voided'
 export type OrderType = 'rough_self_use' | 'normal' | 'sample' | 'return'
 export type PackagingType = 'ton_bag' | 'zhongji_ub108' | 'wooden_box'
@@ -66,6 +68,8 @@ export interface Inventory {
   tonnagePerVehicle?: number
   /** 现货/等货 */
   stockType?: StockType
+  /** 预计到货时间（仅 stockType='waiting' 时填写；ISO 日期字符串） */
+  expectedArrivalAt?: Timestamp
 
   packaging?: PackagingType
   status: InventoryStatus
@@ -167,6 +171,8 @@ export interface InventoryImportRow {
   partitionTotalWeight?: number
   tonnagePerVehicle?: number
   stockType?: StockType
+  /** 预计到货时间（仅 stockType='waiting' 时填写；ISO 日期字符串） */
+  expectedArrivalAt?: Timestamp
   packaging?: PackagingType
   age?: number
   remark?: string

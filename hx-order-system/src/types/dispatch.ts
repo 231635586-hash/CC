@@ -1,4 +1,5 @@
 import type { DispatchStatus, Timestamp } from './index'
+import type { StockType } from './inventory'
 
 /** 发运方式 */
 export type ShippingMethod =
@@ -299,4 +300,8 @@ export interface DispatchGoods {
   salesPersonId?: string
   /** 业务员姓名（与 inventory.salesPersonName 一致） */
   salesPersonName?: string
+  /** 现货/等货（从来源库存 inventory.stockType 快照；创建时锁定） */
+  stockType?: StockType
+  /** 预计到货时间（从来源库存 inventory.expectedArrivalAt 快照；仅 waiting 货物有效） */
+  expectedArrivalAt?: Timestamp
 }
