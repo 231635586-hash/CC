@@ -80,13 +80,8 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
     return undefined
   }, [quantityPerBox, boxCount])
 
-  // 监听现货/等货 → 联动预计到货时间（仅 waiting 时必填且可填；切换回现货时清空字段）
+  // 监听现货/等货 → 联动预计到货时间（仅 waiting 时必填且可填；现货时 disabled；提交时清理）
   const stockTypeWatch = Form.useWatch('stockType', form) as StockType | undefined
-  useEffect(() => {
-    if (stockTypeWatch !== 'waiting') {
-      form.setFieldValue('expectedArrivalAt', undefined)
-    }
-  }, [stockTypeWatch, form])
 
   const handleSubmit = async () => {
     try {
@@ -96,6 +91,11 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
         (typeof values.quantityPerBox === 'number' && typeof values.quantity === 'number')
           ? values.quantityPerBox * values.quantity
           : values.totalQuantity
+
+      // 现货状态清理 expectedArrivalAt（避免 stale 数据进入 payload）
+      if (values.stockType !== 'waiting') {
+        delete values.expectedArrivalAt
+      }
 
       const yard = yards.find((y) => y.id === values.yardId)
       const payload = {
