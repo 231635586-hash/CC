@@ -308,7 +308,7 @@ export function DispatchFormDrawer({ open, dispatch, linkedInventoryIds, onClose
       title={dispatch ? `编辑调车单 - ${dispatch.dispatchNo}` : '新建调车单'}
       open={open}
       onCancel={handleCancel}
-      width={1100}
+      width={1280}
       centered
       footer={[
         <Button key="cancel" onClick={handleCancel}>取消</Button>,
