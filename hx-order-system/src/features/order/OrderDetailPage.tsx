@@ -154,7 +154,6 @@ export function OrderDetailPage() {
           </Space>
         )
       case 'confirmed':
-      case 'dispatching':
         return (
           <Space>
             <Button type="primary" onClick={() => setDispatchModalOpen(true)}>

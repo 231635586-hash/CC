@@ -47,7 +47,6 @@ export const DISPATCH_TO_ORDER_STATUS: Record<DispatchStatus, OrderStatus> = {
   draft: 'draft',
   pending_confirm: 'pending_accept',
   confirmed: 'scheduling',
-  dispatching: 'scheduling',
   dispatched: 'scheduling',
   // —— 库房段（M2.2 v2：司机扫码登记排队 → 库房员通知入场）——
   queued: 'fulfilling',

@@ -13,7 +13,6 @@ export type DispatchStatus =
   | 'draft'
   | 'pending_confirm'
   | 'confirmed'
-  | 'dispatching'
   | 'dispatched'
   // —— M2.2 v2 状态机:GPS / 扫码统一入场,新增排队中状态
   | 'queued'           // 排队中(GPS 检测或扫码登记,等待道闸放行)
@@ -32,7 +31,6 @@ export const DISPATCH_STATUS_OPTIONS: { value: DispatchStatus; label: string; co
   { value: 'draft', label: '草稿', color: 'default' },
   { value: 'pending_confirm', label: '待确认', color: 'orange' },
   { value: 'confirmed', label: '已确认', color: 'blue' },
-  { value: 'dispatching', label: '派车中', color: 'processing' },
   { value: 'dispatched', label: '已派车', color: 'cyan' },
   // —— M2.2 v2 新状态:排队中(GPS / 扫码统一入场)
   { value: 'queued', label: '排队中', color: 'gold' },

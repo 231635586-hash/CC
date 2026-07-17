@@ -1070,14 +1070,14 @@ export const mockDispatches: Dispatch[] = [
   },
 
   // ============== M3 演示剧本补全（保证 6 状态全覆盖） ==============
-  // 状态 1/3：dispatching（调度员正在派车）— 操作手册"派车 Modal"演示
+  // 状态 1/3：dispatched（已派车，演示选完车/司机提交后）— 操作手册"派车 Modal"演示
   {
     id: 'mock-dispatch-011',
     dispatchNo: 'DC20260627011',
-    status: 'dispatching',
+    status: 'dispatched',
     direction: '苏州',
     expectedLoadTime: '2026-06-27 18:00:00',
-    remark: '演示：派车中（正在选车/选司机）',
+    remark: '演示：已派车（已选完车/司机）',
     creatorId: 'mock-user-002',
     creatorName: '李营销',
     companyId: 'mock-company-001',
