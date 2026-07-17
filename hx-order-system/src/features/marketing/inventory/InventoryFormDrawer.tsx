@@ -379,18 +379,23 @@ export function InventoryFormDrawer({ open, inventory, customers, onClose }: Pro
               >
                 {({ getFieldValue }) => {
                   const st = getFieldValue('stockType') as StockType | undefined
-                  if (st !== 'waiting') return null
+                  const isWaiting = st === 'waiting'
                   return (
                     <Form.Item
                       name="expectedArrivalAt"
                       label="预计到货时间"
-                      rules={[{ required: true, message: '请选择预计到货时间' }]}
+                      rules={
+                        isWaiting
+                          ? [{ required: true, message: '请选择预计到货时间' }]
+                          : []
+                      }
                     >
                       <DatePicker
                         style={{ width: '100%' }}
-                        placeholder="选择日期"
+                        placeholder={isWaiting ? '选择日期' : '现货无需填写'}
                         disabledDate={(current) => !!current && current < dayjs().startOf('day')}
                         format="YYYY-MM-DD"
+                        disabled={!isWaiting}
                       />
                     </Form.Item>
                   )
