@@ -10,18 +10,16 @@ interface Props {
 /**
  * 调车单多园区时间线视图（v0.3.0-M2.2 状态机 v2）
  *
- * 节点顺序（按时间轴，一条 Timeline 流）：
- *  库房段（每园区）：
- *   1. 排队登记（queuedAt）— blue（M2.2 v2:GPS / 扫码统一入口）
- *   2. 库房通知出发/道闸放行（notifyDepartAt）— cyan
- *   3. 车辆入园（enteredAt）— geekblue + GPS/扫码/人工 标签
- *   4. 库房通知装货（loadingNotifiedAt）— gold
- *   5. 装货完成（loadingCompletedAt）— purple
- *   6. 车辆离厂（leftAt）— green + GPS/扫码/人工 标签
- *  到货段（仅第一个 timeline 拼接，避免多园区重复）：
- *   7. 车辆出厂（leftYardAt）— gold（链式触发 in_transit）
- *   8. GPS 入客户园区（arrivedByGpsAt）— lime（仅作时间记录，不再驱动状态）
- *   9. 司机确认到达（driverConfirmedAt）— cyan + 手动 标签
+ * v1.0 调整：节点按时间戳升序动态排序（不再硬编码业务顺序）
+ * 原因：用户期望"GPS 类"节点按真实发生时间显示；同时兼容
+ * mock 数据或手填数据中 timestamp 略有偏差的场景。
+ *
+ * 字段约定见 types/dispatch.ts YardTimeline 注释：
+ *  库房段：queuedAt → notifyDepartAt → enteredAt → loadingNotifiedAt
+ *          → loadingCompletedAt → leftAt
+ *  到货段（仅 first timeline）：leftYardAt → arrivedByGpsAt → driverConfirmedAt
+ *
+ * 同时间戳时按业务关键度优先级排序，避免抖动。
  *
  *  ❌ v0.3.0-M2.2 删除：客户签收节点（signedAt/signaturePhotos/signatureNote）
  *  因为客户签收 H5 已下线，司机 H5 确认即完成
@@ -33,7 +31,6 @@ export function YardTimelineView({ dispatch }: Props) {
   }
 
   const totalQueue = getTotalQueueMs(dispatch)
-  const firstTl = timelines[0]  // 到货节点演示用第一个 timeline
 
   const renderEnterTag = (y: YardTimeline) => {
     if (y.enteredVia === 'gps') return <Tag color="blue" style={{ marginLeft: 6 }}>GPS</Tag>
@@ -49,6 +46,19 @@ export function YardTimelineView({ dispatch }: Props) {
     return null
   }
 
+  // 同时间戳的业务关键度优先级
+  const PRIO: Record<string, number> = {
+    '排队登记': 1,
+    '通知出发': 2,
+    '入园': 3,
+    '通知装货': 4,
+    '装货完成': 5,
+    '离厂': 6,
+    '车辆出厂': 7,
+    'GPS 入客户园区': 8,
+    '司机确认到达': 9,
+  }
+
   return (
     <div>
       {timelines.map((y: YardTimeline, idx: number) => {
@@ -57,99 +67,93 @@ export function YardTimelineView({ dispatch }: Props) {
             ? new Date(y.enteredAt).getTime() - new Date(y.queuedAt).getTime()
             : 0
 
-        // 库房段节点 + 到货段节点（仅第一个 timeline 拼接，避免多园区重复）
         const isFirst = idx === 0
-        const items: { color?: string; children: React.ReactNode }[] = [
-          ...(y.queuedAt
-            ? [{ color: 'blue', children: <span>排队登记 {formatDateTime(y.queuedAt)}</span> }]
-            : []),
-          ...(y.notifyDepartAt
-            ? [{ color: 'cyan', children: <span>通知出发 {formatDateTime(y.notifyDepartAt)}</span> }]
-            : []),
-          ...(y.enteredAt
-            ? [
-                {
-                  color: 'geekblue',
-                  children: (
-                    <span>
-                      入园 {formatDateTime(y.enteredAt)}
-                      {renderEnterTag(y)}
-                    </span>
-                  ),
-                },
-              ]
-            : []),
-          ...(y.loadingNotifiedAt
-            ? [
-                {
-                  color: 'gold',
-                  children: <span>通知装货 {formatDateTime(y.loadingNotifiedAt)}</span>,
-                },
-              ]
-            : []),
-          ...(y.loadingCompletedAt
-            ? [
-                {
-                  color: 'purple',
-                  children: <span>装货完成 {formatDateTime(y.loadingCompletedAt)}</span>,
-                },
-              ]
-            : []),
-          ...(y.leftAt
-            ? [
-                {
-                  color: 'green',
-                  children: (
-                    <span>
-                      离厂 {formatDateTime(y.leftAt)}
-                      {renderLeftTag(y)}
-                    </span>
-                  ),
-                },
-              ]
-            : []),
-          // —— v0.2.0-M2：到货段节点（仅第一个 timeline）——
-          ...(isFirst && y.leftYardAt
-            ? [
-                {
-                  color: 'gold',
-                  children: (
-                    <span>
-                      车辆出厂 {formatDateTime(y.leftYardAt)}
-                      <Tag color="gold" style={{ marginLeft: 6 }}>链式</Tag>
-                    </span>
-                  ),
-                },
-              ]
-            : []),
-          ...(isFirst && y.arrivedByGpsAt
-            ? [
-                {
-                  color: 'lime',
-                  children: (
-                    <span>
-                      GPS 入客户园区 {formatDateTime(y.arrivedByGpsAt)}
-                      <Tag color="blue" style={{ marginLeft: 6 }}>GPS</Tag>
-                    </span>
-                  ),
-                },
-              ]
-            : []),
-          ...(isFirst && y.driverConfirmedAt
-            ? [
-                {
-                  color: 'cyan',
-                  children: (
-                    <span>
-                      司机确认到达 {formatDateTime(y.driverConfirmedAt)}
-                      <Tag color="cyan" style={{ marginLeft: 6 }}>手动</Tag>
-                    </span>
-                  ),
-                },
-              ]
-            : []),
-          // ❌ v0.3.0-M2.2 删除:y.signedAt 客户签收节点全段(签名照片 + 备注)
-        ]    // ← 这里为什么要有个换行?
+
+        // 收集所有有时间戳的节点 → 按时间戳升序排序
+        type NodeT = { ts: number; key: string; node: { color?: string; children: React.ReactNode } }
+        const nodes: NodeT[] = []
+        const add = (
+          ts: string | undefined,
+          key: string,
+          n: { color?: string; children: React.ReactNode },
+        ) => {
+          if (ts) nodes.push({ ts: new Date(ts).getTime(), key, node: n })
+        }
+
+        add(y.queuedAt, 'queuedAt', {
+          color: 'blue',
+          children: <span>排队登记 {formatDateTime(y.queuedAt!)}</span>,
+        })
+        add(y.notifyDepartAt, 'notifyDepartAt', {
+          color: 'cyan',
+          children: <span>通知出发 {formatDateTime(y.notifyDepartAt!)}</span>,
+        })
+        add(y.enteredAt, 'enteredAt', {
+          color: 'geekblue',
+          children: (
+            <span>
+              入园 {formatDateTime(y.enteredAt!)}
+              {renderEnterTag(y)}
+            </span>
+          ),
+        })
+        add(y.loadingNotifiedAt, 'loadingNotifiedAt', {
+          color: 'gold',
+          children: <span>通知装货 {formatDateTime(y.loadingNotifiedAt!)}</span>,
+        })
+        add(y.loadingCompletedAt, 'loadingCompletedAt', {
+          color: 'purple',
+          children: <span>装货完成 {formatDateTime(y.loadingCompletedAt!)}</span>,
+        })
+        add(y.leftAt, 'leftAt', {
+          color: 'green',
+          children: (
+            <span>
+              离厂 {formatDateTime(y.leftAt!)}
+              {renderLeftTag(y)}
+            </span>
+          ),
+        })
+        if (isFirst && y.leftYardAt) {
+          add(y.leftYardAt, 'leftYardAt', {
+            color: 'gold',
+            children: (
+              <span>
+                车辆出厂 {formatDateTime(y.leftYardAt!)}
+                <Tag color="gold" style={{ marginLeft: 6 }}>链式</Tag>
+              </span>
+            ),
+          })
+        }
+        if (isFirst && y.arrivedByGpsAt) {
+          add(y.arrivedByGpsAt, 'arrivedByGpsAt', {
+            color: 'lime',
+            children: (
+              <span>
+                GPS 入客户园区 {formatDateTime(y.arrivedByGpsAt!)}
+                <Tag color="blue" style={{ marginLeft: 6 }}>GPS</Tag>
+              </span>
+            ),
+          })
+        }
+        if (isFirst && y.driverConfirmedAt) {
+          add(y.driverConfirmedAt, 'driverConfirmedAt', {
+            color: 'cyan',
+            children: (
+              <span>
+                司机确认到达 {formatDateTime(y.driverConfirmedAt!)}
+                <Tag color="cyan" style={{ marginLeft: 6 }}>手动</Tag>
+              </span>
+            ),
+          })
+        }
+
+        nodes.sort((a, b) => {
+          if (a.ts !== b.ts) return a.ts - b.ts
+          // 同时间戳：按业务关键度排序
+          return (PRIO[a.key] ?? 99) - (PRIO[b.key] ?? 99)
+        })
+        const items = nodes.map((n) => n.node)
 
         return (
           <Card
