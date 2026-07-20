@@ -17,6 +17,7 @@ import { computed, ref } from 'vue'
 import type { Inventory } from '@/types/shared/inventory'
 import { INVENTORY_STATUS_LABEL, STOCK_TYPE_LABEL } from '@/mock/inventory'
 import EmptyState from '@/components/EmptyState.vue'
+import AppButton from '@/components/AppButton.vue'
 
 const props = defineProps<{
   inventory: Inventory[]
@@ -140,12 +141,11 @@ function statusClass(status: Inventory['status']): string {
           <text class="info-value ellipsis remark-text">{{ i.remark }}</text>
         </view>
 
-        <!-- 操作按钮 -->
+        <!-- 操作按钮（O3 改用 AppButton 通用组件） -->
         <view class="card-actions">
-          <button class="btn-edit-qty" @click="openQtyModal(i)">
-            <image class="btn-icon" src="/static/icons/edit.svg" mode="aspectFit" />
+          <AppButton variant="secondary" icon="/static/icons/edit.svg" @click="openQtyModal(i)">
             改数量
-          </button>
+          </AppButton>
         </view>
       </view>
     </view>
