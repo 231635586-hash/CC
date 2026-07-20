@@ -145,14 +145,17 @@ function loadDetail(id: string) {
         time: mock.queuedAt ? new Date(mock.queuedAt).toTimeString().slice(0, 5) : '—',
         done: !!mock.queuedAt,
       },
+      // v0.3.0-M2.2 + P0-5 fix：库房通知装货必须在司机进园区之前
+      //   业务流程：库房员点【通知装货】→ 司机收到通知 → 进园区装货
+      //   loading 状态 = 库房已通知（司机的进入是后续动作）
+      { status: 'loading', label: '库房通知装货', time: '14:00', done: isStepReached('loading', mock.status) },
+      // v0.3.0-M2.2 + P0-5：进场入园时间（库房通知后司机进园区 = 通过道闸的时间）
       {
         status: 'entered_yard',
         label: '进场入园',
         time: mock.enteredAt ? new Date(mock.enteredAt).toTimeString().slice(0, 5) : '—',
         done: !!mock.enteredAt,
       },
-      // 装货段（演示按钮触发，与 GPS 无关）
-      { status: 'loading', label: '库房通知装货', time: '14:00', done: isStepReached('loading', mock.status) },
       { status: 'leaving', label: '装货完成离厂', time: '14:30', done: isStepReached('leaving', mock.status) },
       // 到货段
       { status: 'in_transit', label: '在途', time: '15:00', done: isStepReached('in_transit', mock.status) },
