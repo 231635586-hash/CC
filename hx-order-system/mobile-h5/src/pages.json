@@ -35,6 +35,15 @@
       "style": {
         "navigationBarTitleText": "物流公司工作台"
       }
+    },
+    {
+      "path": "pages/error/index",
+      "style": {
+        "navigationBarTitleText": "出错了",
+        "navigationBarTextStyle": "white",
+        "navigationBarBackgroundColor": "#ff4d4f",
+        "enablePullDownRefresh": false
+      }
     }
   ],
   "globalStyle": {
