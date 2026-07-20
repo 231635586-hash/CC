@@ -155,7 +155,8 @@ function onCancel(item: DispatchMock) {
 .page {
   min-height: 100vh;
   background: var(--color-bg);
-  padding-bottom: 140rpx;
+  /* v0.3.0-M2.2 + P1-2 fix：fixed 提交按钮后留 200rpx 避免遮挡内容 */
+  padding-bottom: 200rpx;
 }
 html.hx-frame-on .page {
   min-height: 100% !important;

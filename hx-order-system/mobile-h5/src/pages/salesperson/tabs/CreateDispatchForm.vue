@@ -247,7 +247,7 @@ function submit() {
 
 .form-intro {
   padding: var(--space-md);
-  background: linear-gradient(135deg, #13c2c2 0%, #36cfc9 100%);
+  background: linear-gradient(135deg, var(--role-sales) 0%, var(--role-sales-light) 100%);
   color: var(--color-text-on-brand);
 }
 .intro-title {
@@ -279,7 +279,7 @@ function submit() {
   width: 40rpx;
   height: 40rpx;
   border-radius: 50%;
-  background: #13c2c2;
+  background: var(--role-sales);
   color: var(--color-text-on-brand);
   font-size: var(--font-size-sub);
   font-weight: var(--font-weight-semibold);
@@ -331,7 +331,7 @@ function submit() {
   border: 2rpx solid transparent;
 }
 .company-item.selected {
-  border-color: #13c2c2;
+  border-color: var(--role-sales);
   background: rgba(19, 194, 194, 0.08);
 }
 .company-item:last-child { margin-bottom: 0; }
@@ -343,8 +343,8 @@ function submit() {
   flex-shrink: 0;
 }
 .company-item.selected .company-radio {
-  border-color: #13c2c2;
-  background: #13c2c2;
+  border-color: var(--role-sales);
+  background: var(--role-sales);
   box-shadow: inset 0 0 0 6rpx var(--color-card);
 }
 .company-info { flex: 1; }
@@ -361,12 +361,28 @@ function submit() {
 }
 
 .submit-bar {
-  padding: 0 var(--space-md);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--space-md);
+  background: var(--color-card);
+  box-shadow: 0 -2rpx 8rpx rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+}
+/* Frame 模式：.submit-bar 改 absolute + bottom 28px 避开 Home Indicator + z-index 99998 */
+html.hx-frame-on .submit-bar {
+  position: absolute !important;
+  bottom: 28px !important;
+  max-width: 390px !important;
+  width: 100% !important;
+  z-index: 99998 !important;
 }
 .btn-submit {
   width: 100%;
   height: 96rpx;
-  background: #13c2c2;
+  background: var(--role-sales);
   color: var(--color-text-on-brand);
   border: none;
   border-radius: var(--radius-md);
@@ -375,6 +391,6 @@ function submit() {
 }
 .btn-submit[disabled] {
   opacity: 0.5;
-  background: #13c2c2;
+  background: var(--role-sales);
 }
 </style>
