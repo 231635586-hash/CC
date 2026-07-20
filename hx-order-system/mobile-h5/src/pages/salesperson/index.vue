@@ -29,6 +29,10 @@ import CreateDispatchForm from './tabs/CreateDispatchForm.vue'
 import InventoryTab from './tabs/InventoryTab.vue'
 import InventoryFormModal from './tabs/InventoryFormModal.vue'
 import MeTab from './tabs/MeTab.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
+
+// O1：加载状态（首次进入时显示骨架屏）
+const initialLoading = ref(true)
 
 /**
  * v0.3.0-M2.2 + P1-3：业务员工作台
@@ -77,6 +81,10 @@ onLoad(() => {
   uiStore.resetForRole('salesperson')
   loadMyDispatches()
   loadMyInventory()
+  // O1：模拟数据加载延迟后关闭骨架屏（mock 阶段用 setTimeout 演示效果）
+  setTimeout(() => {
+    initialLoading.value = false
+  }, 600)
 })
 
 onShow(() => {
@@ -166,8 +174,14 @@ function openInventoryForm() {
 
     <!-- Tab 内容 -->
     <view class="content">
+      <!-- O1：加载骨架屏（首次进入时显示） -->
+      <AppSkeleton
+        v-if="initialLoading && (activeTab === 'orders' || activeTab === 'inventory')"
+        :type="activeTab === 'orders' ? 'list' : 'card'"
+        :count="3"
+      />
       <MyDispatchesTab
-        v-if="activeTab === 'orders'"
+        v-else-if="activeTab === 'orders'"
         :dispatches="myDispatches"
         @switch-tab="switchTab"
         @view-detail="onViewDetail"

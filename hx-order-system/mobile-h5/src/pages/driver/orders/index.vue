@@ -38,6 +38,7 @@ import { getCurrentPosition, detectYard, detectCustomerAddress, distanceM, type 
 import { startGpsWatcher, stopGpsWatcher, isGpsWatcherRunning } from '@/utils/gpsWatcher'
 import type { TabKey, NotificationItem, Yard } from '@/types/driver'
 import MobileTabBar from '@/components/MobileTabBar.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 
 // 子组件
 import WorkbenchTab from './tabs/WorkbenchTab.vue'
@@ -565,8 +566,9 @@ onPullDownRefresh(async () => {
 
     <!-- Tab 内容区 -->
     <view class="content">
+      <AppSkeleton v-if="loading && dispatchList.length === 0" type="list" :count="3" />
       <WorkbenchTab
-        v-if="activeTab === 'workbench'"
+        v-else-if="activeTab === 'workbench'"
         :dispatch-list="dispatchList"
         @go-detail="goDetail"
         @switch-tab="switchTab"

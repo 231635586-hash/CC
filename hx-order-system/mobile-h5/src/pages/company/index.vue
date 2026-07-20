@@ -9,7 +9,7 @@
  *  ② 待派车  - 本公司 confirmed 单,触发派车 modal → dispatched
  *  ③ 我的    - 当前公司 + 切换角色
  *
- * 主题色：橙色 #fa8c16
+ * 主题色：橙色 var(--role-company)
  */
 
 import { onLoad, onShow } from '@dcloudio/uni-app'
@@ -25,6 +25,10 @@ import ToConfirmTab from './tabs/ToConfirmTab.vue'
 import ToAssignTab from './tabs/ToAssignTab.vue'
 import MeTab from './tabs/MeTab.vue'
 import AssignDispatchModal from '@/components/AssignDispatchModal.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
+
+// O1：加载状态（首次进入显示骨架屏）
+const initialLoading = ref(true)
 
 const uiStore = useUiStore()
 const roleStore = useRoleStore()
@@ -50,6 +54,10 @@ onLoad(() => {
   // 角色进入即重置 activeTab,避免从其他角色切过来时残留的 tab key 命中不到本角色 Tab 列表
   uiStore.resetForRole('company')
   loadMyDispatches()
+  // O1：模拟数据加载延迟后关闭骨架屏（mock 阶段用 setTimeout 演示效果）
+  setTimeout(() => {
+    initialLoading.value = false
+  }, 600)
 })
 
 onShow(() => {
@@ -66,7 +74,7 @@ function handleConfirm(item: DispatchMock) {
     title: '确认受理',
     content: `${item.dispatchNo}\n${item.customerName} · ${item.yardNames.join('、')}园区\n\n确认后进入待派车环节`,
     confirmText: '确认受理',
-    confirmColor: '#fa8c16',
+    confirmColor: 'var(--role-company)',
     success: (res) => {
       if (res.confirm) {
         item.status = 'confirmed'
@@ -116,8 +124,14 @@ function onAssigned() {
 
     <!-- Tab 内容 -->
     <view class="content">
+      <!-- O1：加载骨架屏 -->
+      <AppSkeleton
+        v-if="initialLoading && (activeTab === 'orders' || activeTab === 'assign')"
+        :type="activeTab === 'assign' ? 'kpi' : 'list'"
+        :count="3"
+      />
       <ToConfirmTab
-        v-if="activeTab === 'orders'"
+        v-else-if="activeTab === 'orders'"
         :dispatches="myDispatches"
         @confirm="handleConfirm"
       />
@@ -179,12 +193,12 @@ html.hx-frame-on .page {
 
 .status-bar {
   height: 40rpx;
-  background: #fa8c16; /* 物流公司主题色:橙色 */
+  background: var(--role-company); /* 物流公司主题色:橙色 */
 }
 
 /* ===== Header ===== */
 .header {
-  background: #fa8c16;
+  background: var(--role-company);
   padding: var(--space-md) var(--space-md) var(--space-md);
   color: var(--color-text-on-brand);
 }
@@ -273,9 +287,9 @@ html.hx-frame-on .tabbar {
   color: var(--color-text-secondary);
 }
 .tabbar-item.active .tabbar-label {
-  color: #fa8c16;
+  color: var(--role-company);
   font-weight: var(--font-weight-semibold);
 }
-.tabbar-item.active .tabbar-icon { color: #fa8c16; }
+.tabbar-item.active .tabbar-icon { color: var(--role-company); }
 .tabbar-item .tabbar-icon { color: var(--color-text-secondary); }
 </style>
