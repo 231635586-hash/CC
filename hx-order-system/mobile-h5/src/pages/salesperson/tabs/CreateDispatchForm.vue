@@ -362,19 +362,20 @@ function submit() {
 
 .submit-bar {
   position: fixed;
-  bottom: 0;
+  /* 浮在 TabBar 之上：TabBar min-height: 130rpx + safe-area-inset-bottom */
+  bottom: calc(130rpx + env(safe-area-inset-bottom));
   left: 0;
   right: 0;
   padding: var(--space-md);
   background: var(--color-card);
   box-shadow: 0 -2rpx 8rpx rgba(0, 0, 0, 0.06);
   z-index: 100;
-  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
 }
-/* Frame 模式：.submit-bar 改 absolute + bottom 28px 避开 Home Indicator + z-index 99998 */
+/* Frame 模式：.submit-bar 改 absolute + bottom 158px（TabBar 130rpx + Home Indicator 28px）
+   + z-index 99998 仅次于 Home Indicator */
 html.hx-frame-on .submit-bar {
   position: absolute !important;
-  bottom: 28px !important;
+  bottom: 158px !important;
   max-width: 390px !important;
   width: 100% !important;
   z-index: 99998 !important;
