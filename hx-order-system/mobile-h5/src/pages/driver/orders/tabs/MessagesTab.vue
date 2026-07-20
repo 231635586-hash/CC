@@ -8,7 +8,8 @@
 
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import type { NotificationItem, NotificationType, MessageFilter } from '@/types/driver'
+import type { NotificationItem, NotificationType } from '@/types/shared/driver'
+import type { MessageFilter } from '@/types/driver'
 import { useUiStore } from '@/stores/ui'
 import EmptyState from '@/components/EmptyState.vue'
 
@@ -58,6 +59,9 @@ const msgTypeIcon = (type: NotificationType): { icon: string; bg: string } => {
     arrive: { icon: '/static/icons/arrived.svg', bg: 'var(--color-status-entering-bg)' },
     complete: { icon: '/static/icons/done.svg', bg: 'var(--color-status-completed-bg)' },
     cancel: { icon: '/static/icons/cancel.svg', bg: 'var(--color-status-cancelled-bg)' },
+    // P0-1：补 arrived_prompt 图标（P0-2 GPS 自动到货推送会消费此类型）
+    // 复用 arrive 的 arrived.svg 与 entering-bg，与"到达"语义一致
+    arrived_prompt: { icon: '/static/icons/arrived.svg', bg: 'var(--color-status-entering-bg)' },
   }
   return map[type]
 }
@@ -197,8 +201,8 @@ const filterTabs: { key: MessageFilter; label: string }[] = [
   border: 1rpx solid var(--color-divider);
 }
 .msg-card.unread {
-  background: #f0f7ff;
-  border-color: #d6e8ff;
+  background: var(--color-brand-bg);
+  border-color: var(--color-brand-bg);
 }
 .msg-icon-wrap {
   width: 80rpx;
@@ -267,6 +271,6 @@ const filterTabs: { key: MessageFilter; label: string }[] = [
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  background: #ff4d4f;
+  background: var(--danger);
 }
 </style>

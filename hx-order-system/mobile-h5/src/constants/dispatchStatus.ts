@@ -5,7 +5,7 @@
  * 设计：CSS class 名以 `tag-` 开头，对应全局样式
  */
 
-import type { DispatchStatus } from '@/mock/dispatches'
+import type { DispatchStatus } from '@/types/shared/dispatch'
 
 export interface StatusOption {
   label: string

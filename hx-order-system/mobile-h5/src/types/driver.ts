@@ -4,7 +4,22 @@
  * 设计原则：
  *   - 页面级 Tab / 状态枚举统一在此处定义，避免页面间类型重复
  *   - 真后端接入时此处类型与 `@/mock/*` 解耦（mock 关心数据形状，type 关心业务形状）
+ *
+ * v0.3.0-M2.2（P0-1 重构）：
+ *   - NotificationType / NotificationItem / Yard 抽到 @/types/shared/driver
+ *   - 此处保留 re-export 以兼容既有 import 路径（如 @/types/driver）
+ *   - 新代码请直接 import 自 @/types/shared/driver
  */
+
+// ============================================================
+// P0-1：从 shared 模块 re-export（保持向后兼容）
+// ============================================================
+
+export type { NotificationType, NotificationItem, Yard } from '@/types/shared/driver'
+
+// ============================================================
+// 页面级 UI 状态（保留在此处）
+// ============================================================
 
 /** 工作台 5 大 Tab 路由键 */
 export type TabKey = 'workbench' | 'orders' | 'messages' | 'gps' | 'me'
@@ -18,36 +33,11 @@ export type GpsSubTab = 'in' | 'out'
 /** 消息中心 3 种筛选 */
 export type MessageFilter = 'all' | 'unread' | 'yard'
 
-/** 消息通知 5 种类型（与图标映射） */
-export type NotificationType = 'depart' | 'loading' | 'arrive' | 'complete' | 'cancel'
-
 /** 司机信息（前端 mock / 真实 API 返回统一形状） */
 export interface Driver {
   id: string
   name: string
   phone: string
-}
-
-/** 消息通知完整结构（前端 mock） */
-export interface NotificationItem {
-  id: string
-  type: NotificationType
-  title: string
-  content: string
-  time: string
-  timestamp: number
-  read: boolean
-  dispatchId?: string
-}
-
-/** 园区基础信息（GPS 距离判定用） */
-export interface Yard {
-  id: string
-  name: string
-  lng: number
-  lat: number
-  /** 触发"入园"的半径（米），默认 300m */
-  radiusM: number
 }
 
 /* ============================================

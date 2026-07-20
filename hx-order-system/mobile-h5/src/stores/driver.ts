@@ -18,29 +18,20 @@
  */
 
 import { defineStore } from 'pinia'
+import type { NotificationType, NotificationItem } from '@/types/shared/driver'
+
+/**
+ * v0.3.0-M2.2（P0-1 重构）：
+ *   - NotificationType / NotificationItem 抽到 @/types/shared/driver
+ *   - 此处仅 import 引用，删除内联定义（修复 types 5 值 vs store 6 值不一致）
+ *   - NotificationItem 统一含 id 字段（采用 types/driver.ts 原版）
+ *   - markRead 内部查找从 dispatchId 改为 id 查找（与类型签名一致）
+ */
 
 export interface DriverInfo {
   id: string
   name: string
   phone: string
-}
-
-export type NotificationType =
-  | 'depart'         // 通知出发
-  | 'loading'        // 通知装货
-  | 'arrive'         // GPS 入园
-  | 'complete'       // 装货完成（M2）
-  | 'cancel'         // 订单取消
-  | 'arrived_prompt' // 已到达客户园区，请确认（M2 新增）
-
-export interface NotificationItem {
-  type: NotificationType
-  title: string
-  content: string
-  time: string
-  timestamp: number
-  read: boolean
-  dispatchId?: string
 }
 
 interface QueueRecord {
@@ -102,7 +93,8 @@ export const useDriverStore = defineStore('driver', {
 
     /** 标记单条已读 */
     markRead(id: string) {
-      const n = this.notifications.find((x) => x.dispatchId === id)
+      // P0-1 修复：改为按 NotificationItem.id 查找（统一字段，含 id 而非仅 dispatchId）
+      const n = this.notifications.find((x) => x.id === id)
       if (n) n.read = true
       saveToStorage(this.$state)
     },

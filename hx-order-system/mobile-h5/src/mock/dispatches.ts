@@ -6,41 +6,17 @@
  *  - 真实阶段：API GET /api/dispatch?driverId={id}
  *
  * 字段对齐 types/dispatch.ts（hx-order-system/src/types/dispatch.ts）
+ *
+ * v0.3.0-M2.2（P0-1 重构）：
+ *   - DispatchStatus / DispatchMock 抽到 @/types/shared/dispatch
+ *   - 此处保留 re-export 以兼容既有 import 路径
+ *   - 新代码请直接 import 自 @/types/shared/dispatch
  */
 
-export interface DispatchMock {
-  id: string
-  dispatchNo: string
-  status: DispatchStatus
-  direction: string
-  expectedLoadTime: string
-  yardIds: string[]
-  yardNames: string[]
-  customerName: string
-  customerAddress: string
-  companyName: string
-  vehicleNo?: string
-  driverName?: string
-  goodsSummary?: string
-}
+import type { DispatchStatus, DispatchMock } from '@/types/shared/dispatch'
 
-export type DispatchStatus =
-  | 'draft'
-  | 'pending_confirm'
-  | 'confirmed'
-  | 'dispatching'
-  | 'dispatched'
-  // —— v0.3.0-M2.2 v2：GPS/扫码统一入场 ——
-  | 'queued'
-  | 'entering'
-  | 'loading'
-  | 'leaving'
-  // —— 到货处理（在途 → 司机确认 → 完成）——
-  | 'in_transit'
-  | 'driver_confirmed'
-  // —— 终态 ——
-  | 'completed'
-  | 'cancelled'
+// P0-1：再 export 保持向后兼容（老代码 from '@/mock/dispatches' 仍可用）
+export type { DispatchStatus, DispatchMock }
 
 export const MOCK_DISPATCHES: DispatchMock[] = [
   {
