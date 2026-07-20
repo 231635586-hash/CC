@@ -79,6 +79,27 @@ const nearestYard = computed(() => {
   return nearest
 })
 
+// ===== O7-A：Header 副标题 KPI 数据 + 通知未读数 =====
+const driverTodayCount = computed(() =>
+  dispatchList.value.filter((d) =>
+    ['dispatched', 'queued', 'entering', 'loading', 'leaving', 'in_transit', 'arrived', 'driver_confirmed'].includes(d.status),
+  ).length,
+)
+const driverCompletedCount = computed(() =>
+  dispatchList.value.filter((d) => d.status === 'completed').length,
+)
+const unreadCount = computed(() => notifications.value.filter((n) => !n.read).length)
+
+/** O7-A：搜索图标点击 → 切到派车单 Tab（mock 阶段简易跳转） */
+function goSearch() {
+  switchTab('orders')
+}
+
+/** O7-A：通知图标点击 → 切到消息 Tab */
+function goNotifications() {
+  switchTab('messages')
+}
+
 // ===== 工具 =====
 function getGreeting(): string {
   const h = new Date().getHours()
@@ -550,16 +571,32 @@ onPullDownRefresh(async () => {
   <view class="page">
     <!-- 顶部状态栏 + Header（5 Tab 共享）-->
     <view class="status-bar"></view>
+    <!-- O7-A：顶部 Header 重设计（参考截图：左侧大头像 + 欢迎语 + 副标题 + 右侧搜索+通知） -->
     <view class="header">
       <view class="header-top">
-        <view class="welcome">
-          <text class="welcome-hi">{{ getGreeting() }}</text>
-          <view class="welcome-name-row">
-            <text class="welcome-name">{{ driverStore.currentDriver?.name || '司机' }}</text>
+        <view class="header-left">
+          <view class="welcome-avatar">
+            <text>{{ driverStore.currentDriver?.name?.charAt(0) || '司' }}</text>
+          </view>
+          <view class="welcome">
+            <text class="welcome-hi">{{ getGreeting() }},{{ driverStore.currentDriver?.name || '司机' }}</text>
+            <view class="welcome-sub-row">
+              <text class="welcome-sub-label">今日</text>
+              <text class="welcome-sub-num">{{ driverTodayCount }}</text>
+              <text class="welcome-sub-divider">·</text>
+              <text class="welcome-sub-label">已完成</text>
+              <text class="welcome-sub-num success">{{ driverCompletedCount }}</text>
+            </view>
           </view>
         </view>
-        <view class="welcome-avatar">
-          <text>{{ driverStore.currentDriver?.name?.charAt(0) || '司' }}</text>
+        <view class="header-right">
+          <view class="header-icon-btn" @click="goSearch">
+            <text class="header-icon-text">🔍</text>
+          </view>
+          <view class="header-icon-btn" @click="goNotifications">
+            <text class="header-icon-text">🔔</text>
+            <view v-if="unreadCount > 0" class="header-icon-badge">{{ unreadCount }}</view>
+          </view>
         </view>
       </view>
     </view>
@@ -645,7 +682,7 @@ html.hx-frame-on .page {
   background: var(--color-brand);
 }
 
-/* ===== 顶部 Header（5 Tab 共享）===== */
+/* ===== 顶部 Header（5 Tab 共享，O7-A 重设计）===== */
 .header {
   background: var(--color-brand);
   padding: var(--space-md) var(--space-md) var(--space-md);
@@ -655,35 +692,109 @@ html.hx-frame-on .page {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-md);
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 0;
 }
 .welcome {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  flex: 1;
 }
 .welcome-hi {
-  font-size: var(--font-size-sub);
-  opacity: 0.9;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  opacity: 0.95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.welcome-name-row {
+.welcome-sub-row {
   display: flex;
   align-items: baseline;
-  gap: var(--space-sm);
+  gap: 4rpx;
   margin-top: 4rpx;
+  font-size: var(--font-size-caption);
+  opacity: 0.85;
 }
-.welcome-name {
-  font-size: var(--font-size-title);
+.welcome-sub-label {
+  opacity: 0.8;
+}
+.welcome-sub-num {
   font-weight: var(--font-weight-bold);
+  opacity: 1;
+  font-family: var(--font-family-mono);
+}
+.welcome-sub-num.success {
+  color: #b7eb8f;
+}
+.welcome-sub-divider {
+  opacity: 0.5;
+  margin: 0 4rpx;
 }
 .welcome-avatar {
-  width: 80rpx;
-  height: 80rpx;
+  /* O7-A：左头大头像（80rpx → 96rpx，更醒目） */
+  width: 96rpx;
+  height: 96rpx;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36rpx;
+  font-size: 40rpx;
   font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+}
+
+/* ===== O7-A：右侧操作图标区（搜索 + 通知）===== */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+.header-icon-btn {
+  position: relative;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--motion-fast) var(--ease-out-quart);
+}
+.header-icon-btn:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+.header-icon-text {
+  font-size: 32rpx;
+  color: var(--color-text-on-brand);
+  line-height: 1;
+}
+.header-icon-badge {
+  position: absolute;
+  top: -4rpx;
+  right: -4rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  border-radius: 16rpx;
+  background: #ff4d4f;
+  color: white;
+  font-size: var(--font-size-mini);
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 0 0 4rpx var(--color-brand);
 }
 
 .content {
