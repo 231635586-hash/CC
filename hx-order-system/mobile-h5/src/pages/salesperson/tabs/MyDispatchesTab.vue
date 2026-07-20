@@ -1,14 +1,24 @@
 <script setup lang="ts">
 /**
- * 我的调车单 Tab（v0.3-MVP 业务员）
+ * v0.3.0-M2.2 + P1-2：业务员调车单管理 Tab
  *
- * 内容：我创建的调车单列表 + 状态流转时间线
- * 数据：dispatches (props from salesperson/index.vue)
+ * 内容：我创建的调车单列表 + 状态/方向筛选 + 详情/取消按钮
+ *
+ * P1-2 升级（业务员调车单管理）：
+ *  - 6 状态筛选（全部/待确认/已确认/运输中/已完成/已取消）
+ *  - 方向筛选（按 direction 去重）
+ *  - 卡片加【详情】按钮（跳 driver/order-detail 复用）
+ *  - 取消按钮（仅 draft/pending_confirm/confirmed 可点）
+ *
+ * 数据：dispatches (props from salesperson/index.vue, 已按 salespersonId 筛选)
  */
 
-import { computed } from 'vue'
-import type { DispatchMock } from '@/mock/dispatches'
+import { computed, ref } from 'vue'
+import type { DispatchMock, DispatchStatus } from '@/mock/dispatches'
 import { DISPATCH_STATUS_MAP } from '@/constants/dispatchStatus'
+import EmptyState from '@/components/EmptyState.vue'
+
+type StatusFilter = 'all' | 'pending_confirm' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
 
 const props = defineProps<{
   dispatches: DispatchMock[]
@@ -16,14 +26,55 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'switchTab', tab: 'create' | 'me'): void
+  (e: 'viewDetail', item: DispatchMock): void
+  (e: 'cancel', item: DispatchMock): void
 }>()
 
-// 按创建时间倒序(mock 阶段按 dispatchNo 倒序近似)
+// ===== 排序 + 筛选 =====
 const sortedDispatches = computed(() => {
   return [...props.dispatches].sort((a, b) => b.id.localeCompare(a.id))
 })
 
-// 状态流转节点(简化为 5 个关键节点,v0.3.0-M2.2 移除客户签收,改用司机确认)
+const statusFilter = ref<StatusFilter>('all')
+const directionFilter = ref<string>('all')
+
+const availableDirections = computed(() => {
+  const set = new Set<string>()
+  props.dispatches.forEach((d) => set.add(d.direction))
+  return Array.from(set).sort()
+})
+
+const filteredDispatches = computed(() => {
+  let list = sortedDispatches.value
+  // 状态筛选
+  if (statusFilter.value === 'pending_confirm') {
+    list = list.filter((d) => d.status === 'pending_confirm')
+  } else if (statusFilter.value === 'confirmed') {
+    list = list.filter((d) => d.status === 'confirmed')
+  } else if (statusFilter.value === 'in_progress') {
+    list = list.filter((d) =>
+      ['dispatched', 'queued', 'entering', 'loading', 'leaving', 'in_transit', 'arrived', 'driver_confirmed'].includes(d.status)
+    )
+  } else if (statusFilter.value === 'completed') {
+    list = list.filter((d) => d.status === 'completed')
+  } else if (statusFilter.value === 'cancelled') {
+    list = list.filter((d) => d.status === 'cancelled')
+  }
+  // 方向筛选
+  if (directionFilter.value !== 'all') {
+    list = list.filter((d) => d.direction === directionFilter.value)
+  }
+  return list
+})
+
+// ===== KPI（基于 filtered 后） =====
+const kpiTotal = computed(() => filteredDispatches.value.length)
+const kpiInProgress = computed(() => filteredDispatches.value.filter((d) =>
+  ['pending_confirm', 'confirmed', 'dispatched', 'queued', 'entering', 'loading', 'leaving', 'in_transit', 'arrived', 'driver_confirmed'].includes(d.status)
+).length)
+const kpiCompleted = computed(() => filteredDispatches.value.filter((d) => d.status === 'completed').length)
+
+// ===== 状态流转节点（5 节点，与 P0-5 之前保持一致） =====
 const flowNodes = [
   { key: 'pending_confirm', label: '已创建' },
   { key: 'confirmed', label: '已确认' },
@@ -32,14 +83,19 @@ const flowNodes = [
   { key: 'driver_confirmed', label: '已确认完成' },
 ]
 
-function getFlowIndex(status: string): number {
+function getFlowIndex(status: DispatchStatus): number {
   const idx = flowNodes.findIndex((n) => n.key === status)
   if (idx >= 0) return idx
-  // 兼容其他状态(loading/leaving/in_transit/driver_confirmed/completed)
   if (['loading', 'leaving', 'in_transit', 'driver_confirmed', 'completed'].includes(status)) {
     return 3 // 已派车之后
   }
   return -1
+}
+
+// ===== 取消按钮权限 =====
+function canCancel(status: DispatchStatus): boolean {
+  // 草稿/待确认/已确认 状态可取消（物流公司接手后不再允许取消）
+  return ['draft', 'pending_confirm', 'confirmed'].includes(status)
 }
 
 function formatDate(iso?: string): string {
@@ -48,37 +104,89 @@ function formatDate(iso?: string): string {
   if (isNaN(d.getTime())) return '-'
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
+
+// ===== 筛选器配置 =====
+const statusFilters: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'pending_confirm', label: '待确认' },
+  { key: 'confirmed', label: '已确认' },
+  { key: 'in_progress', label: '运输中' },
+  { key: 'completed', label: '已完成' },
+  { key: 'cancelled', label: '已取消' },
+]
 </script>
 
 <template>
   <view class="tab-pane">
-    <!-- 顶部统计 -->
+    <!-- ===== 顶部 3 统计 ===== -->
     <view class="stat-row">
       <view class="stat-item">
-        <text class="stat-num">{{ sortedDispatches.length }}</text>
+        <text class="stat-num">{{ kpiTotal }}</text>
         <text class="stat-label">总单数</text>
       </view>
       <view class="stat-item highlight">
-        <text class="stat-num">{{ sortedDispatches.filter((d) => ['pending_confirm', 'confirmed', 'dispatched', 'entering', 'loading', 'leaving', 'in_transit'].includes(d.status)).length }}</text>
+        <text class="stat-num">{{ kpiInProgress }}</text>
         <text class="stat-label">进行中</text>
       </view>
       <view class="stat-item success">
-        <text class="stat-num">{{ sortedDispatches.filter((d) => d.status === 'completed').length }}</text>
+        <text class="stat-num">{{ kpiCompleted }}</text>
         <text class="stat-label">已完成</text>
       </view>
     </view>
 
-    <!-- 空状态 -->
-    <view v-if="sortedDispatches.length === 0" class="empty">
-      <image class="empty-icon" src="/static/icons/list.svg" mode="aspectFit" />
-      <text class="empty-title">还没有调车单</text>
-      <text class="empty-desc">点 [创建] Tab 开始录入</text>
-      <button class="empty-btn" @click="emit('switchTab', 'create')">立即创建</button>
+    <!-- ===== 状态筛选 ===== -->
+    <scroll-view class="status-filter-row" scroll-x>
+      <view
+        v-for="f in statusFilters"
+        :key="f.key"
+        class="status-chip"
+        :class="{ active: statusFilter === f.key }"
+        @click="statusFilter = f.key"
+      >
+        {{ f.label }}
+      </view>
+    </scroll-view>
+
+    <!-- ===== 方向筛选 ===== -->
+    <view v-if="availableDirections.length > 1" class="direction-row">
+      <text class="direction-label">方向:</text>
+      <scroll-view class="direction-list" scroll-x>
+        <view
+          class="direction-chip"
+          :class="{ active: directionFilter === 'all' }"
+          @click="directionFilter = 'all'"
+        >全部</view>
+        <view
+          v-for="d in availableDirections"
+          :key="d"
+          class="direction-chip"
+          :class="{ active: directionFilter === d }"
+          @click="directionFilter = d"
+        >{{ d }}</view>
+      </scroll-view>
     </view>
 
-    <!-- 调车单列表 -->
+    <!-- ===== 空状态 ===== -->
+    <view v-if="filteredDispatches.length === 0" class="empty-wrap">
+      <EmptyState
+        v-if="dispatches.length === 0"
+        icon="/static/icons/list.svg"
+        title="还没有调车单"
+        desc="点 [创建] Tab 开始录入"
+      >
+        <button class="empty-btn" @click="emit('switchTab', 'create')">立即创建</button>
+      </EmptyState>
+      <EmptyState
+        v-else
+        icon="/static/icons/list.svg"
+        title="该筛选下没有派车单"
+        desc="试试调整状态或方向筛选"
+      />
+    </view>
+
+    <!-- ===== 调车单列表 ===== -->
     <view v-else class="list">
-      <view v-for="d in sortedDispatches" :key="d.id" class="dispatch-card">
+      <view v-for="d in filteredDispatches" :key="d.id" class="dispatch-card">
         <!-- 头部:订单号 + 当前状态 -->
         <view class="card-head">
           <text class="dispatch-no">{{ d.dispatchNo }}</text>
@@ -120,13 +228,26 @@ function formatDate(iso?: string): string {
             <view v-if="idx !== flowNodes.length - 1" class="flow-line"></view>
           </view>
         </view>
+
+        <!-- P1-2：操作按钮（详情 / 取消） -->
+        <view class="card-actions">
+          <button class="btn-detail" @click="emit('viewDetail', d)">
+            <image class="btn-icon" src="/static/icons/list.svg" mode="aspectFit" />
+            详情
+          </button>
+          <button
+            v-if="canCancel(d.status)"
+            class="btn-cancel"
+            @click="emit('cancel', d)"
+          >取消</button>
+        </view>
       </view>
     </view>
   </view>
 </template>
 
 <style scoped>
-.tab-pane { padding: 0; }
+.tab-pane { padding-bottom: 40rpx; }
 
 /* 顶部 3 统计 */
 .stat-row {
@@ -138,10 +259,7 @@ function formatDate(iso?: string): string {
   justify-content: space-around;
   box-shadow: var(--shadow-sm);
 }
-.stat-item {
-  flex: 1;
-  text-align: center;
-}
+.stat-item { flex: 1; text-align: center; }
 .stat-num {
   display: block;
   font-size: var(--font-size-display);
@@ -153,34 +271,70 @@ function formatDate(iso?: string): string {
   font-size: var(--font-size-mini);
   color: var(--color-text-secondary);
 }
-.stat-item.highlight .stat-num { color: #13c2c2; }
+.stat-item.highlight .stat-num { color: var(--role-sales); }
 .stat-item.success .stat-num { color: var(--color-status-completed); }
 
-/* 空状态 */
-.empty {
-  text-align: center;
-  padding: 120rpx var(--space-md);
+/* ===== 状态筛选 ===== */
+.status-filter-row {
+  white-space: nowrap;
+  padding: 0 var(--space-md);
+  margin-bottom: var(--space-sm);
 }
-.empty-icon {
-  width: 120rpx;
-  height: 120rpx;
-  color: var(--color-text-placeholder);
-  margin-bottom: var(--space-md);
-}
-.empty-title {
-  display: block;
-  font-size: var(--font-size-card-title);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-xs);
-}
-.empty-desc {
-  display: block;
+.status-chip {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-md);
+  margin-right: var(--space-xs);
   font-size: var(--font-size-sub);
   color: var(--color-text-secondary);
-  margin-bottom: var(--space-lg);
+  background: var(--color-card);
+  border: 1rpx solid var(--color-divider);
+  border-radius: var(--radius-pill);
+}
+.status-chip.active {
+  background: var(--role-sales);
+  color: var(--color-text-on-brand);
+  border-color: var(--role-sales);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ===== 方向筛选 ===== */
+.direction-row {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-md);
+  margin-bottom: var(--space-md);
+  gap: var(--space-sm);
+}
+.direction-label {
+  font-size: var(--font-size-sub);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+.direction-list {
+  white-space: nowrap;
+  flex: 1;
+}
+.direction-chip {
+  display: inline-block;
+  padding: 4rpx var(--space-sm);
+  margin-right: var(--space-xs);
+  font-size: var(--font-size-mini);
+  color: var(--color-text-regular);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+}
+.direction-chip.active {
+  background: var(--role-sales);
+  color: var(--color-text-on-brand);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ===== 空状态 ===== */
+.empty-wrap {
+  padding: 60rpx var(--space-md);
 }
 .empty-btn {
-  background: #13c2c2;
+  background: var(--role-sales);
   color: var(--color-text-on-brand);
   border: none;
   border-radius: var(--radius-md);
@@ -188,9 +342,10 @@ function formatDate(iso?: string): string {
   padding: 0 var(--space-xl);
   height: 80rpx;
   line-height: 80rpx;
+  margin-top: var(--space-md);
 }
 
-/* 调车单卡 */
+/* ===== 调车单卡 ===== */
 .list { padding: 0 var(--space-md); }
 .dispatch-card {
   background: var(--color-card);
@@ -211,6 +366,7 @@ function formatDate(iso?: string): string {
   font-size: var(--font-size-card-title);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
 }
 .info-row {
   display: flex;
@@ -220,7 +376,7 @@ function formatDate(iso?: string): string {
 .info-icon {
   width: 32rpx;
   height: 32rpx;
-  color: #13c2c2;
+  color: var(--role-sales);
 }
 .info-label {
   font-size: var(--font-size-sub);
@@ -234,7 +390,7 @@ function formatDate(iso?: string): string {
   color: var(--color-text-primary);
 }
 
-/* 状态流转 */
+/* ===== 状态流转 ===== */
 .flow {
   display: flex;
   align-items: flex-start;
@@ -272,12 +428,49 @@ function formatDate(iso?: string): string {
 .flow-node.done .flow-label { color: var(--color-text-regular); }
 .flow-node.done .flow-line { background: var(--color-status-completed); }
 .flow-node.active .flow-dot {
-  background: #13c2c2;
+  background: var(--role-sales);
   box-shadow: 0 0 0 6rpx rgba(19, 194, 194, 0.2);
 }
 .flow-node.active .flow-label {
-  color: #13c2c2;
+  color: var(--role-sales);
   font-weight: var(--font-weight-semibold);
+}
+
+/* ===== 操作按钮（P1-2） ===== */
+.card-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1rpx solid var(--color-divider);
+}
+.btn-detail {
+  flex: 1;
+  min-height: 72rpx;
+  background: var(--color-brand-bg);
+  color: var(--role-sales);
+  border: 1rpx solid var(--role-sales);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sub);
+  font-weight: var(--font-weight-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+}
+.btn-cancel {
+  flex: 1;
+  min-height: 72rpx;
+  background: var(--color-card);
+  color: #ff4d4f;
+  border: 1rpx solid #ff4d4f;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sub);
+  font-weight: var(--font-weight-medium);
+}
+.btn-icon {
+  width: 28rpx;
+  height: 28rpx;
 }
 
 /* StatusTag 样式由 components/StatusTag.vue 提供 */

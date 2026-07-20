@@ -67,6 +67,34 @@ function onCreated() {
   uiStore.setActiveTab('orders')
   uni.showToast({ title: '调车单已创建', icon: 'success' })
 }
+
+// P1-2：业务员点【详情】→ 复用 driver/order-detail 页（统一详情页）
+function onViewDetail(item: DispatchMock) {
+  uni.navigateTo({ url: `/pages/driver/order-detail/index?id=${item.id}` })
+}
+
+// P1-2：业务员取消调车单（仅 draft/pending_confirm/confirmed 状态可取消）
+function onCancel(item: DispatchMock) {
+  uni.showModal({
+    title: '取消调车单',
+    content: `订单 ${item.dispatchNo}（${item.customerName}）确认取消？\n\n取消后物流公司将不再受理。`,
+    confirmText: '确认取消',
+    confirmColor: '#ff4d4f',
+    success: (res) => {
+      if (!res.confirm) return
+      // 1) 更新本地 myDispatches
+      const idx = myDispatches.value.findIndex((d) => d.id === item.id)
+      if (idx >= 0) {
+        myDispatches.value[idx].status = 'cancelled'
+      }
+      // 2) 同步 MOCK_DISPATCHES
+      const mockIdx = MOCK_DISPATCHES.findIndex((d) => d.id === item.id)
+      if (mockIdx >= 0) MOCK_DISPATCHES[mockIdx].status = 'cancelled'
+      // 3) toast 提示
+      uni.showToast({ title: '已取消', icon: 'success' })
+    },
+  })
+}
 </script>
 
 <template>
@@ -93,6 +121,8 @@ function onCreated() {
         v-if="activeTab === 'orders'"
         :dispatches="myDispatches"
         @switch-tab="switchTab"
+        @view-detail="onViewDetail"
+        @cancel="onCancel"
       />
       <CreateDispatchForm
         v-else-if="activeTab === 'create'"
@@ -142,12 +172,12 @@ html.hx-frame-on .page {
 
 .status-bar {
   height: 40rpx;
-  background: #13c2c2; /* 业务员主题色:青色 */
+  background: var(--role-sales); /* 业务员主题色:青色 */
 }
 
 /* ===== Header ===== */
 .header {
-  background: #13c2c2;
+  background: var(--role-sales);
   padding: var(--space-md) var(--space-md) var(--space-md);
   color: var(--color-text-on-brand);
 }
@@ -232,11 +262,11 @@ html.hx-frame-on .tabbar {
   color: var(--color-text-secondary);
 }
 .tabbar-item.active .tabbar-label {
-  color: #13c2c2;
+  color: var(--role-sales);
   font-weight: var(--font-weight-semibold);
 }
 .tabbar-item.active .tabbar-icon {
-  color: #13c2c2;
+  color: var(--role-sales);
 }
 .tabbar-item .tabbar-icon { color: var(--color-text-secondary); }
 </style>

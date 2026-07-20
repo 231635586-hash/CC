@@ -77,6 +77,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '沪A23456',
     driverName: '李建国',
     goodsSummary: '大型设备配件 80 箱 / 3.2 吨',
+    salespersonId: 'mock-sp-001',
   },
   {
     id: 'mock-dispatch-006',
@@ -92,6 +93,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '沪A12345',
     driverName: '陈大壮',
     goodsSummary: '精密齿轮组件 50 箱 / 1.4 吨',
+    salespersonId: 'mock-sp-001',
   },
   {
     id: 'mock-dispatch-008',
@@ -107,6 +109,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '沪A23456',
     driverName: '李建国',
     goodsSummary: '家电配件 60 箱 / 2.1 吨',
+    salespersonId: 'mock-sp-002',
   },
   {
     id: 'mock-dispatch-005',
@@ -122,6 +125,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '浙C45678',
     driverName: '王大锤',
     goodsSummary: '五金配件 35 箱 / 1.2 吨',
+    salespersonId: 'mock-sp-002',
   },
   {
     id: 'mock-dispatch-007',
@@ -137,6 +141,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '沪A12345',
     driverName: '陈大壮',
     goodsSummary: '电子元器件 40 箱 / 0.8 吨',
+    salespersonId: 'mock-sp-002',
   },
   {
     id: 'mock-dispatch-003',
@@ -152,6 +157,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '沪A23456',
     driverName: '李建国',
     goodsSummary: '机械配件 70 箱 / 2.8 吨',
+    salespersonId: 'mock-sp-001',
   },
   {
     id: 'mock-dispatch-001',
@@ -167,6 +173,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '-',
     driverName: '-',
     goodsSummary: '精密齿轮组件 60 箱 / 1.7 吨',
+    salespersonId: 'mock-sp-001',
   },
 
   // ===== v0.2.0-M2：到货处理 4 步状态演示样本 =====
@@ -186,6 +193,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '沪A12345',
     driverName: '陈大壮',
     goodsSummary: '精密齿轮组件 80 箱 / 2.2 吨',
+    salespersonId: 'mock-sp-001',
   },
 
   // v0.3.0-M2.2 v2：arrived_by_gps 已下线，迁移到 queued（GPS 检测 = 统一入场）
@@ -203,6 +211,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '沪A23456',
     driverName: '李建国',
     goodsSummary: '大型设备配件 60 箱 / 2.5 吨',
+    salespersonId: 'mock-sp-001',
   },
 
   // M2-03：driver_confirmed（司机已确认，待客户签收）
@@ -220,6 +229,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '浙C45678',
     driverName: '王大锤',
     goodsSummary: '电子元器件 45 箱 / 1.5 吨',
+    salespersonId: 'mock-sp-002',
   },
 
   // v0.3.0-M2.2 v2：customer_signed 已下线，统一迁移到 completed
@@ -237,9 +247,10 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '苏B34567',
     driverName: '赵铁柱',
     goodsSummary: '家电配件 35 箱 / 1.2 吨',
+    salespersonId: 'mock-sp-002',
   },
 
-  // M2-05：draft（草稿，业务员录入中，未受理）
+  // M2-05：draft（草稿，业务员录入中，未受理）— P1-2：业务员自己拥有，可编辑/取消
   {
     id: 'mock-dispatch-m2-005',
     dispatchNo: 'DC20260709005',
@@ -254,6 +265,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '-',
     driverName: '-',
     goodsSummary: '电子元器件 60 箱 / 1.5 吨',
+    salespersonId: 'mock-sp-001',
   },
 
   // v0.3.0-M2.2 v2：customer_signed 已下线，统一迁移到 completed
@@ -271,6 +283,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     vehicleNo: '沪A12345',
     driverName: '陈大壮',
     goodsSummary: '服装鞋帽 150 箱 / 3.0 吨（已签收 3 张照片）',
+    salespersonId: 'mock-sp-002',
   },
 
   // v0.3.0-M2.2 + P0-3：arrived 状态演示样本（GPS 已自动到货，待司机手动拍照确认完单）
@@ -290,6 +303,7 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     goodsSummary: '精密齿轮组件 50 箱 / 1.5 吨',
     arrivedByGpsAt: '2026-07-09 13:42:18',
     arrivedByGpsLocation: { lng: 111.513, lat: 36.081 },
+    salespersonId: 'mock-sp-001',
   },
 ]
 
