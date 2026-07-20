@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Modal, Form, Select, Input, Button, Descriptions, Alert, Space, message } from 'antd'
+import { Modal, Form, Input, Button, Descriptions, Alert, Space, message } from 'antd'
 import { CheckCircleOutlined } from '@ant-design/icons'
 import type { Dispatch } from '@/types/dispatch'
-import { OVERTIME_REASON_OPTIONS, OVERTIME_DEPARTMENT_OPTIONS } from '@/types/dispatch'
 import { useDispatchStore } from '@/stores/dispatch'
 import { nowIsoString } from '@/utils'
 
@@ -15,8 +14,11 @@ interface Props {
 }
 
 interface OvertimeValues {
-  reasons?: string[]
+  /** 超时原因（手填文本，2026-07-20 由多选改为单字符串） */
+  reason?: string
+  /** 超时责任部门（手填文本） */
   department?: string
+  /** 负责人（手填文本） */
   ownerName?: string
 }
 
@@ -52,8 +54,8 @@ export function LoadingCompleteModal({ open, dispatch, yardId, yardName, onClose
       const values = await form.validateFields().catch(() => form.getFieldsValue())
       const completedAt = nowIsoString()
       const overtime = {
-        reasons: values.reasons?.length ? values.reasons : undefined,
-        department: values.department || undefined,
+        reason: values.reason?.trim() || undefined,
+        department: values.department?.trim() || undefined,
         ownerName: values.ownerName?.trim() || undefined,
       }
       await markLoadingCompleted(dispatch.id, yardId, completedAt, overtime)
@@ -95,27 +97,18 @@ export function LoadingCompleteModal({ open, dispatch, yardId, yardName, onClose
 
       <Form<OvertimeValues> form={form} layout="vertical" preserve={false}>
         <Form.Item
-          name="reasons"
-          label="超时原因（多选）"
-          tooltip="可勾选 1 个或多个；与装货慢、园区拥堵等场景对应"
+          name="reason"
+          label="超时原因"
+          tooltip="手填，如「路面不平」「下雨」"
         >
-          <Select
-            mode="multiple"
-            allowClear
-            placeholder="请选择超时原因（可多选）"
-            options={OVERTIME_REASON_OPTIONS}
-          />
+          <Input placeholder="例如：路面不平 / 下雨 / 叉车故障" maxLength={50} allowClear />
         </Form.Item>
 
-        <Form.Item name="department" label="超时责任部门（单选）" tooltip="全选填；判定后责任归属">
-          <Select
-            allowClear
-            placeholder="请选择责任部门"
-            options={OVERTIME_DEPARTMENT_OPTIONS}
-          />
+        <Form.Item name="department" label="超时责任部门" tooltip="手填责任部门名称">
+          <Input placeholder="例如：成品库一组 / 物流公司调度" maxLength={30} allowClear />
         </Form.Item>
 
-        <Form.Item name="ownerName" label="负责人（手填）" tooltip="全选填；填写现场负责人姓名">
+        <Form.Item name="ownerName" label="负责人" tooltip="手填现场负责人姓名">
           <Input placeholder="如：张三 / 李四" maxLength={20} allowClear />
         </Form.Item>
       </Form>

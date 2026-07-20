@@ -149,9 +149,9 @@ export interface DispatchMock {
   enteredAt?: string
   // —— 库房装货完成超时备注（2026-07-20 新增，与 Web 端 YardTimeline.overtime* 字段对齐）——
   // Why mobile-h5 不用 YardTimeline[] 子集：mobile-h5 当前无 YardTimeline 数组，单客户地址场景下用顶级字段简化
-  /** 超时原因（多选，对齐 Web 端 YardTimeline.overtimeReasons） */
-  loadingOvertimeReasons?: string[]
-  /** 超时责任部门（单选，对齐 Web 端 YardTimeline.overtimeDepartment） */
+  /** 超时原因（手填文本，对齐 Web 端 YardTimeline.overtimeReason） */
+  loadingOvertimeReason?: string
+  /** 超时责任部门（手填文本，对齐 Web 端 YardTimeline.overtimeDepartment） */
   loadingOvertimeDepartment?: string
   /** 负责人姓名（手填文本，对齐 Web 端 YardTimeline.overtimeOwnerName） */
   loadingOvertimeOwnerName?: string

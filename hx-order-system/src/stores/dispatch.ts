@@ -40,7 +40,7 @@ interface DispatchState {
     dispatchId: string,
     yardId: string,
     completedAt: string,
-    overtime?: { reasons?: string[]; department?: string; ownerName?: string },
+    overtime?: { reason?: string; department?: string; ownerName?: string },
   ) => Promise<void>
 
   // —— v0.2.0-M2：到货处理 ——
@@ -320,16 +320,16 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
    * @param dispatchId 调车单 ID
    * @param yardId 当前激活园区 ID
    * @param completedAt 装货完成时间（ISO 字符串）
-   * @param overtime 超时备注（2026-07-20 新增；全选填）
-   *   - reasons：超时原因 key 数组（对应 OVERTIME_REASON_LABEL）
-   *   - department：超时责任部门 key（对应 OVERTIME_DEPARTMENT_LABEL）
+   * @param overtime 超时备注（2026-07-20 新增；全手填）
+   *   - reason：超时原因（手填文本，单字符串）
+   *   - department：超时责任部门（手填文本，单字符串）
    *   - ownerName：负责人姓名（手填文本）
    */
   markLoadingCompleted: async (
     dispatchId,
     yardId,
     completedAt,
-    overtime?: { reasons?: string[]; department?: string; ownerName?: string },
+    overtime?: { reason?: string; department?: string; ownerName?: string },
   ) => {
     const d = get().list.find((x) => x.id === dispatchId)
     if (!d) throw new Error('调车单不存在')
@@ -340,8 +340,8 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
         return {
           ...y,
           loadingCompletedAt: completedAt,
-          overtimeReasons: overtime?.reasons?.length ? overtime.reasons : y.overtimeReasons,
-          overtimeDepartment: overtime?.department || y.overtimeDepartment,
+          overtimeReason: overtime?.reason?.trim() || y.overtimeReason,
+          overtimeDepartment: overtime?.department?.trim() || y.overtimeDepartment,
           overtimeOwnerName: overtime?.ownerName?.trim() || y.overtimeOwnerName,
         }
       }),

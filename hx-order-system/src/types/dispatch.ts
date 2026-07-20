@@ -145,12 +145,12 @@ export interface YardTimeline {
   // ❌ v0.3.0-M2.2 删除:客户签收相关(signedAt / signaturePhotos / signatureNote)
   // —— v0.2.0-M2 字段:arrivedByGpsAt 保留,仅作为 GPS 检测时间记录,不再驱动状态机
 
-  // —— 库房装货完成超时备注（2026-07-20 新增，库房员录入）——
-  /** 超时原因（多选，对应 OVERTIME_REASON_LABEL key；全选填） */
-  overtimeReasons?: string[]
-  /** 超时责任部门（单选，对应 OVERTIME_DEPARTMENT_LABEL key；全选填） */
+  // —— 库房装货完成超时备注（2026-07-20 新增，库房员手填）——
+  /** 超时原因（手填文本，单字符串；2026-07-20 由多选改为手填） */
+  overtimeReason?: string
+  /** 超时责任部门（手填文本，单字符串；2026-07-20 由单选改为手填） */
   overtimeDepartment?: string
-  /** 负责人姓名（手填文本；全选填） */
+  /** 负责人姓名（手填文本） */
   overtimeOwnerName?: string
 }
 

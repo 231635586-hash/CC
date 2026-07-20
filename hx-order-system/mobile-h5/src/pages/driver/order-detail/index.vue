@@ -21,26 +21,8 @@ import { DISPATCH_STATUS_MAP, isStepReached } from '@/constants/dispatchStatus'
 import { useDriverStore } from '@/stores/driver'
 import StatusTag from '@/components/StatusTag.vue'
 
-// 2026-07-20：导入超时字典（与 Web 端 src/types/dispatch.ts 对齐）
-// mobile-h5 司机只读展示，不维护本地字典副本，直接 inline 写
-// Why inline：避免 mobile-h5 引入 Web 端依赖；字典项少（7 + 5 = 12 项），维护成本低
-const OVERTIME_REASON_LABEL: Record<string, string> = {
-  traffic: '路况拥堵',
-  weather: '天气原因',
-  customer_delay: '客户延迟',
-  slow_loading: '装货慢',
-  equipment_fault: '设备故障',
-  driver_absent: '司机未到',
-  yard_congestion: '园区拥堵',
-  other: '其他',
-}
-const OVERTIME_DEPARTMENT_LABEL: Record<string, string> = {
-  warehouse: '成品库',
-  driver: '司机',
-  customer: '客户',
-  logistics_company: '物流公司',
-  system: '系统',
-}
+// 2026-07-20：超时字典已删除（超时原因/部门改为手填，不再需要 label 翻译）
+// 仅保留负责人 Input（无字典）
 
 interface YardInfo {
   id: string
@@ -87,11 +69,11 @@ interface DetailData {
   timeline: TimelineNode[]
   remark: string
   // —— 2026-07-20 新增：库房装货完成超时备注（Web 端录入，mobile-h5 只读展示）——
-  /** 超时原因（多选） */
-  loadingOvertimeReasons?: string[]
-  /** 超时责任部门（单选） */
+  /** 超时原因（手填文本） */
+  loadingOvertimeReason?: string
+  /** 超时责任部门（手填文本） */
   loadingOvertimeDepartment?: string
-  /** 负责人（手填） */
+  /** 负责人（手填文本） */
   loadingOvertimeOwnerName?: string
 }
 
@@ -198,7 +180,7 @@ function loadDetail(id: string) {
     ],
     remark: '客户催货，优先派车',
     // 2026-07-20 新增：装货完成超时备注（Web 端库房员录入，mobile-h5 司机只读展示）
-    loadingOvertimeReasons: mock.loadingOvertimeReasons,
+    loadingOvertimeReason: mock.loadingOvertimeReason,
     loadingOvertimeDepartment: mock.loadingOvertimeDepartment,
     loadingOvertimeOwnerName: mock.loadingOvertimeOwnerName,
   }
@@ -369,25 +351,19 @@ onLoad((query: any) => {
 
     <!-- v0.3.0-M2.2 + 2026-07-20：装货超时备注 Section（库房员在 Web 端录入，司机端只读展示） -->
     <view
-      v-if="detail.loadingOvertimeReasons?.length || detail.loadingOvertimeDepartment || detail.loadingOvertimeOwnerName"
+      v-if="detail.loadingOvertimeReason || detail.loadingOvertimeDepartment || detail.loadingOvertimeOwnerName"
       class="card"
     >
       <view class="card-header">
         <text class="card-title">装货超时备注</text>
       </view>
-      <view v-if="detail.loadingOvertimeReasons?.length" class="overtime-row">
+      <view v-if="detail.loadingOvertimeReason" class="overtime-row">
         <text class="overtime-label">超时原因</text>
-        <view class="overtime-tags">
-          <text v-for="r in detail.loadingOvertimeReasons" :key="r" class="overtime-tag">
-            {{ OVERTIME_REASON_LABEL[r] || r }}
-          </text>
-        </view>
+        <text class="overtime-value">{{ detail.loadingOvertimeReason }}</text>
       </view>
       <view v-if="detail.loadingOvertimeDepartment" class="overtime-row">
         <text class="overtime-label">责任部门</text>
-        <text class="overtime-tag dept-tag">
-          {{ OVERTIME_DEPARTMENT_LABEL[detail.loadingOvertimeDepartment] || detail.loadingOvertimeDepartment }}
-        </text>
+        <text class="overtime-value">{{ detail.loadingOvertimeDepartment }}</text>
       </view>
       <view v-if="detail.loadingOvertimeOwnerName" class="overtime-row">
         <text class="overtime-label">负责人</text>
