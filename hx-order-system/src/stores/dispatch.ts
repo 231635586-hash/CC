@@ -4,11 +4,19 @@ import type { Dispatch, YardTimeline } from '@/types/dispatch'
 import { getEnterYardAt, getLeaveYardAt } from '@/utils/dispatchTimeline'
 import { nowIsoString } from '@/utils'
 
+/** save 可选项：autoDerive=true 让 store 根据 yardTimelines 自动推导 status
+ * 业务层（handleConfirm/handleDispatch 等）调用时不传，保持传入的 status
+ * markXxx 时间轴操作调用时传 true，让状态自动跟随 timeline 推进
+ */
+interface SaveOptions {
+  autoDerive?: boolean
+}
+
 interface DispatchState {
   list: Dispatch[]
   loading: boolean
   load: () => Promise<void>
-  save: (dispatch: Dispatch) => Promise<void>
+  save: (dispatch: Dispatch, opts?: SaveOptions) => Promise<void>
   remove: (id: string) => Promise<void>
   getById: (id: string) => Dispatch | undefined
 
@@ -122,8 +130,14 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
     const list = await mockDB.listDispatches()
     set({ list: list.map(withDerived), loading: false })
   },
-  save: async (dispatch) => {
-    const updated = withDerived({ ...dispatch, status: deriveStatus(dispatch) })
+  save: async (dispatch, opts) => {
+    // 业务层调用时不传 opts → 尊重传入的 status（修复之前强制 derive 覆盖 confirmed/cancelled 等 bug）
+    // markXxx 内部传 { autoDerive: true } → 仍按 timeline 自动转 status
+    const autoDerive = opts?.autoDerive ?? false
+    const next = autoDerive
+      ? { ...dispatch, status: deriveStatus(dispatch) }
+      : dispatch
+    const updated = withDerived(next)
     await mockDB.saveDispatch(updated)
     await get().load()
   },
@@ -153,7 +167,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
           : y,
       ),
     }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   /**
@@ -180,7 +194,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
           : y,
       ),
     }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   /**
@@ -207,7 +221,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
       arrivedByGpsAt: y.arrivedByGpsAt ?? queuedAt,
     }))
     const updated: Dispatch = { ...d, yardTimelines: tl }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   /**
@@ -224,7 +238,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
       queuedAt: y.queuedAt ?? queuedAt,
     }))
     const updated: Dispatch = { ...d, yardTimelines: tl }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   /**
@@ -247,7 +261,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
       notifyDepartAt: y.notifyDepartAt ?? enteredAt,
     }))
     const updated: Dispatch = { ...d, yardTimelines: tl }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   /**
@@ -268,7 +282,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
       yardTimelines: tl,
       completedAt: now,
     }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   /** 车辆 GPS 离厂（mock：来自位置流 tick） */
@@ -291,7 +305,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
         return { ...y, leftAt, leftVia: 'gps' as const }
       }),
     }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   // ====== 旧扫码 stub 已下线（M3 GPS 自动打卡替代）======
@@ -305,7 +319,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
         y.yardId === yardId ? { ...y, loadingCompletedAt: completedAt } : y,
       ),
     }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   // ====== v0.2.0-M2：到货处理 4 步 ======
@@ -320,7 +334,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
         y.leftAt && !y.leftYardAt ? { ...y, leftYardAt: leftAt } : y,
       ),
     }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   /** GPS 入客户园区（mock：来自位置流 tick，自动反查 dispatch）
@@ -345,7 +359,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
         return { ...y, arrivedByGpsAt: arrivedAt }
       }),
     }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
   },
 
   /** 司机手动确认到达（M2.2 v2：链式触发 completeByDriverConfirm → completed） */
@@ -359,7 +373,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
         !y.driverConfirmedAt ? { ...y, driverConfirmedAt: confirmedAt } : y,
       ),
     }
-    await get().save(updated)
+    await get().save(updated, { autoDerive: true })
     // 2. 链式触发 completed
     await get().completeByDriverConfirm(dispatchId)
   },
