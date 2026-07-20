@@ -21,6 +21,27 @@ import { DISPATCH_STATUS_MAP, isStepReached } from '@/constants/dispatchStatus'
 import { useDriverStore } from '@/stores/driver'
 import StatusTag from '@/components/StatusTag.vue'
 
+// 2026-07-20：导入超时字典（与 Web 端 src/types/dispatch.ts 对齐）
+// mobile-h5 司机只读展示，不维护本地字典副本，直接 inline 写
+// Why inline：避免 mobile-h5 引入 Web 端依赖；字典项少（7 + 5 = 12 项），维护成本低
+const OVERTIME_REASON_LABEL: Record<string, string> = {
+  traffic: '路况拥堵',
+  weather: '天气原因',
+  customer_delay: '客户延迟',
+  slow_loading: '装货慢',
+  equipment_fault: '设备故障',
+  driver_absent: '司机未到',
+  yard_congestion: '园区拥堵',
+  other: '其他',
+}
+const OVERTIME_DEPARTMENT_LABEL: Record<string, string> = {
+  warehouse: '成品库',
+  driver: '司机',
+  customer: '客户',
+  logistics_company: '物流公司',
+  system: '系统',
+}
+
 interface YardInfo {
   id: string
   name: string
@@ -65,6 +86,13 @@ interface DetailData {
   goods: GoodsItem[]
   timeline: TimelineNode[]
   remark: string
+  // —— 2026-07-20 新增：库房装货完成超时备注（Web 端录入，mobile-h5 只读展示）——
+  /** 超时原因（多选） */
+  loadingOvertimeReasons?: string[]
+  /** 超时责任部门（单选） */
+  loadingOvertimeDepartment?: string
+  /** 负责人（手填） */
+  loadingOvertimeOwnerName?: string
 }
 
 /** P0-3：mock 阶段拍照失败兑底占位图（SVG data URL，无 base64 撑爆风险） */
@@ -169,6 +197,10 @@ function loadDetail(id: string) {
       { status: 'driver_confirmed', label: '司机确认到达', time: '16:05', done: isStepReached('driver_confirmed', mock.status) },
     ],
     remark: '客户催货，优先派车',
+    // 2026-07-20 新增：装货完成超时备注（Web 端库房员录入，mobile-h5 司机只读展示）
+    loadingOvertimeReasons: mock.loadingOvertimeReasons,
+    loadingOvertimeDepartment: mock.loadingOvertimeDepartment,
+    loadingOvertimeOwnerName: mock.loadingOvertimeOwnerName,
   }
 }
 
@@ -332,6 +364,34 @@ onLoad((query: any) => {
             <text class="timeline-time">{{ item.time }}</text>
           </view>
         </view>
+      </view>
+    </view>
+
+    <!-- v0.3.0-M2.2 + 2026-07-20：装货超时备注 Section（库房员在 Web 端录入，司机端只读展示） -->
+    <view
+      v-if="detail.loadingOvertimeReasons?.length || detail.loadingOvertimeDepartment || detail.loadingOvertimeOwnerName"
+      class="card"
+    >
+      <view class="card-header">
+        <text class="card-title">装货超时备注</text>
+      </view>
+      <view v-if="detail.loadingOvertimeReasons?.length" class="overtime-row">
+        <text class="overtime-label">超时原因</text>
+        <view class="overtime-tags">
+          <text v-for="r in detail.loadingOvertimeReasons" :key="r" class="overtime-tag">
+            {{ OVERTIME_REASON_LABEL[r] || r }}
+          </text>
+        </view>
+      </view>
+      <view v-if="detail.loadingOvertimeDepartment" class="overtime-row">
+        <text class="overtime-label">责任部门</text>
+        <text class="overtime-tag dept-tag">
+          {{ OVERTIME_DEPARTMENT_LABEL[detail.loadingOvertimeDepartment] || detail.loadingOvertimeDepartment }}
+        </text>
+      </view>
+      <view v-if="detail.loadingOvertimeOwnerName" class="overtime-row">
+        <text class="overtime-label">负责人</text>
+        <text class="overtime-value">{{ detail.loadingOvertimeOwnerName }}</text>
       </view>
     </view>
 
@@ -731,6 +791,47 @@ html.hx-frame-on .bottom-bar {
   font-size: var(--font-size-sub);
   color: var(--color-text-secondary);
   line-height: 1.5;
+}
+
+/* 2026-07-20：装货超时备注 Section 样式（与 YardMetricsCard Web 端范本一致） */
+.overtime-row {
+  display: flex;
+  align-items: center;
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx dashed var(--color-bg);
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.overtime-row:last-child { border-bottom: none; }
+.overtime-label {
+  font-size: var(--font-size-sub);
+  color: var(--color-text-secondary);
+  width: 96rpx;
+  flex-shrink: 0;
+}
+.overtime-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  flex: 1;
+}
+.overtime-tag {
+  display: inline-block;
+  padding: 4rpx 16rpx;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-caption);
+  background: rgba(250, 140, 22, 0.12);
+  color: #fa8c16;
+  font-weight: var(--font-weight-medium);
+}
+.overtime-tag.dept-tag {
+  background: rgba(255, 77, 79, 0.12);
+  color: #ff4d4f;
+}
+.overtime-value {
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 /* Goods */

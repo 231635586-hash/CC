@@ -147,6 +147,14 @@ export interface DispatchMock {
   queuedAt?: string
   /** P0-5：进场时间（通过道闸的时间，库房开闸后由道闸系统记录，对齐 Web 端 YardTimeline.enteredAt） */
   enteredAt?: string
+  // —— 库房装货完成超时备注（2026-07-20 新增，与 Web 端 YardTimeline.overtime* 字段对齐）——
+  // Why mobile-h5 不用 YardTimeline[] 子集：mobile-h5 当前无 YardTimeline 数组，单客户地址场景下用顶级字段简化
+  /** 超时原因（多选，对齐 Web 端 YardTimeline.overtimeReasons） */
+  loadingOvertimeReasons?: string[]
+  /** 超时责任部门（单选，对齐 Web 端 YardTimeline.overtimeDepartment） */
+  loadingOvertimeDepartment?: string
+  /** 负责人姓名（手填文本，对齐 Web 端 YardTimeline.overtimeOwnerName） */
+  loadingOvertimeOwnerName?: string
 }
 
 /** Yard 类型再 export（mobile-h5 内部多处复用，源头在本目录的 driver.ts） */
