@@ -1,13 +1,13 @@
 /**
- * Mock 演示按钮集合（DEV-ONLY）
+ * Mock 演示按钮集合
  *
  * 业务背景：v0.2.0-M2 mock 阶段，GPS 入园等真实链路未接入，
  * 库房员/调度员需要在 PC 端手动"模拟"这些动作以演示完整状态机。
  *
- * 隔离原则：
- *  - 整个模块由 `import.meta.env.DEV` 控制，prod 构建被 Vite 物理 tree-shake
- *  - 所有按钮带「演示：」前缀 + Tooltip 明示"不会真的通知司机/客户"
- *  - 真实链路接通后（GPS 流对接），本模块直接删除
+ * v1.0 调整：去除 `import.meta.env.DEV` gate
+ *  - 原因：vercel demo 部署给客户演示时也需要看到这些按钮走通完整流程
+ *  - 安全：所有按钮带「演示：」前缀 + Tooltip 明示"不会真的通知司机/客户"
+ *  - 后续：真实 GPS 链路接通后整个模块删除
  *
  * 何时删除：
  *  - markYardQueuedByGps 由真实 GPS 流自动触发（v0.3.0-M2.2 改为 queued）
@@ -40,8 +40,9 @@ interface Props {
  *  - GPS 入客户园区 → markArrivedByGps 由真实 GPS 流触发（仅记录 arrivedByGpsAt 字段）
  */
 export function DevActions({ record, activeYardId }: Props) {
-  // 生产构建物理删除
-  if (!import.meta.env.DEV) return null
+  // v1.0 调整：取消 DEV gate，让 vercel demo 部署也能演示完整流程
+  // 按钮文案以「演示：」为前缀 + Tooltip 明示 mock 性质，避免库房员误操作
+  // const _ = import.meta.env.DEV // 保留可读性注释:DEV 检查已移除
 
   const { markYardQueuedByGps, markLeftYard, markArrivedByGps } = useDispatchStore.getState()
 
