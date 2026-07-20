@@ -56,6 +56,8 @@ export type DispatchStatus =
   | 'loading'
   | 'leaving'
   | 'in_transit'
+  // v0.3.0-M2.2 + P0-2:新增 arrived（GPS 自动触发）
+  | 'arrived'
   | 'driver_confirmed'
   | 'completed'
   | 'cancelled'

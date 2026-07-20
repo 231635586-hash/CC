@@ -4,7 +4,13 @@
  * 注意：mock 阶段车辆位置由 PC 端 gpsStream 管理，H5 自身定位仅用于：
  *  - 司机侧"切换司机"后展示当前定位
  *  - 未来真实生产中作为 H5 端"补位定位"（硬件 GPS 失效时）
+ *
+ * v0.3.0-M2.2 + P0-2：
+ *   - 新增 detectCustomerAddress / CUSTOMER_RADIUS_M
+ *   - 用于司机到达客户地址附近时自动触发 arrived 状态
  */
+
+import type { CustomerSite } from '@/types/shared/dispatch'
 
 export interface YardLite {
   id: string
@@ -20,6 +26,14 @@ export interface Position {
   /** 精度（米） */
   accuracyM?: number
 }
+
+/**
+ * 客户收货点触发半径（米）— P0-2 GPS 自动到货用
+ *
+ * Why 200m：与 Web 端 Customer.site.radiusM 默认值对齐
+ *          200m 既能容忍 GPS 误差（accuracy 通常 ≤50m），又不会过早触发
+ */
+export const CUSTOMER_RADIUS_M = 200
 
 /** Haversine 距离（米） */
 export function distanceM(a: { lng: number; lat: number }, b: { lng: number; lat: number }): number {
@@ -42,6 +56,20 @@ export function detectYard(p: Position, yards: YardLite[]): YardLite | null {
   }
   if (best && best.dist <= (best.yard.radiusM ?? 300)) return best.yard
   return null
+}
+
+/**
+ * 检测当前点是否在客户收货点半径内（P0-2 GPS 自动到货用）
+ *
+ * @returns true 表示已到达客户地址附近
+ *
+ * 与 detectYard 的区别：
+ *   - detectYard 处理多园区，返回最近园区对象
+ *   - detectCustomerAddress 处理单个客户收货点，返回布尔
+ */
+export function detectCustomerAddress(p: Position, site: CustomerSite): boolean {
+  const radius = site.radiusM ?? CUSTOMER_RADIUS_M
+  return distanceM(p, { lng: site.lng, lat: site.lat }) <= radius
 }
 
 /**

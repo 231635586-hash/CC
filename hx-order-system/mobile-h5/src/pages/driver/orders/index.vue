@@ -27,14 +27,15 @@
  */
 
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDriverStore } from '@/stores/driver'
 import { useUiStore } from '@/stores/ui'
 import { MOCK_DISPATCHES, type DispatchMock } from '@/mock/dispatches'
 import { MOCK_DRIVERS, DEFAULT_DRIVER } from '@/mock/drivers'
 import { MOCK_YARDS } from '@/constants/yards'
-import { getCurrentPosition, detectYard, distanceM } from '@/utils/location'
+import { getCurrentPosition, detectYard, detectCustomerAddress, distanceM, type Position } from '@/utils/location'
+import { startGpsWatcher, stopGpsWatcher, isGpsWatcherRunning } from '@/utils/gpsWatcher'
 import type { TabKey, NotificationItem, Yard } from '@/types/driver'
 import MobileTabBar from '@/components/MobileTabBar.vue'
 
@@ -117,6 +118,84 @@ function switchTab(tab: TabKey) {
 
 function goDetail(item: DispatchMock) {
   uni.navigateTo({ url: `/pages/driver/order-detail/index?id=${item.id}` })
+}
+
+// =============================================================
+// P0-2：GPS 自动到货（in_transit → arrived）
+// =============================================================
+//
+// 设计：
+//  - 单例 watcher（utils/gpsWatcher.ts）扫描所有 status='in_transit' 的派车单
+//  - 每 30s tick 一次，检测每条 in_transit 派车单的距离
+//  - 距离 ≤ customerSite.radiusM（默认 200m）→ 自动 arrived + 推送消息
+//  - 一次性事件：触发后 stop watcher（无需继续检测）
+//
+/**
+ * GPS tick 回调：扫描 dispatchList 中所有 in_transit 派车单
+ * 距离客户地址 ≤200m → 自动改 arrived + 同步 MOCK_DISPATCHES + toast + 推送消息
+ */
+async function handleGpsTick(position: Position) {
+  const candidates = dispatchList.value.filter((d) => d.status === 'in_transit' && d.customerSite)
+  if (candidates.length === 0) return
+
+  for (const item of candidates) {
+    if (!item.customerSite) continue
+    if (detectCustomerAddress(position, item.customerSite)) {
+      const now = new Date().toISOString()
+      // 1) 更新本地 dispatchList
+      const idx = dispatchList.value.findIndex((d) => d.id === item.id)
+      if (idx < 0) continue
+      const updated: DispatchMock = {
+        ...dispatchList.value[idx],
+        status: 'arrived',
+        arrivedByGpsAt: now,
+        arrivedByGpsLocation: { lng: position.lng, lat: position.lat },
+      }
+      dispatchList.value = [
+        ...dispatchList.value.slice(0, idx),
+        updated,
+        ...dispatchList.value.slice(idx + 1),
+      ]
+      // 2) 同步 MOCK_DISPATCHES，确保返回列表/详情时状态一致
+      const mockIdx = MOCK_DISPATCHES.findIndex((d) => d.id === item.id)
+      if (mockIdx >= 0) {
+        MOCK_DISPATCHES[mockIdx].status = 'arrived'
+        MOCK_DISPATCHES[mockIdx].arrivedByGpsAt = now
+        MOCK_DISPATCHES[mockIdx].arrivedByGpsLocation = { lng: position.lng, lat: position.lat }
+      }
+      // 3) toast 提示
+      uni.showToast({ title: '📍 已到达客户地址', icon: 'success' })
+      // 4) 推送 arrived_prompt 消息（消息 Tab 同步显示）
+      driverStore.pushNotification({
+        id: `n-${item.id}-arrived-${Date.now()}`,
+        type: 'arrived_prompt',
+        title: '已到达客户地址',
+        content: `${item.dispatchNo} 已到达 ${item.customerName}，请拍照确认到货`,
+        time: new Date().toTimeString().slice(0, 5),
+        timestamp: Date.now(),
+        read: false,
+        dispatchId: item.id,
+      })
+      // 5) 一次性事件：触发后停止 watcher（避免重复触发）
+      stopGpsWatcher()
+      break
+    }
+  }
+}
+
+/**
+ * 启动 GPS 自动到货 watcher
+ *  - 仅当存在 in_transit 派车单时启动
+ *  - onUnmounted 会 stop（避免泄漏）
+ */
+function startArrivalWatcher() {
+  const hasInTransit = dispatchList.value.some((d) => d.status === 'in_transit')
+  if (!hasInTransit) return
+  startGpsWatcher({
+    onTick: handleGpsTick,
+    intervalMs: 30000,
+    immediate: true,
+  })
 }
 
 /** 司机点 [导航前往园区] → 查首个园区坐标 → 调起导航(mock 阶段弹 modal,真实阶段调地图 SDK) */
@@ -267,9 +346,27 @@ onLoad((query: any) => {
   window.addEventListener('demo-trigger-complete', handleDemoTriggerComplete)
 })
 
+// P0-2：监听 dispatchList 变化，自动启动/停止 GPS watcher
+//  - 数据加载完成后若有 in_transit 派车单则启动 watcher
+//  - 已 arrived / 已 completed 后停止 watcher
+watch(
+  () => dispatchList.value.map((d) => `${d.id}:${d.status}`).join(','),
+  () => {
+    const hasInTransit = dispatchList.value.some((d) => d.status === 'in_transit')
+    const watcherRunning = isGpsWatcherRunning()
+    if (hasInTransit && !watcherRunning) {
+      startArrivalWatcher()
+    } else if (!hasInTransit && watcherRunning) {
+      stopGpsWatcher()
+    }
+  },
+)
+
 onUnmounted(() => {
   window.removeEventListener('demo-trigger-gate', handleDemoTriggerGate)
   window.removeEventListener('demo-trigger-complete', handleDemoTriggerComplete)
+  // P0-2：清理 GPS watcher，避免泄漏
+  stopGpsWatcher()
 })
 
 onPullDownRefresh(async () => {

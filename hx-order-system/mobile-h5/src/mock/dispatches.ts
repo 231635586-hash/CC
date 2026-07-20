@@ -11,14 +11,58 @@
  *   - DispatchStatus / DispatchMock 抽到 @/types/shared/dispatch
  *   - 此处保留 re-export 以兼容既有 import 路径
  *   - 新代码请直接 import 自 @/types/shared/dispatch
+ *
+ * v0.3.0-M2.2 + P0-2：
+ *   - MOCK_DISPATCHES_RAW 保留纯数据（无 customerSite 字段）
+ *   - MOCK_DISPATCHES 通过 .map() 注入 customerSite（GPS 自动到货需要）
+ *   - customerSiteOf('苏州') 返回秦壁附近兜底坐标（让 in_transit 派车单演示触发）
  */
 
-import type { DispatchStatus, DispatchMock } from '@/types/shared/dispatch'
+import type { DispatchStatus, DispatchMock, CustomerSite } from '@/types/shared/dispatch'
 
 // P0-1：再 export 保持向后兼容（老代码 from '@/mock/dispatches' 仍可用）
 export type { DispatchStatus, DispatchMock }
 
-export const MOCK_DISPATCHES: DispatchMock[] = [
+/**
+ * 秦壁附近兜底坐标（P0-2 GPS 演示用）
+ *
+ * Why：getCurrentPosition 在浏览器拒绝 Geolocation 时返回秦壁附近（111.513, 36.081）
+ *      把 in_transit 派车单的 customerSite 也设这里，距离 ≈ 0m，无 GPS 也能立即触发 arrived
+ */
+const QINBI_FALLBACK: CustomerSite = {
+  lng: 111.513,
+  lat: 36.081,
+  radiusM: 200,
+  contactName: '现场联系人',
+  contactPhone: '13987654321',
+}
+
+/** mock 阶段城市→客户坐标映射（演示不同距离场景） */
+const CITY_SITES: Record<string, CustomerSite> = {
+  杭州: { lng: 120.13, lat: 30.27, radiusM: 200, contactName: '周婷', contactPhone: '13566778899' },
+  苏州: { lng: 120.62, lat: 31.32, radiusM: 200, contactName: '王芳', contactPhone: '13755667788' },
+  上海: { lng: 121.47, lat: 31.23, radiusM: 200, contactName: '李强', contactPhone: '13811223344' },
+  北京: { lng: 116.40, lat: 39.90, radiusM: 200, contactName: '张伟', contactPhone: '13900112233' },
+  广州: { lng: 113.26, lat: 23.13, radiusM: 200, contactName: '陈刚', contactPhone: '13622334455' },
+  深圳: { lng: 113.95, lat: 22.55, radiusM: 200, contactName: '刘洋', contactPhone: '13533445566' },
+  无锡: { lng: 120.30, lat: 31.57, radiusM: 200, contactName: '赵敏', contactPhone: '13744556677' },
+  青岛: { lng: 120.38, lat: 36.07, radiusM: 200, contactName: '孙磊', contactPhone: '13855667788' },
+  天津: { lng: 117.20, lat: 39.13, radiusM: 200, contactName: '周华', contactPhone: '13966778899' },
+  东莞: { lng: 113.75, lat: 22.95, radiusM: 200, contactName: '吴军', contactPhone: '13677889900' },
+}
+
+/**
+ * 根据 direction 推导 customerSite
+ *  - in_transit 派车单强制用秦壁兜底（让演示立即触发 arrived）
+ *  - 其他状态用城市代表性坐标（不影响演示）
+ */
+function customerSiteOf(direction: string, status: DispatchStatus): CustomerSite {
+  if (status === 'in_transit') return QINBI_FALLBACK
+  return CITY_SITES[direction] ?? QINBI_FALLBACK
+}
+
+/** 纯数据（无 customerSite 注入，便于阅读和维护） */
+const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
   {
     id: 'mock-dispatch-012',
     dispatchNo: 'DC20260627012',
@@ -127,7 +171,7 @@ export const MOCK_DISPATCHES: DispatchMock[] = [
 
   // ===== v0.2.0-M2：到货处理 4 步状态演示样本 =====
 
-  // M2-01：in_transit（装货完成，在途）
+  // M2-01：in_transit（装货完成，在途）— P0-2 演示 GPS 自动到货用
   {
     id: 'mock-dispatch-m2-001',
     dispatchNo: 'DC20260709001',
@@ -229,3 +273,15 @@ export const MOCK_DISPATCHES: DispatchMock[] = [
     goodsSummary: '服装鞋帽 150 箱 / 3.0 吨（已签收 3 张照片）',
   },
 ]
+
+/**
+ * 注入 customerSite 后的最终 mock 数组
+ *
+ * Why 用 .map()：
+ *   - 纯数据 MOCK_DISPATCHES_RAW 保持可读，不重复 customerSite 字段
+ *   - 注入逻辑集中在 customerSiteOf，便于将来调整坐标映射
+ */
+export const MOCK_DISPATCHES: DispatchMock[] = MOCK_DISPATCHES_RAW.map((d) => ({
+  ...d,
+  customerSite: customerSiteOf(d.direction, d.status),
+}))

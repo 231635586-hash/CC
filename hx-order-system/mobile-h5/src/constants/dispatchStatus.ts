@@ -3,6 +3,11 @@
  *
  * 用途：所有 H5 页面统一状态显示规则
  * 设计：CSS class 名以 `tag-` 开头，对应全局样式
+ *
+ * v0.3.0-M2.2 + P0-2：
+ *   - 新增 `arrived` 状态（GPS 自动触发，已到达客户地址附近）
+ *   - ACTIVE_STATUSES / TIMELINE_ORDER 同步插入
+ *   - 字段命名对齐 Web 端 YardTimeline.arrivedByGpsAt（语义对齐，但状态字段独立）
  */
 
 import type { DispatchStatus } from '@/types/shared/dispatch'
@@ -30,6 +35,10 @@ export const DISPATCH_STATUS_MAP: Record<DispatchStatus, StatusOption> = {
   leaving:            { label: '出场中',   cssClass: 'leaving' },
   // —— M2 新增 ——
   in_transit:         { label: '在途中',   cssClass: 'transit' },
+  // —— v0.3.0-M2.2 + P0-2：GPS 自动到货（P0-2 引入）——
+  //   触发：司机 GPS 检测到客户地址 ≤200m（utils/location.ts::detectCustomerAddress）
+  //   后续：P0-3 司机手动拍照确认完单 → completed
+  arrived:            { label: '已到达客户', cssClass: 'entering' },
   driver_confirmed:   { label: '已确认',   cssClass: 'pending' },
   // —— 终态 ——
   completed:          { label: '已完成',   cssClass: 'completed' },
@@ -47,6 +56,8 @@ export const ACTIVE_STATUSES: DispatchStatus[] = [
   'leaving',
   // M2 简化后:只保留 in_transit + driver_confirmed
   'in_transit',
+  // v0.3.0-M2.2 + P0-2：arrived 插在 in_transit 之后、driver_confirmed 之前
+  'arrived',
   'driver_confirmed',
 ]
 export const PENDING_STATUSES: DispatchStatus[] = ['pending_confirm', 'confirmed', 'draft']
@@ -70,6 +81,8 @@ export const TIMELINE_ORDER: DispatchStatus[] = [
   'loading',
   'leaving',
   'in_transit',
+  // v0.3.0-M2.2 + P0-2:在 in_transit 与 driver_confirmed 之间插入 arrived（GPS 自动）
+  'arrived',
   'driver_confirmed',
   'completed',
 ]

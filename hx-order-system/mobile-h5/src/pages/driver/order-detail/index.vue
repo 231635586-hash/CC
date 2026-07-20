@@ -110,6 +110,13 @@ function loadDetail(id: string) {
       { status: 'leaving', label: '装货完成离厂', time: '14:30', done: isStepReached('leaving', mock.status) },
       // v0.2.0-M2 → v0.3.0-M2.2：到货处理简化（移除 arrived_by_gps / customer_signed 中间态）
       { status: 'in_transit', label: '在途', time: '15:00', done: isStepReached('in_transit', mock.status) },
+      // v0.3.0-M2.2 + P0-2：GPS 自动到货节点（时间取 arrivedByGpsAt 真实时间戳）
+      {
+        status: 'arrived',
+        label: 'GPS 自动到货',
+        time: mock.arrivedByGpsAt ? new Date(mock.arrivedByGpsAt).toTimeString().slice(0, 5) : '—',
+        done: isStepReached('arrived', mock.status),
+      },
       { status: 'driver_confirmed', label: '司机确认到达', time: '16:05', done: isStepReached('driver_confirmed', mock.status) },
     ],
     remark: '客户催货，优先派车',
@@ -287,6 +294,15 @@ onLoad((query: any) => {
       <view v-if="detail.remark" class="info-row remark-row">
         <text class="info-label">备注</text>
         <text class="info-value remark-text">{{ detail.remark }}</text>
+      </view>
+    </view>
+
+    <!-- v0.3.0-M2.2 + P0-2：arrived 状态横幅（GPS 自动触发） -->
+    <view v-if="detail.status === 'arrived'" class="arrival-banner">
+      <image class="banner-icon" src="/static/icons/arrived.svg" mode="aspectFit" />
+      <view class="banner-content">
+        <text class="banner-title">📍 GPS 自动确认到达客户地址</text>
+        <text class="banner-tip">v0.3.0-M2.2 + P0-2: 距离 ≤200m 自动触发，P0-3 将开放手动拍照确认完单</text>
       </view>
     </view>
 
