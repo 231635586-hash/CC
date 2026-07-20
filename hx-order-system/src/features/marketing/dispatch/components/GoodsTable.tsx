@@ -43,7 +43,7 @@ export function GoodsTable({ goods }: Props) {
           title: '预计到货时间',
           dataIndex: 'expectedArrivalAt',
           width: 130,
-          render: (v: string | undefined, g: { stockType?: string }) => {
+          render: (v: string | undefined, g: { stockType?: string; inventoryId?: string }) => {
             // 仅等货物显示日期；现货或无值显示 -
             if (g.stockType !== 'waiting' || !v) return <span style={{ color: '#ccc' }}>-</span>
             return dayjs(v).format('YYYY-MM-DD')
@@ -54,7 +54,7 @@ export function GoodsTable({ goods }: Props) {
           title: '库存业务员',
           dataIndex: 'salesPersonName',
           width: 110,
-          render: (v: string | undefined, g: { inventoryId?: string }) => {
+          render: (v: string | undefined, g: { stockType?: string; inventoryId?: string }) => {
             if (!v) return <span style={{ color: '#ccc' }}>-</span>
             const fromInventory = !!g.inventoryId
             return (
