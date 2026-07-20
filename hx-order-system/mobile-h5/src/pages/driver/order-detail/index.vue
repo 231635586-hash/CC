@@ -132,10 +132,29 @@ function loadDetail(id: string) {
       { status: 'pending_confirm', label: '订单待确认', time: '09:00', done: isStepReached('pending_confirm', mock.status) },
       { status: 'confirmed', label: '已确认受理', time: '09:30', done: isStepReached('confirmed', mock.status) },
       { status: 'dispatched', label: '已派车出发', time: '13:30', done: isStepReached('dispatched', mock.status) },
-      { status: 'entering', label: 'GPS 自动入园', time: '13:45', done: isStepReached('entering', mock.status) },
+      // v0.3.0-M2.2 + P0-5：入园环节 3 个独立时间点（时间戳驱动，不再依赖 status）
+      {
+        status: 'gps_arrived_yard',
+        label: 'GPS 到达园区',
+        time: mock.gpsArrivedAt ? new Date(mock.gpsArrivedAt).toTimeString().slice(0, 5) : '—',
+        done: !!mock.gpsArrivedAt,
+      },
+      {
+        status: 'queued',
+        label: '扫码排队',
+        time: mock.queuedAt ? new Date(mock.queuedAt).toTimeString().slice(0, 5) : '—',
+        done: !!mock.queuedAt,
+      },
+      {
+        status: 'entered_yard',
+        label: '进场入园',
+        time: mock.enteredAt ? new Date(mock.enteredAt).toTimeString().slice(0, 5) : '—',
+        done: !!mock.enteredAt,
+      },
+      // 装货段（演示按钮触发，与 GPS 无关）
       { status: 'loading', label: '库房通知装货', time: '14:00', done: isStepReached('loading', mock.status) },
       { status: 'leaving', label: '装货完成离厂', time: '14:30', done: isStepReached('leaving', mock.status) },
-      // v0.2.0-M2 → v0.3.0-M2.2：到货处理简化（移除 arrived_by_gps / customer_signed 中间态）
+      // 到货段
       { status: 'in_transit', label: '在途', time: '15:00', done: isStepReached('in_transit', mock.status) },
       // v0.3.0-M2.2 + P0-2：GPS 自动到货节点（时间取 arrivedByGpsAt 真实时间戳）
       {

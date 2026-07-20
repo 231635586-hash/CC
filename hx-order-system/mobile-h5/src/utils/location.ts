@@ -35,6 +35,14 @@ export interface Position {
  */
 export const CUSTOMER_RADIUS_M = 200
 
+/**
+ * 园区触发半径（米）— P0-5 GPS 自动入园提示用
+ *
+ * Why 300m：与 Yard.radiusM 默认值对齐（mock 园区都是 300m 半径）
+ *          300m 让司机有足够缓冲时间准备扫码
+ */
+export const YARD_RADIUS_M = 300
+
 /** Haversine 距离（米） */
 export function distanceM(a: { lng: number; lat: number }, b: { lng: number; lat: number }): number {
   const R = 6371000

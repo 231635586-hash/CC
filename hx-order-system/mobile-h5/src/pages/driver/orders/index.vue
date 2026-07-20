@@ -125,24 +125,24 @@ function goDetail(item: DispatchMock) {
 // =============================================================
 //
 // 设计：
-//  - 单例 watcher（utils/gpsWatcher.ts）扫描所有 status='in_transit' 的派车单
-//  - 每 30s tick 一次，检测每条 in_transit 派车单的距离
-//  - 距离 ≤ customerSite.radiusM（默认 200m）→ 自动 arrived + 推送消息
-//  - 一次性事件：触发后 stop watcher（无需继续检测）
+//  - 单例 watcher（utils/gpsWatcher.ts）扫描所有 in_transit + dispatched 派车单
+//  - 每 30s tick 一次，分类处理：
+//    * in_transit + customerSite：距离 ≤200m → 自动 arrived（一次性事件）
+//    * dispatched + yardIds：距离 ≤300m → 自动写 gpsArrivedAt（提示事件，不改 status）
+//  - arrived 后 stop watcher；gpsArrivedAt 写入后不 stop（持续检测，仍可能继续触发后续事件）
 //
 /**
- * GPS tick 回调：扫描 dispatchList 中所有 in_transit 派车单
- * 距离客户地址 ≤200m → 自动改 arrived + 同步 MOCK_DISPATCHES + toast + 推送消息
+ * GPS tick 回调：扫描 dispatchList 中所有需要检测的派车单
+ *  - in_transit：距离客户地址 ≤200m → arrived
+ *  - dispatched：距离园区 ≤300m → 写 gpsArrivedAt（不改 status）
  */
 async function handleGpsTick(position: Position) {
-  const candidates = dispatchList.value.filter((d) => d.status === 'in_transit' && d.customerSite)
-  if (candidates.length === 0) return
-
-  for (const item of candidates) {
+  // 1) P0-2：in_transit 派车单 → 客户地址到达检测
+  const inTransitList = dispatchList.value.filter((d) => d.status === 'in_transit' && d.customerSite)
+  for (const item of inTransitList) {
     if (!item.customerSite) continue
     if (detectCustomerAddress(position, item.customerSite)) {
       const now = new Date().toISOString()
-      // 1) 更新本地 dispatchList
       const idx = dispatchList.value.findIndex((d) => d.id === item.id)
       if (idx < 0) continue
       const updated: DispatchMock = {
@@ -156,16 +156,13 @@ async function handleGpsTick(position: Position) {
         updated,
         ...dispatchList.value.slice(idx + 1),
       ]
-      // 2) 同步 MOCK_DISPATCHES，确保返回列表/详情时状态一致
       const mockIdx = MOCK_DISPATCHES.findIndex((d) => d.id === item.id)
       if (mockIdx >= 0) {
         MOCK_DISPATCHES[mockIdx].status = 'arrived'
         MOCK_DISPATCHES[mockIdx].arrivedByGpsAt = now
         MOCK_DISPATCHES[mockIdx].arrivedByGpsLocation = { lng: position.lng, lat: position.lat }
       }
-      // 3) toast 提示
       uni.showToast({ title: '📍 已到达客户地址', icon: 'success' })
-      // 4) 推送 arrived_prompt 消息（消息 Tab 同步显示）
       driverStore.pushNotification({
         id: `n-${item.id}-arrived-${Date.now()}`,
         type: 'arrived_prompt',
@@ -176,21 +173,75 @@ async function handleGpsTick(position: Position) {
         read: false,
         dispatchId: item.id,
       })
-      // 5) 一次性事件：触发后停止 watcher（避免重复触发）
       stopGpsWatcher()
-      break
+      return
+    }
+  }
+
+  // 2) P0-5：dispatched 派车单 → 园区到达检测（不跳 status）
+  const dispatchedList = dispatchList.value.filter((d) => d.status === 'dispatched' && d.yardIds?.length)
+  for (const item of dispatchedList) {
+    if (!item.yardIds?.length) continue
+    // 已写过 gpsArrivedAt → 跳过（一事件一写）
+    if (item.gpsArrivedAt) continue
+    // 找第一个匹配的园区
+    for (const yardId of item.yardIds) {
+      const yard = yards.find((y) => y.id === yardId)
+      if (!yard) continue
+      const radius = yard.radiusM ?? 300
+      if (distanceM(position, { lng: yard.lng, lat: yard.lat }) <= radius) {
+        const now = new Date().toISOString()
+        // 1) 写本地 dispatchList
+        const idx = dispatchList.value.findIndex((d) => d.id === item.id)
+        if (idx < 0) continue
+        const updated: DispatchMock = {
+          ...dispatchList.value[idx],
+          gpsArrivedAt: now,
+        }
+        dispatchList.value = [
+          ...dispatchList.value.slice(0, idx),
+          updated,
+          ...dispatchList.value.slice(idx + 1),
+        ]
+        // 2) 同步 MOCK_DISPATCHES
+        const mockIdx = MOCK_DISPATCHES.findIndex((d) => d.id === item.id)
+        if (mockIdx >= 0) MOCK_DISPATCHES[mockIdx].gpsArrivedAt = now
+        // 3) toast 提示（不跳 status，仅记录时间）
+        uni.showToast({
+          title: `📍 已到达 ${yard.name} 园区，可扫码排队`,
+          icon: 'none',
+          duration: 2500,
+        })
+        // 4) 推送消息（不强制）
+        driverStore.pushNotification({
+          id: `n-${item.id}-yard-${Date.now()}`,
+          type: 'arrived_prompt',
+          title: `已到达 ${yard.name} 园区`,
+          content: `${item.dispatchNo} GPS 已到达园区，请尽快扫码排队`,
+          time: new Date().toTimeString().slice(0, 5),
+          timestamp: Date.now(),
+          read: false,
+          dispatchId: item.id,
+        })
+        // 5) 不 stop watcher（dispatched 派车单可能有多条，仍持续检测直到 in_transit）
+        break
+      }
     }
   }
 }
 
 /**
- * 启动 GPS 自动到货 watcher
- *  - 仅当存在 in_transit 派车单时启动
+ * 启动 GPS watcher（P0-5 扩展：检测 in_transit + dispatched 两类派车单）
+ *  - in_transit：客户地址到达检测（一次性事件，触发后 stop）
+ *  - dispatched：园区到达检测（持续事件，提示但不跳状态）
+ *  - 启动条件：dispatchList 中存在 in_transit 或 dispatched 状态的派车单
  *  - onUnmounted 会 stop（避免泄漏）
  */
 function startArrivalWatcher() {
-  const hasInTransit = dispatchList.value.some((d) => d.status === 'in_transit')
-  if (!hasInTransit) return
+  const hasTarget = dispatchList.value.some(
+    (d) => (d.status === 'in_transit' && d.customerSite) || (d.status === 'dispatched' && d.yardIds?.length)
+  )
+  if (!hasTarget) return
   startGpsWatcher({
     onTick: handleGpsTick,
     intervalMs: 30000,
@@ -294,8 +345,9 @@ function handleScanQueue(item: DispatchMock) {
 }
 
 /**
- * v0.3.0-M2.2 + P0-4：扫码/输入的统一处理（parking transition）
+ * v0.3.0-M2.2 + P0-4 + P0-5：扫码/输入的统一处理（parking transition）
  *  - 改 dispatch.status = 'queued'
+ *  - P0-5：写 queuedAt（扫码排队时间，对齐 Web 端 YardTimeline.queuedAt）
  *  - 同步 MOCK_DISPATCHES
  *  - 调 driverStore.recordQueue
  *  - toast 提示
@@ -303,9 +355,11 @@ function handleScanQueue(item: DispatchMock) {
 function applyQueueTransition(item: DispatchMock, yardId: string, source: string) {
   const idx = dispatchList.value.findIndex((d) => d.id === item.id)
   if (idx < 0) return
+  const now = new Date().toISOString()
   const updated: DispatchMock = {
     ...dispatchList.value[idx],
     status: 'queued',
+    queuedAt: now,
   }
   dispatchList.value = [
     ...dispatchList.value.slice(0, idx),
@@ -314,7 +368,10 @@ function applyQueueTransition(item: DispatchMock, yardId: string, source: string
   ]
   // 同步 MOCK_DISPATCHES
   const mockIdx = MOCK_DISPATCHES.findIndex((d) => d.id === item.id)
-  if (mockIdx >= 0) MOCK_DISPATCHES[mockIdx].status = 'queued'
+  if (mockIdx >= 0) {
+    MOCK_DISPATCHES[mockIdx].status = 'queued'
+    MOCK_DISPATCHES[mockIdx].queuedAt = now
+  }
   // 写 store 的 queueHistory（M2 兼容保留）
   const yard = yards.find((y) => y.id === yardId)
   driverStore.recordQueue(yardId, yard?.name || yardId, `scan-${source}-${Date.now()}`)
@@ -360,9 +417,11 @@ function markAllRead() {
 }
 
 /**
- * v0.3.0-M2.2：演示控制台触发"模拟道闸放行"事件
- *  - 找到第一条 status='queued' 的派车单 → queued → entering
- *  - H5 mock：本地生效（无 PC 后端通信）
+ * v0.3.0-M2.2 + P0-5：演示控制台触发"模拟道闸放行"事件
+ *  - 库房选择通知入场后等于下发道闸系统该车辆允许入场
+ *  - 入场时间记录为通过道闸的时间（mock 阶段 = 演示按钮点击时间）
+ *  - 找到第一条 status='queued' 的派车单 → queued → entering + 写 enteredAt
+ *  - H5 mock：本地生效（无 PC 后端通信）；真实阶段库房员 Web 端通过 WebSocket 通知 H5
  */
 function handleDemoTriggerGate() {
   const idx = dispatchList.value.findIndex((d) => d.status === 'queued')
@@ -370,12 +429,23 @@ function handleDemoTriggerGate() {
     uni.showToast({ title: '当前没有 queued 状态的派车单', icon: 'none' })
     return
   }
-  const updated: DispatchMock = { ...dispatchList.value[idx], status: 'entering' }
+  const now = new Date().toISOString()
+  const updated: DispatchMock = {
+    ...dispatchList.value[idx],
+    status: 'entering',
+    enteredAt: now,
+  }
   dispatchList.value = [
     ...dispatchList.value.slice(0, idx),
     updated,
     ...dispatchList.value.slice(idx + 1),
   ]
+  // 同步 MOCK_DISPATCHES
+  const mockIdx = MOCK_DISPATCHES.findIndex((d) => d.id === dispatchList.value[idx].id)
+  if (mockIdx >= 0) {
+    MOCK_DISPATCHES[mockIdx].status = 'entering'
+    MOCK_DISPATCHES[mockIdx].enteredAt = now
+  }
   uni.showToast({ title: '🚪 道闸已开闸,车辆进入', icon: 'success' })
 }
 
@@ -443,16 +513,19 @@ onLoad((query: any) => {
 })
 
 // P0-2：监听 dispatchList 变化，自动启动/停止 GPS watcher
-//  - 数据加载完成后若有 in_transit 派车单则启动 watcher
-//  - 已 arrived / 已 completed 后停止 watcher
+// P0-5：watch dispatchList 状态变化，自动启动/停止 GPS watcher
+//  - 启动条件：存在 in_transit（含 customerSite）或 dispatched（含 yardIds）的派车单
+//  - 停止条件：以上都不存在（已全部 arrived / completed / 等）
 watch(
   () => dispatchList.value.map((d) => `${d.id}:${d.status}`).join(','),
   () => {
-    const hasInTransit = dispatchList.value.some((d) => d.status === 'in_transit')
+    const hasTarget = dispatchList.value.some(
+      (d) => (d.status === 'in_transit' && d.customerSite) || (d.status === 'dispatched' && d.yardIds?.length)
+    )
     const watcherRunning = isGpsWatcherRunning()
-    if (hasInTransit && !watcherRunning) {
+    if (hasTarget && !watcherRunning) {
       startArrivalWatcher()
-    } else if (!hasInTransit && watcherRunning) {
+    } else if (!hasTarget && watcherRunning) {
       stopGpsWatcher()
     }
   },

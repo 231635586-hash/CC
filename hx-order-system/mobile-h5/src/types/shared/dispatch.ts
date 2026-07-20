@@ -108,6 +108,8 @@ export interface DispatchPhoto {
  *   - 新增：salespersonId（mobile-h5 此前运行时挂载未声明，P0-1 补）/ customerSite /
  *          arrivedByGpsAt / arrivedByGpsLocation / completionPhotos /
  *          driverConfirmedAt / completedAt
+ *   - P0-5 新增：gpsArrivedAt（GPS 到达园区）/ queuedAt（扫码排队时间）/
+ *              enteredAt（进场时间 = 通过道闸的时间，对齐 Web 端 YardTimeline.queuedAt/enteredAt）
  *   - 暂未对齐：yardNames（Web 端无此字段，mobile-h5 内部使用）/ vehicleNo / driverName /
  *              goodsSummary（mobile-h5 简化展示，不引入 DispatchGoods）
  */
@@ -139,6 +141,12 @@ export interface DispatchMock {
   completedAt?: string
   /** 完单照片（P0-3 拍照留痕写入） */
   completionPhotos?: DispatchPhoto[]
+  /** P0-5：GPS 到达园区时间（≤300m 自动写入，dispatched 状态提示事件，不改 status） */
+  gpsArrivedAt?: string
+  /** P0-5：扫码排队时间（司机主动扫码登记，对齐 Web 端 YardTimeline.queuedAt） */
+  queuedAt?: string
+  /** P0-5：进场时间（通过道闸的时间，库房开闸后由道闸系统记录，对齐 Web 端 YardTimeline.enteredAt） */
+  enteredAt?: string
 }
 
 /** Yard 类型再 export（mobile-h5 内部多处复用，源头在本目录的 driver.ts） */
