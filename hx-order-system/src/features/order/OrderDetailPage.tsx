@@ -167,6 +167,9 @@ export function OrderDetailPage() {
       case 'dispatched':
         return (
           <Space>
+            <Button type="primary" onClick={() => setDispatchModalOpen(true)}>
+              重新派车
+            </Button>
             <Tooltip title="真实阶段：车辆硬件 GPS 入园后系统自动转 entering；mock 阶段：用下方「演示：GPS 入库」按钮模拟">
               <Tag color="cyan" icon={<EnvironmentOutlined />}>等待 GPS 入园</Tag>
             </Tooltip>
@@ -282,7 +285,7 @@ export function OrderDetailPage() {
         </Col>
       </Row>
 
-      {/* 派车 Modal（统一走公共组件 <DispatchVehicleModal>） */}
+      {/* 派车 Modal（统一走公共组件 <DispatchVehicleModal>） — confirmed 首次派车 / dispatched 重新派车 */}
       <DispatchVehicleModal
         open={dispatchModalOpen}
         dispatchNo={record.dispatchNo}
@@ -292,6 +295,16 @@ export function OrderDetailPage() {
         drivers={drivers
           .filter((d) => d.status === 'enabled' && (!record.companyId || d.companyId === record.companyId))
           .map((d) => ({ id: d.id, name: d.name, phone: d.phone }))}
+        // 「重新派车」时回填之前的车辆/司机/调车员；首次派车（confirmed）不传
+        initialValues={
+          record.status === 'dispatched' && record.vehicleId && record.driverId
+            ? {
+                vehicleId: record.vehicleId,
+                driverId: record.driverId,
+                dispatcherName: record.dispatcherName,
+              }
+            : undefined
+        }
         onCancel={() => setDispatchModalOpen(false)}
         onOk={handleDispatch}
       />

@@ -41,6 +41,8 @@ export interface DispatchVehicleModalProps {
   drivers: DriverOption[]
   /** 调车员可选值（默认「周文 / 吴峰」） */
   dispatcherOptions?: { value: string; label: string }[]
+  /** 打开时回填值（用于「重新派车」场景预填上次选择） */
+  initialValues?: Partial<DispatchValues>
   /** 点击确认 / 取消 */
   onCancel: () => void
   onOk: (values: DispatchValues) => void | Promise<void>
@@ -71,15 +73,20 @@ export function DispatchVehicleModal(props: DispatchVehicleModalProps) {
     vehicles,
     drivers,
     dispatcherOptions = DEFAULT_DISPATCHERS,
+    initialValues,
     onCancel,
     onOk,
   } = props
   const [form] = Form.useForm<DispatchValues>()
 
-  // 关闭时重置，避免下次打开残留
+  // 打开时回填 initialValues（覆盖上次未提交残留）
   useEffect(() => {
-    if (!open) form.resetFields()
-  }, [open, form])
+    if (open) {
+      form.setFieldsValue(initialValues ?? {})
+    } else {
+      form.resetFields()
+    }
+  }, [open, initialValues, form])
 
   const handleOk = async () => {
     try {

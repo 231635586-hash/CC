@@ -135,6 +135,14 @@ export function DispatchSchedulePage() {
   const handleOpen = (record: Dispatch) => {
     setActive(record)
     form.resetFields()
+    // 「重新派车」时回填之前选的车辆/司机/调车员（dispatched 状态）
+    if (record.status === 'dispatched' && record.vehicleId && record.driverId) {
+      form.setFieldsValue({
+        vehicleId: record.vehicleId,
+        driverId: record.driverId,
+        dispatcherName: record.dispatcherName,
+      })
+    }
     setModalOpen(true)
   }
 
@@ -389,18 +397,32 @@ export function DispatchSchedulePage() {
               {
                 title: '操作',
                 key: 'action',
-                width: 100,
+                width: 180,
                 fixed: 'right',
-                render: (_, r) => (
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<EyeOutlined />}
-                    onClick={() => navigate(`/marketing/dispatch/${r.id}`)}
-                  >
-                    详情
-                  </Button>
-                ),
+                render: (_, r) => {
+                  // 终态（completed / cancelled）禁止派车
+                  const canDispatch = r.status !== 'completed' && r.status !== 'cancelled'
+                  return (
+                    <Space size={4}>
+                      <Button
+                        type="primary"
+                        size="small"
+                        disabled={!canDispatch}
+                        onClick={() => handleOpen(r)}
+                      >
+                        {r.status === 'dispatched' ? '重新派车' : '派车'}
+                      </Button>
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<EyeOutlined />}
+                        onClick={() => navigate(`/marketing/dispatch/${r.id}`)}
+                      >
+                        详情
+                      </Button>
+                    </Space>
+                  )
+                },
               },
             ]}
           />
