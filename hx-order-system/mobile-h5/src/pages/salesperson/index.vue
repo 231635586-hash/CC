@@ -155,9 +155,9 @@ function onCancel(item: DispatchMock) {
 .page {
   min-height: 100vh;
   background: var(--color-bg);
-  /* v0.3.0-M2.2 + P1-2 fix v2：fixed 提交按钮浮在 TabBar 之上（130rpx TabBar + 96rpx 按钮 ≈ 230rpx + safe-area）
-     留 280rpx 避免表单底部被按钮遮挡 */
-  padding-bottom: 280rpx;
+  /* P1-2 fix v3：提交按钮改为 form 末尾 Section（跟随滚动），无需大量底部留白
+     留 140rpx 仅为 TabBar 高度 */
+  padding-bottom: 140rpx;
 }
 html.hx-frame-on .page {
   min-height: 100% !important;

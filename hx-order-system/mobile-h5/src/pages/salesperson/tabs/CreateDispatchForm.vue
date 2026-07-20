@@ -233,11 +233,14 @@ function submit() {
       </view>
     </view>
 
-    <!-- 提交按钮 -->
-    <view class="submit-bar">
+    <!-- P1-2 fix v3：提交按钮作为 form 末尾第 6 个 Section（与现有 5 步同卡片样式）
+         - 跟随表单滚动，不再 fixed 浮起（避免遮挡 TabBar 与表单底部内容）
+         - 用户填完需滚动到底才能看到，符合「自然滚动」原则 -->
+    <view class="section submit-section">
       <button class="btn-submit" :disabled="!isValid" @click="submit">
         {{ isValid ? '提交调车单' : '请填写完整' }}
       </button>
+      <text v-if="!isValid" class="submit-hint">请检查上方必填项</text>
     </view>
   </view>
 </template>
@@ -360,25 +363,23 @@ function submit() {
   color: var(--color-text-secondary);
 }
 
-.submit-bar {
-  position: fixed;
-  /* 浮在 TabBar 之上：TabBar min-height: 130rpx + safe-area-inset-bottom */
-  bottom: calc(130rpx + env(safe-area-inset-bottom));
-  left: 0;
-  right: 0;
-  padding: var(--space-md);
+.submit-section {
+  /* P1-2 fix v3：作为 form 末尾第 6 个 Section，不设 fixed（跟随滚动） */
   background: var(--color-card);
-  box-shadow: 0 -2rpx 8rpx rgba(0, 0, 0, 0.06);
-  z-index: 100;
+  margin: var(--space-md);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-sm);
 }
-/* Frame 模式：.submit-bar 改 absolute + bottom 158px（TabBar 130rpx + Home Indicator 28px）
-   + z-index 99998 仅次于 Home Indicator */
-html.hx-frame-on .submit-bar {
-  position: absolute !important;
-  bottom: 158px !important;
-  max-width: 390px !important;
-  width: 100% !important;
-  z-index: 99998 !important;
+.submit-section .btn-submit {
+  width: 100%;
+}
+.submit-hint {
+  display: block;
+  text-align: center;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-placeholder);
+  margin-top: var(--space-xs);
 }
 .btn-submit {
   width: 100%;
