@@ -123,10 +123,10 @@ export interface YardTimeline {
   queuedAt?: Timestamp
   /** 库房"通知出发"时间 */
   notifyDepartAt?: Timestamp
-  /** 库房"通知装货"时间（loading 中间态触发器） */
-  loadingNotifiedAt?: Timestamp
   /** GPS 入场时间 */
   enteredAt?: Timestamp
+  /** 库房"通知装货"时间（loading 中间态触发器） */
+  loadingNotifiedAt?: Timestamp
   /** 装货完成时间（库房人员勾选"装货完成"） */
   loadingCompletedAt?: Timestamp
   /** GPS 离场时间 */
