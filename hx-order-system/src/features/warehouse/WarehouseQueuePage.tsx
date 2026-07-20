@@ -8,6 +8,7 @@ import { DISPATCH_STATUS_OPTIONS } from '@/types'
 import type { Dispatch } from '@/types/dispatch'
 import { formatDuration, getTotalQueueMs } from '@/utils/dispatchTimeline'
 import { NotifyLoadingModal } from './components/NotifyLoadingModal'
+import { LoadingCompleteModal } from './components/LoadingCompleteModal'
 import { nowIsoString } from '@/utils'
 
 /**
@@ -25,12 +26,15 @@ import { nowIsoString } from '@/utils'
  */
 export function WarehouseQueuePage() {
   const navigate = useNavigate()
-  const { list, load, markLoadingCompleted, notifyLoading, triggerGateOpen } = useDispatchStore()
+  const { list, load, notifyLoading, triggerGateOpen } = useDispatchStore()
   const { yards, loadYards } = useDictStore()
   const [filters, setFilters] = useState<Record<string, unknown>>({})
   // 通知装货 Modal 状态
   const [departOpen, setDepartOpen] = useState(false)
   const [departTarget, setDepartTarget] = useState<{ dispatch: Dispatch; yardId: string } | null>(null)
+  // 装货完成 Modal 状态（2026-07-20 新增：超时备注弹窗）
+  const [loadingCompleteOpen, setLoadingCompleteOpen] = useState(false)
+  const [loadingCompleteTarget, setLoadingCompleteTarget] = useState<{ dispatch: Dispatch; yardId: string } | null>(null)
   // ❌ v0.3.0-M2.2 删除：签收链接相关 state(M5 已下线客户签收)
 
   useEffect(() => {
@@ -120,12 +124,12 @@ export function WarehouseQueuePage() {
     setDepartOpen(true)
   }
 
-  /** 处理"装货完成" */
-  const handleLoadingComplete = async (d: Dispatch) => {
+  /** 处理"装货完成"（2026-07-20 改造：先弹 Modal 收集超时备注） */
+  const handleLoadingComplete = (d: Dispatch) => {
     const active = getActiveYard(d)
     if (!active) return
-    await markLoadingCompleted(d.id, active.yardId, new Date().toISOString())
-    message.success(`已标记 ${active.yardName || active.yardId} 装货完成`)
+    setLoadingCompleteTarget({ dispatch: d, yardId: active.yardId })
+    setLoadingCompleteOpen(true)
   }
 
   return (
@@ -372,6 +376,19 @@ export function WarehouseQueuePage() {
             : undefined
         }
         onClose={() => setDepartOpen(false)}
+      />
+
+      {/* 装货完成 Modal（2026-07-20 新增：库房员在 loading 状态点，弹窗填超时备注） */}
+      <LoadingCompleteModal
+        open={loadingCompleteOpen}
+        dispatch={loadingCompleteTarget?.dispatch || null}
+        yardId={loadingCompleteTarget?.yardId || null}
+        yardName={
+          loadingCompleteTarget
+            ? yards.find((y) => y.id === loadingCompleteTarget.yardId)?.name
+            : undefined
+        }
+        onClose={() => setLoadingCompleteOpen(false)}
       />
 
       {/* ❌ v0.3.0-M2.2 删除：装货完成 → 生成签收链接 Modal(客户签收全链路已下线) */}

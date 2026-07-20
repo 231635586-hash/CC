@@ -36,7 +36,12 @@ interface DispatchState {
   markYardLeftByGps: (vehicleId: string, yardId: string, leftAt: string) => Promise<void>
 
   // —— M2：库房装货完成 ——
-  markLoadingCompleted: (dispatchId: string, yardId: string, completedAt: string) => Promise<void>
+  markLoadingCompleted: (
+    dispatchId: string,
+    yardId: string,
+    completedAt: string,
+    overtime?: { reasons?: string[]; department?: string; ownerName?: string },
+  ) => Promise<void>
 
   // —— v0.2.0-M2：到货处理 ——
   /** 车辆出厂/在途（库房装货完成后自动链式触发，也可手动标记） */
@@ -310,14 +315,36 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
 
   // ====== 旧扫码 stub 已下线（M3 GPS 自动打卡替代）======
 
-  markLoadingCompleted: async (dispatchId, yardId, completedAt) => {
+  /**
+   * 标记装货完成（库房员点击"装货完成"按钮触发）
+   * @param dispatchId 调车单 ID
+   * @param yardId 当前激活园区 ID
+   * @param completedAt 装货完成时间（ISO 字符串）
+   * @param overtime 超时备注（2026-07-20 新增；全选填）
+   *   - reasons：超时原因 key 数组（对应 OVERTIME_REASON_LABEL）
+   *   - department：超时责任部门 key（对应 OVERTIME_DEPARTMENT_LABEL）
+   *   - ownerName：负责人姓名（手填文本）
+   */
+  markLoadingCompleted: async (
+    dispatchId,
+    yardId,
+    completedAt,
+    overtime?: { reasons?: string[]; department?: string; ownerName?: string },
+  ) => {
     const d = get().list.find((x) => x.id === dispatchId)
     if (!d) throw new Error('调车单不存在')
     const updated: Dispatch = {
       ...d,
-      yardTimelines: d.yardTimelines.map((y) =>
-        y.yardId === yardId ? { ...y, loadingCompletedAt: completedAt } : y,
-      ),
+      yardTimelines: d.yardTimelines.map((y) => {
+        if (y.yardId !== yardId) return y
+        return {
+          ...y,
+          loadingCompletedAt: completedAt,
+          overtimeReasons: overtime?.reasons?.length ? overtime.reasons : y.overtimeReasons,
+          overtimeDepartment: overtime?.department || y.overtimeDepartment,
+          overtimeOwnerName: overtime?.ownerName?.trim() || y.overtimeOwnerName,
+        }
+      }),
     }
     await get().save(updated, { autoDerive: true })
   },
