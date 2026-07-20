@@ -1,0 +1,301 @@
+/**
+ * 华翔物流 H5 · Design Tokens (v2.0)
+ * --------------------------------------------------------------
+ * 继承 mobile-design-system skill 设计原则：
+ *   ~/.claude/skills/mobile-design-system/references/tokens.md
+ *
+ * v2.0.1 关键修复（2026-07-15）：
+ *   业务 .vue 文件使用的 status token 是项目原有命名（--color-status-*），
+ *   必须保留同名 token 才能让 CSS 变量引用生效。
+ *   skill 推荐的 --r-pill / --fs-body 等基础 token 可用 skill 命名，
+ *   业务层 status token 沿用项目旧命名以保 100% 向后兼容。
+ * --------------------------------------------------------------
+ * 单位说明：
+ *   - 项目用 rpx（uni-app 默认 750 屏宽）
+ *   - skill 用 px（iPhone 393×852）
+ *   - 1px ≈ 2rpx（750 屏宽下）
+ *   - 命名沿用 skill + 项目现状
+ * --------------------------------------------------------------
+ */
+
+:root {
+  /* ============ Primary 品牌主色（Linear-style 单一 accent）============ */
+  --color-brand: #1677ff;
+  --color-brand-hover: #4096ff;
+  --color-brand-active: #0958d9;
+  --color-brand-bg: #eff6ff;
+  --color-brand-shadow: rgba(22, 119, 255, .35);
+
+  /* ============ 应用层语义色（4 档）============ */
+  --color-success: #10b981;
+  --color-success-bg: #ecfdf5;
+  --color-success-text: #065f46;
+  --color-warn: #f59e0b;
+  --color-warn-bg: #fffbeb;
+  --color-warn-text: #92400e;
+  --color-info: #6366f1;
+  --color-info-bg: #eef2ff;
+  --color-info-text: #3730a3;
+  --color-danger: #ef4444;
+  --color-danger-bg: #fef2f2;
+  --color-danger-text: #991b1b;
+
+  /* ============ 业务 status token（项目原有命名 · 必须保留）============ */
+  /* 6 个业务状态 × 3 个变体（base / bg / text）= 18 个 token */
+  --color-status-pending:        var(--color-warn);
+  --color-status-pending-bg:     var(--color-warn-bg);
+  --color-status-pending-text:   var(--color-warn-text);
+
+  --color-status-entering:       var(--color-info);
+  --color-status-entering-bg:    var(--color-info-bg);
+  --color-status-entering-text:  var(--color-info-text);
+
+  --color-status-loading:        var(--color-info);
+  --color-status-loading-bg:     var(--color-info-bg);
+  --color-status-loading-text:   var(--color-info-text);
+
+  --color-status-leaving:        var(--color-warn);
+  --color-status-leaving-bg:     var(--color-warn-bg);
+  --color-status-leaving-text:   var(--color-warn-text);
+
+  --color-status-completed:      var(--color-success);
+  --color-status-completed-bg:   var(--color-success-bg);
+  --color-status-completed-text: var(--color-success-text);
+
+  --color-status-cancelled:      #8c8c8c;
+  --color-status-cancelled-bg:   #f5f5f5;
+  --color-status-cancelled-text: #595959;
+
+  /* ============ Neutral 中性色（skill §4.2 暖中性）============ */
+  --color-bg:               #fafaf9;
+  --color-card:             #ffffff;
+  --color-divider:          #f0eeec;
+  --color-text-primary:     #1a1a1a;
+  --color-text-regular:     #4b5563;
+  --color-text-secondary:   #6b7280;
+  --color-text-placeholder: #9ca3af;
+  --color-text-on-brand:    #ffffff;
+
+  /* ============ Typography 字体（skill §4.1）============ */
+  --font-family-sans: ui-sans-serif, system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-family-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* 字阶（rpx 适配，a11y min 24rpx = 12px）*/
+  --font-size-display:    40rpx;    /* 卡片大数字 */
+  --font-size-title:      36rpx;    /* 页面标题 */
+  --font-size-card-title: 32rpx;    /* 卡片标题 */
+  --font-size-body:       28rpx;    /* 正文 */
+  --font-size-sub:        26rpx;    /* 副标题 */
+  --font-size-caption:    24rpx;    /* 说明文字（min 12px） */
+  --font-size-mini:       24rpx;    /* 极小（兜底 12px） */
+
+  /* 字重（skill §4.1 锁 4 档）*/
+  --font-weight-regular: 400;
+  --font-weight-medium:  500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* 行高 */
+  --line-height-snug: 1.4;
+  --line-height-base: 1.5;
+  --line-height-loose: 1.6;
+
+  /* ============ Radius（O4：多级化，原 sm/md/lg/xl 全部 12rpx，现分 4 级）============ */
+  --radius-2xs: 4rpx;   /* 极小：tag 内 icon / 状态点 */
+  --radius-xs:  8rpx;   /* 小：input / tag */
+  --radius-sm:  12rpx;  /* 标准：按钮（小尺寸）/ 小卡 */
+  --radius-md:  16rpx;  /* 中：标准 Card / 按钮（默认尺寸） */
+  --radius-lg:  24rpx;  /* 大：大型 Card / Modal */
+  --radius-xl:  32rpx;  /* 超大：Hero Card / 大型 Modal */
+  --radius-2xl: 48rpx;  /* 极大：特殊容器 */
+  --radius-pill: 999rpx; /* 胶囊：tag / 状态徽章 / 头像 */
+
+  /* ============ Spacing（O4：8 级连续，原 6 级）============ */
+  --space-2xs: 4rpx;    /* 极小：行内间距 */
+  --space-xs:  8rpx;
+  --space-sm:  16rpx;
+  --space-md:  24rpx;
+  --space-lg:  32rpx;
+  --space-xl:  48rpx;
+  --space-2xl: 64rpx;
+  --space-3xl: 80rpx;   /* 极大：hero 区上下间距 */
+
+  /* ============ Shadow（克制）============ */
+  --shadow-sm: 0 1rpx 2rpx rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+  --shadow-brand: 0 8rpx 24rpx rgba(22, 119, 255, .35);
+
+  /* ============ Motion（rpx 适配）============ */
+  --motion-fast:  100ms;
+  --motion-base:  200ms;
+  --motion-slow:  250ms;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ============ Layout（uni-app 特殊）============ */
+  --touch-target-min: 88rpx;   /* 44dp × 2rpx/dp */
+
+  /* iPhone 14 Frame（仅桌面 ≥768px 演示模式） */
+  --frame-w: 390px;
+  --frame-h: 844px;
+  --frame-border-radius: 47px;
+
+  /* ============ 业务 gradient（项目遗留）============ */
+  --gradient-brand: var(--color-brand);
+
+  /* ============ v2.0 业务角色主题色（role-select page 用） ============ */
+  /* 3 个角色：司机 / 业务员 / 物流公司，每个角色 main + light 用于 gradient */
+  --role-driver:        #1677ff;
+  --role-driver-light:  #4096ff;
+  --role-sales:         #13c2c2;
+  --role-sales-light:   #36cfc9;
+  --role-company:       #fa8c16;
+  --role-company-light: #ffa940;
+
+  /* ============================================================
+   * 多主题 preset（v2.2 新增）
+   * ------------------------------------------------------------
+   * 用法：在 html / body 元素加 data-theme 属性即可切换整套 token
+   *   document.documentElement.setAttribute('data-theme', 'business')
+   *
+   * 设计原则：
+   *   - 重新定义全部 color token（包括 status 复合 token）
+   *   - 几何相关 token（radius / spacing / motion）不变 — 形状一致性
+   *   - role-* token 也重定义（不同主题下角色色可不同）
+   * ============================================================ */
+
+  /* ============ Business 商务灰 preset（金融 / 工具 / B2B） ============ */
+  :root[data-theme="business"] {
+    /* Neutral · 偏冷灰 */
+    --color-bg:               #f8fafc;   /* slate-50 */
+    --color-card:             #ffffff;
+    --color-card2:            #f1f5f9;   /* slate-100 */
+    --color-card3:            #cbd5e1;   /* slate-300 */
+    --color-text-primary:     #0f172a;   /* slate-900 */
+    --color-text-regular:     #334155;   /* slate-700 */
+    --color-text-secondary:   #64748b;   /* slate-500 */
+    --color-text-placeholder: #94a3b8;   /* slate-400 */
+    --color-divider:          #e2e8f0;   /* slate-200 */
+    --color-text-on-brand:    #ffffff;
+
+    /* Primary · 深蓝灰商务感 */
+    --color-brand:        #475569;       /* slate-600 */
+    --color-brand-hover:  #334155;       /* slate-700 */
+    --color-brand-active: #1e293b;       /* slate-800 */
+    --color-brand-bg:     #f1f5f9;
+    --color-brand-shadow: rgba(71, 85, 105, .25);
+
+    /* Status · 偏冷 + 高饱和度 */
+    --color-success:        #15803d;      /* green-700 */
+    --color-success-bg:     #f0fdf4;
+    --color-success-text:   #14532d;
+    --color-warn:           #b45309;      /* amber-700 */
+    --color-warn-bg:        #fffbeb;
+    --color-warn-text:      #78350f;
+    --color-info:           #1e40af;      /* blue-700 */
+    --color-info-bg:        #eff6ff;
+    --color-info-text:      #1e3a8a;
+    --color-danger:         #b91c1c;      /* red-700 */
+    --color-danger-bg:      #fef2f2;
+    --color-danger-text:    #7f1d1d;
+
+    /* 业务 status 复合 token（project 重映射：warn→amber / info→blue） */
+    --color-status-pending:        var(--color-warn);
+    --color-status-pending-bg:     var(--color-warn-bg);
+    --color-status-pending-text:   var(--color-warn-text);
+    --color-status-entering:       var(--color-info);
+    --color-status-entering-bg:    var(--color-info-bg);
+    --color-status-entering-text:  var(--color-info-text);
+    --color-status-loading:        var(--color-info);
+    --color-status-loading-bg:     var(--color-info-bg);
+    --color-status-loading-text:   var(--color-info-text);
+    --color-status-leaving:        var(--color-warn);
+    --color-status-leaving-bg:     var(--color-warn-bg);
+    --color-status-leaving-text:   var(--color-warn-text);
+    --color-status-completed:      var(--color-success);
+    --color-status-completed-bg:   var(--color-success-bg);
+    --color-status-completed-text: var(--color-success-text);
+    --color-status-cancelled:      #64748b;       /* slate-500 */
+    --color-status-cancelled-bg:   #f1f5f9;
+    --color-status-cancelled-text: #334155;
+
+    /* 业务角色 preset（商务风偏深沉） */
+    --role-driver:        #475569;
+    --role-driver-light:  #64748b;
+    --role-sales:         #b45309;
+    --role-sales-light:   #d97706;
+    --role-company:       #1e40af;
+    --role-company-light: #2563eb;
+
+    /* Gradient */
+    --gradient-brand: var(--color-brand);
+  }
+
+  /* ============ Health 健康绿 preset（医疗 / 健康 / 可穿戴） ============ */
+  :root[data-theme="health"] {
+    /* Neutral · 暖意 */
+    --color-bg:               #fafaf9;
+    --color-card:             #ffffff;
+    --color-card2:            #f5f5f4;
+    --color-card3:            #e7e5e4;
+    --color-text-primary:     #1c1917;   /* stone-900 */
+    --color-text-regular:     #44403c;
+    --color-text-secondary:   #78716c;
+    --color-text-placeholder: #a8a29e;
+    --color-divider:          #e7e5e4;
+    --color-text-on-brand:    #ffffff;
+
+    /* Primary · 健康绿 */
+    --color-brand:        #16a34a;       /* green-600 */
+    --color-brand-hover:  #15803d;       /* green-700 */
+    --color-brand-active: #166534;       /* green-800 */
+    --color-brand-bg:     #f0fdf4;
+    --color-brand-shadow: rgba(22, 163, 74, .35);
+
+    /* Status · 健康配套 */
+    --color-success:        #16a34a;
+    --color-success-bg:     #f0fdf4;
+    --color-success-text:   #14532d;
+    --color-warn:           #ea580c;      /* orange-600 */
+    --color-warn-bg:        #fff7ed;
+    --color-warn-text:      #7c2d12;
+    --color-info:           #0891b2;      /* cyan-600 */
+    --color-info-bg:        #ecfeff;
+    --color-info-text:      #164e63;
+    --color-danger:         #dc2626;      /* red-600 */
+    --color-danger-bg:      #fef2f2;
+    --color-danger-text:    #7f1d1d;
+
+    /* 业务 status 复合 token */
+    --color-status-pending:        var(--color-warn);
+    --color-status-pending-bg:     var(--color-warn-bg);
+    --color-status-pending-text:   var(--color-warn-text);
+    --color-status-entering:       var(--color-info);
+    --color-status-entering-bg:    var(--color-info-bg);
+    --color-status-entering-text:  var(--color-info-text);
+    --color-status-loading:        var(--color-info);
+    --color-status-loading-bg:     var(--color-info-bg);
+    --color-status-loading-text:   var(--color-info-text);
+    --color-status-leaving:        var(--color-warn);
+    --color-status-leaving-bg:     var(--color-warn-bg);
+    --color-status-leaving-text:   var(--color-warn-text);
+    --color-status-completed:      var(--color-success);
+    --color-status-completed-bg:   var(--color-success-bg);
+    --color-status-completed-text: var(--color-success-text);
+    --color-status-cancelled:      #78716c;
+    --color-status-cancelled-bg:   #f5f5f4;
+    --color-status-cancelled-text: #44403c;
+
+    /* 业务角色 preset（健康风配柔色） */
+    --role-driver:        #16a34a;
+    --role-driver-light:  #4ade80;
+    --role-sales:         #0891b2;
+    --role-sales-light:   #22d3ee;
+    --role-company:       #ea580c;
+    --role-company-light: #fb923c;
+
+    --gradient-brand: var(--color-brand);
+  }
+}
