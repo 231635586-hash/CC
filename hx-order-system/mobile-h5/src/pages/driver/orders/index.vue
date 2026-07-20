@@ -226,10 +226,11 @@ function markMessageRead(n: NotificationItem) {
 }
 
 /**
- * v0.3.0-M2.2 v2：司机点 [扫码排队] → 触发 markYardQueuedByScan
- *  - 实际生产：调起扫码摄像头扫园区二维码，解析出 yardId
- *  - mock 阶段：直接用 dispatch.yardIds[0] 作为 yardId
- *  - 本地 dispatchList：直接设置 dispatched → queued + 写 queuedAt
+ * v0.3.0-M2.2 + P0-4：司机点 [扫码排队] → 弹 modal 三选一
+ *  - 选 0：uni.scanCode 真实扫码（真机有效，桌面浏览器 catch）
+ *  - 选 1：uni.showModal 输入园区 ID（手动输入兑底）
+ *  - 选 2：自动 mock（演示用，直接用 dispatch.yardIds[0]）
+ *  - 三条路径都汇入 applyQueueTransition，最终 dispatched → queued + recordQueue + toast
  *  - 注意：H5 与 PC 端不共享 localStorage（mobile-h5 独立 demo），仅本地状态变更
  */
 function handleScanQueue(item: DispatchMock) {
@@ -238,12 +239,70 @@ function handleScanQueue(item: DispatchMock) {
     uni.showToast({ title: '派车单不存在', icon: 'none' })
     return
   }
-  const yardId = item.yardIds?.[0]
-  if (!yardId) {
-    uni.showToast({ title: '无主园区', icon: 'none' })
+  // 防御：已进入 queued/entering/loading 等后续状态时直接 toast 跳过，避免重复 recordQueue
+  if (['queued', 'entering', 'loading', 'leaving', 'in_transit', 'arrived', 'completed'].includes(dispatchList.value[idx].status)) {
+    uni.showToast({ title: `当前状态 ${dispatchList.value[idx].status}，无需重复扫码`, icon: 'none' })
     return
   }
-  // 触发 reactive 更新：替换 dispatch 对象触发 Vue 重新渲染
+  uni.showActionSheet({
+    itemList: ['📷 扫码园区二维码', '⌨️ 输入园区 ID', '🎬 自动 mock（演示）'],
+    success: (res: any) => {
+      if (res.tapIndex === 0) {
+        // 路径 1：真实扫码
+        uni.scanCode({
+          scanType: ['qrCode'],
+          success: (scanRes: any) => {
+            const yardId = parseYardId(scanRes.result)
+            if (yardId) {
+              applyQueueTransition(item, yardId, '扫码')
+            } else {
+              uni.showToast({ title: '无法识别的二维码', icon: 'none' })
+            }
+          },
+          fail: () => {
+            uni.showToast({ title: '扫码失败,请用【输入 ID】或【自动 mock】', icon: 'none' })
+          },
+        })
+      } else if (res.tapIndex === 1) {
+        // 路径 2：手动输入
+        uni.showModal({
+          title: '输入园区 ID',
+          editable: true,
+          placeholderText: '例如 mock-yard-001',
+          success: (modalRes: any) => {
+            if (modalRes.confirm && modalRes.content) {
+              const yardId = parseYardId(modalRes.content.trim())
+              if (yardId) {
+                applyQueueTransition(item, yardId, '输入')
+              } else {
+                uni.showToast({ title: '园区 ID 格式错误', icon: 'none' })
+              }
+            }
+          },
+        })
+      } else if (res.tapIndex === 2) {
+        // 路径 3：自动 mock 兑底
+        const yardId = item.yardIds?.[0]
+        if (!yardId) {
+          uni.showToast({ title: '无主园区', icon: 'none' })
+          return
+        }
+        applyQueueTransition(item, yardId, '自动 mock')
+      }
+    },
+  })
+}
+
+/**
+ * v0.3.0-M2.2 + P0-4：扫码/输入的统一处理（parking transition）
+ *  - 改 dispatch.status = 'queued'
+ *  - 同步 MOCK_DISPATCHES
+ *  - 调 driverStore.recordQueue
+ *  - toast 提示
+ */
+function applyQueueTransition(item: DispatchMock, yardId: string, source: string) {
+  const idx = dispatchList.value.findIndex((d) => d.id === item.id)
+  if (idx < 0) return
   const updated: DispatchMock = {
     ...dispatchList.value[idx],
     status: 'queued',
@@ -253,10 +312,46 @@ function handleScanQueue(item: DispatchMock) {
     updated,
     ...dispatchList.value.slice(idx + 1),
   ]
-  // 同步 driver store 的 queueHistory（M2 兼容保留）
+  // 同步 MOCK_DISPATCHES
+  const mockIdx = MOCK_DISPATCHES.findIndex((d) => d.id === item.id)
+  if (mockIdx >= 0) MOCK_DISPATCHES[mockIdx].status = 'queued'
+  // 写 store 的 queueHistory（M2 兼容保留）
   const yard = yards.find((y) => y.id === yardId)
-  driverStore.recordQueue(yardId, yard?.name || yardId, 'mock-scan-token')
-  uni.showToast({ title: '📱 扫码成功,排队中', icon: 'success' })
+  driverStore.recordQueue(yardId, yard?.name || yardId, `scan-${source}-${Date.now()}`)
+  uni.showToast({ title: `📱 ${source}成功,排队中`, icon: 'success' })
+}
+
+/**
+ * v0.3.0-M2.2 + P0-4：解析园区 ID
+ *  - 支持 3 种格式：
+ *    1. yard://mock-yard-001（标准 URI 形式）
+ *    2. mock-yard-001（裸 ID）
+ *    3. https://xxx.com/?yardId=mock-yard-001（URL query 形式）
+ *  - 返回 null 表示无法解析
+ */
+function parseYardId(raw: string): string | null {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  // 1) yard://yardId 形式
+  if (trimmed.startsWith('yard://')) {
+    const id = trimmed.slice('yard://'.length).split('?')[0].trim()
+    return id || null
+  }
+  // 2) URL 形式（https://...?yardId=xxx）
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const url = new URL(trimmed)
+      const id = url.searchParams.get('yardId')
+      return id?.trim() || null
+    } catch {
+      return null
+    }
+  }
+  // 3) 裸 ID（mock-yard-001 等）
+  if (/^[A-Za-z0-9_-]+$/.test(trimmed)) {
+    return trimmed
+  }
+  return null
 }
 
 function markAllRead() {
