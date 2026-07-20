@@ -272,6 +272,25 @@ const MOCK_DISPATCHES_RAW: Omit<DispatchMock, 'customerSite'>[] = [
     driverName: '陈大壮',
     goodsSummary: '服装鞋帽 150 箱 / 3.0 吨（已签收 3 张照片）',
   },
+
+  // v0.3.0-M2.2 + P0-3：arrived 状态演示样本（GPS 已自动到货，待司机手动拍照确认完单）
+  {
+    id: 'mock-dispatch-m2-007',
+    dispatchNo: 'DC20260709007',
+    status: 'arrived',
+    direction: '苏州',
+    expectedLoadTime: '2026-07-09 13:00:00',
+    yardIds: ['mock-yard-001'],
+    yardNames: ['秦壁'],
+    customerName: '苏州工业园区智造',
+    customerAddress: '江苏省苏州市工业园区现代大道 999 号',
+    companyName: '华东快运物流有限公司',
+    vehicleNo: '沪A12345',
+    driverName: '陈大壮',
+    goodsSummary: '精密齿轮组件 50 箱 / 1.5 吨',
+    arrivedByGpsAt: '2026-07-09 13:42:18',
+    arrivedByGpsLocation: { lng: 111.513, lat: 36.081 },
+  },
 ]
 
 /**

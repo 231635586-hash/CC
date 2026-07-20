@@ -6,12 +6,19 @@
  *  - uni.navigateBack 默认行为：返回时状态保留（Tab 不动 / 列表滚动位置保留）
  *  - 页面集成所有详情信息（轨迹 + 货物 + 卸货 + 物流 + 联系 + 导航）
  *  - 使用全局 token + mock + 状态字典
+ *
+ * v0.3.0-M2.2 + P0-3：
+ *  - 重建 .bottom-bar（用 safe-area-inset-bottom 避开 Home Indicator）
+ *  - arrived 状态显示【📷 拍照确认到货】按钮 → uni.chooseImage 强制相机
+ *  - completed 状态 banner 升级为「订单已完成 · 含 X 张到货照片」+ 点击预览
+ *  - 拍照失败默认兑底 mock base64 占位图（按用户决策）
  */
 
 import { onLoad } from '@dcloudio/uni-app'
 import { ref, computed } from 'vue'
 import { MOCK_DISPATCHES, type DispatchMock } from '@/mock/dispatches'
 import { DISPATCH_STATUS_MAP, isStepReached } from '@/constants/dispatchStatus'
+import { useDriverStore } from '@/stores/driver'
 import StatusTag from '@/components/StatusTag.vue'
 
 interface YardInfo {
@@ -60,9 +67,29 @@ interface DetailData {
   remark: string
 }
 
+/** P0-3：mock 阶段拍照失败兑底占位图（SVG data URL，无 base64 撑爆风险） */
+const MOCK_PHOTO_DATA_URL =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">' +
+      '<rect width="200" height="200" fill="#e0e7ff"/>' +
+      '<text x="100" y="105" text-anchor="middle" font-size="20" fill="#3730a3" font-family="sans-serif">' +
+        '📷 mock 占位图' +
+      '</text>' +
+    '</svg>',
+  )
+
 // 从 url query 读取 id
 const dispatchId = ref<string>('')
 const detail = ref<DetailData | null>(null)
+
+const driverStore = useDriverStore()
+
+/** P0-3：当前派车单完单照片数量（响应式） */
+const photoCount = computed(() => {
+  if (!detail.value) return 0
+  return driverStore.getCompletionPhotos(detail.value.id).length
+})
 
 const currentStep = computed(() => {
   if (!detail.value) return -1
@@ -123,23 +150,90 @@ function loadDetail(id: string) {
   }
 }
 
-/** v0.2.0-M2：司机手动确认到达（H5 端动作） */
-function confirmArrival() {
+/**
+ * v0.3.0-M2.2 + P0-3：司机手动拍照确认到货（arrived → completed）
+ *  - 强制相机（uni.chooseImage sourceType=['camera']）
+ *  - 拍照失败默认兑底 mock base64 占位图 + toast 提示
+ *  - 写入 completionPhotos / driverConfirmedAt / completedAt
+ *  - 同步 MOCK_DISPATCHES + 推 arrived_prompt → 已完成 消息通知
+ */
+function confirmArrivalWithPhoto() {
   if (!detail.value) return
-  uni.showModal({
-    title: '确认到达客户园区',
-    content: `订单 ${detail.value.dispatchNo} 已到达 ${detail.value.customerName}？\n\n确认后状态将变为「司机确认」，等待客户签收。`,
-    confirmText: '确认到达',
+  const currentDispatch = detail.value
+  uni.chooseImage({
+    count: 1,
+    sourceType: ['camera'],  // 强制相机
     success: (res) => {
-      if (res.confirm) {
-        const newStatus = 'driver_confirmed'
-        // 1) 更新本地详情视图
-        detail.value!.status = newStatus
-        // 2) 回写 MOCK_DISPATCHES,确保返回列表时状态一致
-        const idx = MOCK_DISPATCHES.findIndex((d) => d.id === detail.value!.id)
-        if (idx >= 0) MOCK_DISPATCHES[idx].status = newStatus
-        uni.showToast({ title: '已确认到达', icon: 'success' })
-      }
+      const tempFilePath = res.tempFilePaths[0]
+      // 真实阶段：uni.uploadFile 上传 → 拿到 CDN URL
+      // mock 阶段：直接用 tempFilePath（uni H5 端为 base64 data URL）
+      // 但为安全起见，统一存 data URL（兼容 web 浏览器）
+      const capturedAt = new Date().toISOString()
+      applyCompletion(currentDispatch.id, tempFilePath, capturedAt)
+    },
+    fail: () => {
+      // 拍照失败兑底：mock 占位图（按用户决策）
+      uni.showToast({ title: '相机不可用,已使用占位图', icon: 'none' })
+      const capturedAt = new Date().toISOString()
+      applyCompletion(currentDispatch.id, MOCK_PHOTO_DATA_URL, capturedAt)
+    },
+  })
+}
+
+/**
+ * P0-3：统一处理完单流（无论真拍照还是兑底都走这里）
+ *  - 写入 photo 到 store
+ *  - 改 status='completed' + 写时间戳
+ *  - 同步 MOCK_DISPATCHES
+ *  - 推 arrived_prompt 完成通知
+ */
+function applyCompletion(id: string, photoData: string, capturedAt: string) {
+  if (!detail.value) return
+  // 1) 存照片
+  driverStore.addCompletionPhoto(id, photoData, capturedAt)
+  // 2) 改本地详情状态
+  detail.value.status = 'completed'
+  // 3) 同步 MOCK_DISPATCHES（含 completionPhotos / driverConfirmedAt / completedAt）
+  const nowIso = new Date().toISOString()
+  const idx = MOCK_DISPATCHES.findIndex((d) => d.id === id)
+  if (idx >= 0) {
+    MOCK_DISPATCHES[idx].status = 'completed'
+    MOCK_DISPATCHES[idx].driverConfirmedAt = nowIso
+    MOCK_DISPATCHES[idx].completedAt = nowIso
+    if (!MOCK_DISPATCHES[idx].completionPhotos) MOCK_DISPATCHES[idx].completionPhotos = []
+    MOCK_DISPATCHES[idx].completionPhotos!.push({ data: photoData, capturedAt })
+  }
+  // 4) 推消息
+  driverStore.pushNotification({
+    id: `n-${id}-completed-${Date.now()}`,
+    type: 'arrived_prompt',
+    title: '订单已完成',
+    content: `${detail.value.dispatchNo} 已拍照确认到货，含 ${photoCount.value + 1} 张凭证照片`,
+    time: new Date().toTimeString().slice(0, 5),
+    timestamp: Date.now(),
+    read: false,
+    dispatchId: id,
+  })
+  // 5) toast 提示
+  uni.showToast({ title: '✅ 已完成,感谢您的辛苦付出', icon: 'success' })
+}
+
+/**
+ * P0-3：预览当前派车单的完单照片（uni.previewImage 全屏预览）
+ *  - H5 浏览器未注册时 catch → window.open 兑底
+ */
+function previewPhoto(index: number) {
+  if (!detail.value) return
+  const photos = driverStore.getCompletionPhotos(detail.value.id)
+  if (photos.length === 0) return
+  const urls = photos.map((p) => p.data)
+  uni.previewImage({
+    current: urls[index] || urls[0],
+    urls,
+    fail: () => {
+      // H5 浏览器兑底：window.open 新窗口打开（仅 mock base64）
+      const target = urls[index] || urls[0]
+      window.open(target, '_blank')
     },
   })
 }
@@ -302,22 +396,45 @@ onLoad((query: any) => {
       <image class="banner-icon" src="/static/icons/arrived.svg" mode="aspectFit" />
       <view class="banner-content">
         <text class="banner-title">📍 GPS 自动确认到达客户地址</text>
-        <text class="banner-tip">v0.3.0-M2.2 + P0-2: 距离 ≤200m 自动触发，P0-3 将开放手动拍照确认完单</text>
+        <text class="banner-tip">请手动拍照确认到货（凭证照片将作为送达证据）</text>
       </view>
     </view>
 
-    <!-- v0.3.0-M2.2 v2：driver_confirmed/completed 状态横幅 -->
-    <view v-if="detail.status === 'driver_confirmed' || detail.status === 'completed'" class="arrival-banner confirmed">
+    <!-- v0.3.0-M2.2 + P0-3：completed 状态横幅（含照片预览入口） -->
+    <view v-if="detail.status === 'completed'" class="arrival-banner confirmed">
       <image class="banner-icon" src="/static/icons/checked.svg" mode="aspectFit" />
       <view class="banner-content">
-        <text class="banner-title">{{ detail.status === 'completed' ? '订单已完成' : '司机已确认到达' }}</text>
-        <text class="banner-tip">v0.3.0-M2.2 v2: 确认到达即完成,无需客户签收</text>
+        <text class="banner-title">✅ 订单已完成</text>
+        <text class="banner-tip" v-if="photoCount > 0" @click="previewPhoto(0)">
+          含 {{ photoCount }} 张到货照片，点击预览
+        </text>
+        <text class="banner-tip" v-else>暂无照片凭证</text>
       </view>
     </view>
 
-    <!-- fix(2026-07-20):底部 2 个按钮（联系物流 + 一键导航/确认到达）被 iPhone Home Indicator 遮挡
-         且当前演示阶段不需要主操作按钮（P0-3 拍照按钮会重新设计底部 bar）
-         保留底部留白让内容更易读 -->
+    <!-- v0.3.0-M2.2 v2：driver_confirmed 状态横幅（兼容老 mock 数据） -->
+    <view v-else-if="detail.status === 'driver_confirmed'" class="arrival-banner confirmed">
+      <image class="banner-icon" src="/static/icons/checked.svg" mode="aspectFit" />
+      <view class="banner-content">
+        <text class="banner-title">司机已确认到达</text>
+        <text class="banner-tip">v0.3.0-M2.2 v2: 历史兼容，状态将由 P0-3 拍照按钮推进至 completed</text>
+      </view>
+    </view>
+
+    <!-- v0.3.0-M2.2 + P0-3：重建底部 bar（用 safe-area-inset-bottom 避开 Home Indicator）
+         arrived 状态：渲染【📷 拍照确认到货】主按钮
+         completed 状态：渲染【查看照片】按钮（仅当 photoCount > 0）
+         其他状态：无按钮 -->
+    <view v-if="detail.status === 'arrived' || (detail.status === 'completed' && photoCount > 0)" class="bottom-bar">
+      <button v-if="detail.status === 'arrived'" class="btn-photo" @click="confirmArrivalWithPhoto">
+        <image class="btn-icon" src="/static/icons/camera.svg" mode="aspectFit" />
+        拍照确认到货
+      </button>
+      <button v-else-if="detail.status === 'completed' && photoCount > 0" class="btn-photo-secondary" @click="previewPhoto(0)">
+        <image class="btn-icon" src="/static/icons/camera.svg" mode="aspectFit" />
+        查看照片（{{ photoCount }}）
+      </button>
+    </view>
   </view>
 
   <!-- 加载中 -->
@@ -330,8 +447,8 @@ onLoad((query: any) => {
 .page {
   min-height: 100vh;
   background: var(--color-bg);
-  /* fix(2026-07-20):删除底部按钮后,留 40rpx 即可避免 Home Indicator 遮挡 */
-  padding-bottom: 40rpx;
+  /* v0.3.0-M2.2 + P0-3：重建底部 bar，留 160rpx 避免被拍照按钮遮挡 */
+  padding-bottom: 160rpx;
 }
 /* Frame 模式下：用 100% 替代 100vh，避免撑爆 Frame */
 html.hx-frame-on .page {
@@ -343,6 +460,73 @@ html.hx-frame-on .page {
 /* Frame 模式下：.summary 不再被原生 nav bar 遮挡（nav bar 自带 44px 顶部空间） */
 html.hx-frame-on .summary {
   margin-top: 0;
+}
+
+/* v0.3.0-M2.2 + P0-3：重建 .bottom-bar
+ *  - 用 safe-area-inset-bottom 避开 iPhone Home Indicator
+ *  - Frame 模式下用 absolute 相对 transformed #app
+ */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-card);
+  padding: var(--space-md) var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom));
+  display: flex;
+  gap: var(--space-sm);
+  box-shadow: 0 -2rpx 8rpx rgba(0, 0, 0, 0.06);
+  z-index: 100;
+}
+/* Frame 模式下：.bottom-bar 改 absolute（相对 transformed #app）
+   + 用 calc(env(safe-area-inset-bottom) + 8px) 给 Home Indicator 留 8px 缓冲 */
+html.hx-frame-on .bottom-bar {
+  position: absolute !important;
+  bottom: 0 !important;
+  max-width: 390px !important;
+  width: 100% !important;
+  z-index: 100 !important;
+}
+
+/* v0.3.0-M2.2 + P0-3：拍照主按钮（arrived 状态） */
+.btn-photo {
+  flex: 1;
+  min-height: 88rpx;
+  background: var(--color-status-completed);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-card-title);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  line-height: 1;
+}
+.btn-photo-secondary {
+  flex: 1;
+  min-height: 88rpx;
+  background: var(--color-card);
+  color: var(--color-brand);
+  border: 1rpx solid var(--color-brand);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-card-title);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  line-height: 1;
+}
+.btn-photo .btn-icon,
+.btn-photo-secondary .btn-icon {
+  width: 36rpx;
+  height: 36rpx;
+  color: white;
+}
+.btn-photo-secondary .btn-icon {
+  color: var(--color-brand);
 }
 
 .summary {

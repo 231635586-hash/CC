@@ -285,13 +285,14 @@ function handleDemoTriggerGate() {
 }
 
 /**
- * v0.3.0-M2.2：演示控制台触发"模拟完成"事件
+ * v0.3.0-M2.2 + P0-3：演示控制台触发"模拟完成"事件
  *  - 找到第一条 status='driver_confirmed' 或最新完成中转 → 直接置 completed
  *  - 也支持跳过中间态：找到 leaving/in_transit 一路强行打 complete
+ *  - P0-3 扩展：arrived 状态也可被演示推进（GPS 已自动到货，待手动拍照）
  */
 function handleDemoTriggerComplete() {
-  // 优先找可完成状态：driver_confirmed / in_transit / leaving 任选第一条
-  const candidates = ['driver_confirmed', 'in_transit', 'leaving', 'loading']
+  // 优先找可完成状态：arrived / driver_confirmed / in_transit / leaving / loading 任选第一条
+  const candidates = ['arrived', 'driver_confirmed', 'in_transit', 'leaving', 'loading']
   const idx = dispatchList.value.findIndex((d) => candidates.includes(d.status))
   if (idx < 0) {
     uni.showToast({ title: '当前没有可完成的派车单', icon: 'none' })

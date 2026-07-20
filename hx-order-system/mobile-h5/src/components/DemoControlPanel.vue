@@ -232,7 +232,7 @@ onUnmounted(() => {
         </button>
         <button class="shortcut-btn" @click="triggerCompleteLocal">
           <span class="shortcut-emoji">✅</span>
-          <span class="shortcut-label">模拟完成(driver_confirmed → completed)</span>
+          <span class="shortcut-label">模拟完成(arrived / driver_confirmed → completed)</span>
           <span class="shortcut-arrow">›</span>
         </button>
       </div>
@@ -347,7 +347,7 @@ onUnmounted(() => {
   border-radius: 8px;
   font-weight: 600;
   font-size: 13px;
-  color: #fff;
+  color: var(--color-text-on-brand);
   transition: background 0.2s ease;
 }
 .chip-emoji {
