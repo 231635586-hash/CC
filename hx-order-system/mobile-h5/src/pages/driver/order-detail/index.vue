@@ -315,29 +315,9 @@ onLoad((query: any) => {
       </view>
     </view>
 
-    <!-- 底部操作栏 -->
-    <view class="bottom-bar">
-      <button class="btn-secondary" @click="callPhone(detail.companyPhone, '物流公司')">联系物流</button>
-      <!-- v0.3.0-M2.2 v2:按状态切换主操作按钮(司机确认到达 → 自动完成,无客户签收步骤) -->
-      <template v-if="detail.status === 'in_transit'">
-        <button class="btn-primary btn-confirm" @click="confirmArrival">
-          <image class="btn-icon" src="/static/icons/checked.svg" mode="aspectFit" />
-          确认到达客户
-        </button>
-      </template>
-      <template v-else-if="detail.status === 'driver_confirmed' || detail.status === 'completed'">
-        <button class="btn-primary" disabled>
-          <image class="btn-icon" src="/static/icons/done.svg" mode="aspectFit" />
-          订单已完成
-        </button>
-      </template>
-      <template v-else>
-        <button class="btn-primary" @click="openNavi(detail.yards[0])">
-          <image class="btn-icon" src="/static/icons/compass.svg" mode="aspectFit" />
-          一键导航
-        </button>
-      </template>
-    </view>
+    <!-- fix(2026-07-20):底部 2 个按钮（联系物流 + 一键导航/确认到达）被 iPhone Home Indicator 遮挡
+         且当前演示阶段不需要主操作按钮（P0-3 拍照按钮会重新设计底部 bar）
+         保留底部留白让内容更易读 -->
   </view>
 
   <!-- 加载中 -->
@@ -350,7 +330,8 @@ onLoad((query: any) => {
 .page {
   min-height: 100vh;
   background: var(--color-bg);
-  padding-bottom: 160rpx;
+  /* fix(2026-07-20):删除底部按钮后,留 40rpx 即可避免 Home Indicator 遮挡 */
+  padding-bottom: 40rpx;
 }
 /* Frame 模式下：用 100% 替代 100vh，避免撑爆 Frame */
 html.hx-frame-on .page {
@@ -362,15 +343,6 @@ html.hx-frame-on .page {
 /* Frame 模式下：.summary 不再被原生 nav bar 遮挡（nav bar 自带 44px 顶部空间） */
 html.hx-frame-on .summary {
   margin-top: 0;
-}
-
-/* Frame 模式下：.bottom-bar 改 absolute + 让 padding-bottom 给 Indie 留位置 */
-html.hx-frame-on .bottom-bar {
-  position: absolute !important;
-  bottom: 0 !important;
-  max-width: 390px !important;
-  width: 100% !important;
-  z-index: 100 !important;
 }
 
 .summary {
@@ -580,40 +552,6 @@ html.hx-frame-on .bottom-bar {
   color: var(--color-text-secondary);
 }
 
-/* Bottom bar */
-.bottom-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--color-card);
-  padding: var(--space-sm) var(--space-md) calc(var(--space-sm) + env(safe-area-inset-bottom));
-  display: flex;
-  gap: var(--space-sm);
-  box-shadow: 0 -2rpx 8rpx rgba(0, 0, 0, 0.04);
-}
-.btn-secondary {
-  flex: 1;
-  background: var(--color-card);
-  color: var(--color-brand);
-  border: 1rpx solid var(--color-brand);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-body);
-  line-height: 80rpx;
-  text-align: center;
-}
-.btn-primary {
-  flex: 2;
-  background: var(--color-brand);
-  color: var(--color-text-on-brand);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-card-title);
-  font-weight: 600;
-  line-height: 80rpx;
-  text-align: center;
-}
-
 .loading-page {
   display: flex;
   align-items: center;
@@ -629,16 +567,6 @@ html.hx-frame-on .loading-page {
 .loading-text {
   font-size: var(--font-size-body);
   color: var(--color-text-secondary);
-}
-
-/* ====== v0.2.0-M2：确认到达按钮 + 到达状态横幅 ====== */
-.btn-confirm {
-  background: var(--color-status-completed) !important;
-  animation: pulse-confirm 1.5s ease-in-out infinite;
-}
-@keyframes pulse-confirm {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.85; }
 }
 .arrival-banner {
   display: flex;
