@@ -447,8 +447,8 @@ onLoad((query: any) => {
 .page {
   min-height: 100vh;
   background: var(--color-bg);
-  /* v0.3.0-M2.2 + P0-3：重建底部 bar，留 160rpx 避免被拍照按钮遮挡 */
-  padding-bottom: 160rpx;
+  /* v0.3.0-M2.2 + P0-3：重建底部 bar，留 200rpx 避免内容被拍照按钮遮挡 */
+  padding-bottom: 200rpx;
 }
 /* Frame 模式下：用 100% 替代 100vh，避免撑爆 Frame */
 html.hx-frame-on .page {
@@ -465,6 +465,8 @@ html.hx-frame-on .summary {
 /* v0.3.0-M2.2 + P0-3：重建 .bottom-bar
  *  - 用 safe-area-inset-bottom 避开 iPhone Home Indicator
  *  - Frame 模式下用 absolute 相对 transformed #app
+ *  - bottom 28px 给 Home Indicator（8px+5px）留 15px 缓冲
+ *  - z-index 99998（仅次于 Home Indicator 的 99999，避免被黑色横条覆盖）
  */
 .bottom-bar {
   position: fixed;
@@ -479,13 +481,14 @@ html.hx-frame-on .summary {
   z-index: 100;
 }
 /* Frame 模式下：.bottom-bar 改 absolute（相对 transformed #app）
-   + 用 calc(env(safe-area-inset-bottom) + 8px) 给 Home Indicator 留 8px 缓冲 */
+   + bottom 28px 避开 Home Indicator（8px 偏移 + 5px 高度 + 15px 视觉缓冲）
+   + z-index 99998 仅次于 Home Indicator 的 99999 */
 html.hx-frame-on .bottom-bar {
   position: absolute !important;
-  bottom: 0 !important;
+  bottom: 28px !important;
   max-width: 390px !important;
   width: 100% !important;
-  z-index: 100 !important;
+  z-index: 99998 !important;
 }
 
 /* v0.3.0-M2.2 + P0-3：拍照主按钮（arrived 状态） */
