@@ -1,13 +1,14 @@
 <script setup lang="ts">
 /**
- * 业务员工作台（v0.3-MVP）
+ * v0.3.0-M2.2 + P1-3：业务员工作台
+ *
+ * Tab（v0.3-MVP 3 个 + P1-3 新增库存）：
+ *  ① 调车单  - 我创建的调车单(状态 流转可见)
+ *  ② 创建调车单  - 5 步引导(MVP 简化为单页表单,后续可拆 5 页)
+ *  ③ 库存 (P1-3 新增) - 我维护的库存 + 快速改数量 + 新建商品
+ *  ④ 我的        - 业务员身份 + 切换角色
  *
  * 架构：router + state hub(跟 driver orders/index.vue 同款 Plan B 模式)
- *
- * Tab:
- *  ① 我的调车单  - 我创建的调车单(status 流转可见)
- *  ② 创建调车单  - 5 步引导(MVP 简化为单页表单,后续可拆 5 页)
- *  ③ 我的        - 业务员身份 + 切换角色
  *
  * 设计动机(v0.3-MVP 简化):
  *  - 调车单创建业务字段多,5 步引导虽然 UX 好,但 MVP 阶段单页表单够用
@@ -15,17 +16,33 @@
  */
 
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useUiStore } from '@/stores/ui'
 import { useRoleStore } from '@/stores/role'
 import { MOCK_DISPATCHES, type DispatchMock } from '@/mock/dispatches'
+import { MOCK_INVENTORY, type Inventory } from '@/mock/inventory'
 import { DEFAULT_SALESPERSON } from '@/mock/salespeople'
-import type { TabKey } from '@/types/driver'
 
 import MyDispatchesTab from './tabs/MyDispatchesTab.vue'
 import CreateDispatchForm from './tabs/CreateDispatchForm.vue'
+import InventoryTab from './tabs/InventoryTab.vue'
+import InventoryFormModal from './tabs/InventoryFormModal.vue'
 import MeTab from './tabs/MeTab.vue'
+
+/**
+ * v0.3.0-M2.2 + P1-3：业务员工作台
+ *
+ * 设计动机(v0.3-MVP 简化):
+ *  - 调车单创建业务字段多,5 步引导虽然 UX 好,但 MVP 阶段单页表单够用
+ *  - 拆 5 个 page 路由 + 步骤状态管理是 v0.4 优化项
+ *
+ * Why SalespersonTabKey 本地类型：
+ *  - driver 端 TabKey 是 5 个（workbench/orders/messages/gps/me）
+ *  - salesperson 端 4 个（orders/create/inventory/me），完全不同
+ *  - uiStore.activeTab 类型是 TabKey（driver），salesperson 用本地类型 + 类型断言兼容
+ */
+type SalespersonTabKey = 'orders' | 'create' | 'inventory' | 'me'
 
 const uiStore = useUiStore()
 const roleStore = useRoleStore()
@@ -36,10 +53,18 @@ const currentSalespersonId = ref(DEFAULT_SALESPERSON.id)
 
 // 我创建的调车单列表(local copy,onShow 时 reload)
 const myDispatches = ref<DispatchMock[]>([])
+// v0.3.0-M2.2 + P1-3：我维护的库存列表（按 salespersonId 过滤）
+const myInventory = ref<Inventory[]>([])
 
 function loadMyDispatches() {
   myDispatches.value = MOCK_DISPATCHES.filter(
     (d) => (d as any).salespersonId === currentSalespersonId.value,
+  )
+}
+
+function loadMyInventory() {
+  myInventory.value = MOCK_INVENTORY.filter(
+    (i) => i.salesPersonId === currentSalespersonId.value,
   )
 }
 
@@ -51,20 +76,22 @@ onLoad(() => {
   // 角色进入即重置 activeTab,避免从其他角色切过来时残留的 tab key 命中不到本角色 Tab 列表
   uiStore.resetForRole('salesperson')
   loadMyDispatches()
+  loadMyInventory()
 })
 
 onShow(() => {
   loadMyDispatches()
+  loadMyInventory()
 })
 
-function switchTab(tab: TabKey) {
-  uiStore.setActiveTab(tab)
+function switchTab(tab: SalespersonTabKey) {
+  uiStore.setActiveTab(tab as any) // 类型兼容：uiStore TabKey 是 driver 的，salesperson 用本地类型
 }
 
 // 创建调车单成功后刷新列表
 function onCreated() {
   loadMyDispatches()
-  uiStore.setActiveTab('orders')
+  uiStore.setActiveTab('orders' as any)
   uni.showToast({ title: '调车单已创建', icon: 'success' })
 }
 
@@ -94,6 +121,28 @@ function onCancel(item: DispatchMock) {
       uni.showToast({ title: '已取消', icon: 'success' })
     },
   })
+}
+
+// P1-3：业务员修改库存数量（弹 modal 收集 → patch → 同步 mock）
+function onEditQuantity(item: Inventory) {
+  const idx = myInventory.value.findIndex((i) => i.id === item.id)
+  if (idx >= 0) myInventory.value[idx] = item
+  const mockIdx = MOCK_INVENTORY.findIndex((i) => i.id === item.id)
+  if (mockIdx >= 0) MOCK_INVENTORY[mockIdx] = item
+  uni.showToast({ title: '已更新数量', icon: 'success' })
+}
+
+// P1-3：业务员新建商品（InventoryFormModal emit created）
+function onCreatedInventory(item: Inventory) {
+  myInventory.value.unshift(item)
+  MOCK_INVENTORY.unshift(item)
+  uni.setStorageSync('__inventory_just_added', item.id) // 用于「我的」Tab 显示高亮（可选）
+}
+
+// P1-3：底部【新建商品】浮动按钮触发
+const showInventoryForm = ref(false)
+function openInventoryForm() {
+  showInventoryForm.value = true
 }
 </script>
 
@@ -128,16 +177,23 @@ function onCancel(item: DispatchMock) {
         v-else-if="activeTab === 'create'"
         @created="onCreated"
       />
+      <InventoryTab
+        v-else-if="activeTab === 'inventory'"
+        :inventory="myInventory"
+        @edit-quantity="onEditQuantity"
+        @create-new="openInventoryForm"
+      />
       <MeTab v-else-if="activeTab === 'me'" />
     </view>
 
-    <!-- 底部 TabBar -->
+    <!-- 底部 TabBar（v0.3-MVP 3 项 + P1-3 新增库存） -->
     <view class="tabbar">
       <view
         v-for="t in [
-          { key: 'orders' as TabKey, label: '调车单', icon: '/static/icons/list.svg' },
-          { key: 'create' as TabKey, label: '创建', icon: '/static/icons/package.svg' },
-          { key: 'me' as TabKey, label: '我的', icon: '/static/icons/user.svg' },
+          { key: 'orders' as SalespersonTabKey, label: '调车单', icon: '/static/icons/list.svg' },
+          { key: 'create' as SalespersonTabKey, label: '创建', icon: '/static/icons/package.svg' },
+          { key: 'inventory' as SalespersonTabKey, label: '库存', icon: '/static/icons/warehouse.svg' },
+          { key: 'me' as SalespersonTabKey, label: '我的', icon: '/static/icons/user.svg' },
         ]"
         :key="t.key"
         class="tabbar-item"
@@ -148,6 +204,13 @@ function onCancel(item: DispatchMock) {
         <text class="tabbar-label">{{ t.label }}</text>
       </view>
     </view>
+
+    <!-- v0.3.0-M2.2 + P1-3：新建商品 Modal（库存 Tab 用） -->
+    <InventoryFormModal
+      v-if="showInventoryForm"
+      @close="showInventoryForm = false"
+      @created="onCreatedInventory"
+    />
   </view>
 </template>
 
