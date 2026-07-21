@@ -79,17 +79,7 @@ const driverTodayCount = computed(() =>
 const driverCompletedCount = computed(() =>
   dispatchList.value.filter((d) => d.status === 'completed').length,
 )
-const unreadCount = computed(() => notifications.value.filter((n) => !n.read).length)
-
-/** O7-A：搜索图标点击 → 切到派车单 Tab（mock 阶段简易跳转） */
-function goSearch() {
-  switchTab('orders')
-}
-
-/** O7-A：通知图标点击 → 切到消息 Tab */
-function goNotifications() {
-  switchTab('messages')
-}
+// D-Fix-12：unreadCount / goSearch / goNotifications 已移除(司机端 Header 右上角按钮删除)
 
 // ===== 工具 =====
 function getGreeting(): string {
@@ -541,15 +531,7 @@ onPullDownRefresh(async () => {
             </view>
           </view>
         </view>
-        <view class="header-right">
-          <view class="header-icon-btn" @click="goSearch">
-            <text class="header-icon-text">🔍</text>
-          </view>
-          <view class="header-icon-btn" @click="goNotifications">
-            <text class="header-icon-text">🔔</text>
-            <view v-if="unreadCount > 0" class="header-icon-badge">{{ unreadCount }}</view>
-          </view>
-        </view>
+        <!-- D-Fix-12：司机端 Header 右上角按钮移除(执行者定位精简) -->
       </view>
     </view>
 
@@ -687,50 +669,7 @@ html.hx-frame-on .page {
   flex-shrink: 0;
 }
 
-/* ===== O7-A：右侧操作图标区（搜索 + 通知）===== */
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-shrink: 0;
-}
-.header-icon-btn {
-  position: relative;
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--motion-fast) var(--ease-out-quart);
-}
-.header-icon-btn:active {
-  background: rgba(255, 255, 255, 0.3);
-}
-.header-icon-text {
-  font-size: 32rpx;
-  color: var(--color-text-on-brand);
-  line-height: 1;
-}
-.header-icon-badge {
-  position: absolute;
-  top: -4rpx;
-  right: -4rpx;
-  min-width: 32rpx;
-  height: 32rpx;
-  padding: 0 8rpx;
-  border-radius: 16rpx;
-  background: #ff4d4f;
-  color: white;
-  font-size: var(--font-size-mini);
-  font-weight: var(--font-weight-bold);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  box-shadow: 0 0 0 4rpx var(--color-brand);
-}
+/* D-Fix-12：.header-right / .header-icon-btn / .header-icon-text / .header-icon-badge CSS 已移除(司机端 Header 右上角按钮删除) */
 
 .content {
   min-height: calc(100vh - 200rpx);
