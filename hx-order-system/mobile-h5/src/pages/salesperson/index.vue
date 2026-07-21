@@ -208,6 +208,14 @@ function openInventoryForm() {
               <text class="welcome-name">{{ DEFAULT_SALESPERSON.name }}</text>
             </view>
           </view>
+          <!-- D-Fix-4：调车单 Tab 右上角圆形 + 按钮（替代 D-Fix-3 顶部全宽按钮） -->
+          <view
+            v-if="activeTab === 'orders'"
+            class="header-create-btn"
+            @click="switchTab('create')"
+          >
+            <image class="header-create-icon" src="/static/icons/plus.svg" mode="aspectFit" />
+          </view>
           <view class="welcome-avatar">
             <text>{{ DEFAULT_SALESPERSON.name.charAt(0) }}</text>
           </view>
@@ -297,6 +305,26 @@ html.hx-frame-on .page {
 .status-bar {
   height: 40rpx;
   background: var(--role-sales); /* 业务员主题色:青色 */
+}
+
+/* ===== D-Fix-4：Header 右上角 + 按钮（调车单 Tab 用） ===== */
+.header-create-btn {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: var(--color-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--space-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--shadow-sm);
+}
+.header-create-icon {
+  width: 36rpx;
+  height: 36rpx;
+  color: var(--role-sales);
 }
 
 /* ===== D-Fix-3：create 状态返回栏 ===== */
