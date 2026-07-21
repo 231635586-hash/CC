@@ -1,24 +1,29 @@
 <script setup lang="ts">
 /**
- * 华翔司机端 H5 - 工作台主页面（v0.2.x Plan B 重构）
+ * 华翔司机端 H5 - 主页面（v0.2.x Plan B + D-Fix-6 Tab 精简）
  *
  * 设计哲学（保留）：
  *  - 司机工作场景碎片化（可能 5 分钟看一次），减少页面跳转 = 减少操作摩擦
- *  - 5 个 Tab 横向并列，所有功能一屏可达
+ *  - 3 个 Tab 横向并列（精简后），核心功能一屏可达
  *
  * Plan B 架构（v0.2.x）：
- *  - index.vue 退化为 router + state hub（~150 行）
- *    · 共享状态：dispatchList / notifications / position / detectedYard / yards
+ *  - index.vue 退化为 router + state hub
+ *    · 共享状态：dispatchList / notifications / position / yards
  *    · 跨 Tab 业务方法：navigateToYard / markMessageRead / ...
- *    · TabBar（5 项固定在底部）
- *  - 5 个 Tab 拆为 tabs/*.vue 子组件，各自管自己内部的 sub-tab / filter 等 UI state
- *  - Tab 级别 UI state（orderSubTab / msgFilter / gpsSubTab）提到 uiStore
+ *    · TabBar（3 项精简后）
+ *  - 3 个 Tab 拆为 tabs/*.vue 子组件，各自管自己内部的 sub-tab / filter 等 UI state
+ *  - Tab 级别 UI state（orderSubTab / msgFilter）提到 uiStore
  *    · 切走再切回不重置（之前 v-if 会销毁 ref）
+ *
+ * D-Fix-6 Tab 精简（commit 待提交）：
+ *  - 移除工作台 Tab（移到业务员端 — D-Fix-7）
+ *  - 移除 GPS Tab（GPS 自动到货 watcher 保留，仅 UI 移除）
+ *  - 司机核心流程：派车单 + 消息 + 我的
  *
  * 派车单业务简化（v0.2.x）：
  *  - 司机无接单/拒单操作，dispatcher 派车即默认接单
  *  - status='dispatched' 的卡只显示 [导航前往园区] 按钮
- *  - dispatched → entering 由 GPS 自动检测触发（M3 真实阶段）
+ *  - dispatched → entering 由 GPS 自动检测触发
  *
  * token：src/App.vue 全局 CSS variables
  * mock：src/mock/dispatches.ts
@@ -40,11 +45,9 @@ import type { TabKey, NotificationItem, Yard } from '@/types/driver'
 import MobileTabBar from '@/components/MobileTabBar.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 
-// 子组件
-import WorkbenchTab from './tabs/WorkbenchTab.vue'
+// 子组件（D-Fix-6：精简为 3 Tab,移除 WorkbenchTab + GpsTab）
 import OrdersTab from './tabs/OrdersTab.vue'
 import MessagesTab from './tabs/MessagesTab.vue'
-import GpsTab from './tabs/GpsTab.vue'
 import MeTab from './tabs/MeTab.vue'
 
 // ===== Pinia =====
@@ -55,7 +58,6 @@ const { activeTab } = storeToRefs(uiStore)
 // ===== 共享状态 =====
 const dispatchList = ref<DispatchMock[]>([])
 const position = ref<{ lng: number; lat: number; accuracyM: number } | null>(null)
-const detectedYard = ref<Yard | null>(null)
 const loading = ref(false)
 
 const yards: Yard[] = MOCK_YARDS
@@ -67,17 +69,6 @@ const notifications = ref<NotificationItem[]>([
   { id: 'n4', type: 'complete', title: '装货完成', content: '派车单 DC20260625008 已装货完成，等待出厂', time: '昨天 16:30', timestamp: Date.now() - 24 * 60 * 60 * 1000, read: true, dispatchId: 'mock-dispatch-008' },
   { id: 'n5', type: 'cancel', title: '订单取消', content: '派车单 DC20260622001 已取消，无需前往', time: '06-22 14:00', timestamp: Date.now() - 5 * 24 * 60 * 60 * 1000, read: true, dispatchId: 'mock-dispatch-001' },
 ])
-
-// ===== GPS 最近园区计算（跨 Tab 共享，传给 GpsTab）=====
-const nearestYard = computed(() => {
-  if (!position.value) return null
-  let nearest: { yard: Yard; distanceM: number } | null = null
-  yards.forEach((y) => {
-    const d = distanceM(position.value!, y)
-    if (!nearest || d < nearest.distanceM) nearest = { yard: y, distanceM: d }
-  })
-  return nearest
-})
 
 // ===== O7-A：Header 副标题 KPI 数据 + 通知未读数 =====
 const driverTodayCount = computed(() =>
@@ -120,22 +111,9 @@ async function loadDispatchList() {
   loading.value = false
 }
 
-async function refreshGps() {
-  const p = await getCurrentPosition()
-  position.value = { ...p, accuracyM: 50 }
-  const detected = detectYard(p, yards)
-  if (uiStore.gpsSubTab === 'in') {
-    detectedYard.value = detected || null
-  } else {
-    // out：已离开 = !detected
-    detectedYard.value = detected
-  }
-}
-
 // ===== 跨 Tab 操作 =====
 function switchTab(tab: TabKey) {
   uiStore.setActiveTab(tab)
-  if (tab === 'gps') refreshGps()
 }
 
 function goDetail(item: DispatchMock) {
@@ -284,17 +262,11 @@ function navigateToYard(item: DispatchMock) {
 
 function markMessageRead(n: NotificationItem) {
   n.read = true
-  if (n.type === 'depart' || n.type === 'arrive') {
-    uiStore.setActiveTab('gps')
-    uiStore.setGpsSubTab('in')
-    refreshGps()
-  } else if (n.type === 'loading') {
+  // D-Fix-6：司机端移除 GpsTab 后,消息点击改为跳派车单详情
+  if (n.type === 'loading' || n.type === 'depart' || n.type === 'arrive' || n.type === 'complete') {
     const d = dispatchList.value.find((x) => x.id === n.dispatchId)
     if (d) goDetail(d)
-  } else if (n.type === 'complete') {
-    uiStore.setActiveTab('gps')
-    uiStore.setGpsSubTab('out')
-    refreshGps()
+    else uiStore.setActiveTab('orders')
   }
 }
 
@@ -562,7 +534,6 @@ onUnmounted(() => {
 
 onPullDownRefresh(async () => {
   await loadDispatchList()
-  if (uiStore.activeTab === 'gps') await refreshGps()
   uni.stopPullDownRefresh()
 })
 </script>
@@ -604,12 +575,6 @@ onPullDownRefresh(async () => {
     <!-- Tab 内容区 -->
     <view class="content">
       <AppSkeleton v-if="loading && dispatchList.length === 0" type="list" :count="3" />
-      <WorkbenchTab
-        v-else-if="activeTab === 'workbench'"
-        :dispatch-list="dispatchList"
-        @go-detail="goDetail"
-        @switch-tab="switchTab"
-      />
       <OrdersTab
         v-else-if="activeTab === 'orders'"
         :dispatch-list="dispatchList"
@@ -623,14 +588,6 @@ onPullDownRefresh(async () => {
         @mark-read="markMessageRead"
         @mark-all-read="markAllRead"
       />
-      <GpsTab
-        v-else-if="activeTab === 'gps'"
-        :position="position"
-        :detected-yard="detectedYard"
-        :nearest-yard="nearestYard"
-        @refresh-gps="refreshGps"
-        @open-navi="openNavi"
-      />
       <MeTab
         v-else-if="activeTab === 'me'"
         @switch-driver="showDriverSwitcher"
@@ -638,13 +595,11 @@ onPullDownRefresh(async () => {
       />
     </view>
 
-    <!-- 底部 TabBar（5 Tab 切换）统一走 <MobileTabBar> -->
+    <!-- 底部 TabBar（D-Fix-6：3 Tab,移除 workbench + gps） -->
     <MobileTabBar
       :items="[
-        { key: 'workbench', label: '工作台', icon: '/static/icons/dashboard.svg' },
         { key: 'orders', label: '派车单', icon: '/static/icons/list.svg' },
         { key: 'messages', label: '消息', icon: '/static/icons/bell.svg' },
-        { key: 'gps', label: 'GPS', icon: '/static/icons/pin.svg' },
         { key: 'me', label: '我的', icon: '/static/icons/user.svg' },
       ]"
       :active-key="activeTab"
