@@ -22,6 +22,7 @@ import { computed, ref } from 'vue'
 import type { DispatchMock, DispatchStatus } from '@/mock/dispatches'
 import { MOCK_VEHICLES } from '@/mock/vehicles'
 import EmptyState from '@/components/EmptyState.vue'
+import AppSearch from '@/components/AppSearch.vue'
 
 type ScheduleSubTab = 'all' | 'pending' | 'inProgress' | 'completed'
 
@@ -150,15 +151,12 @@ function emptyForTab(tab: ScheduleSubTab): { title: string; desc: string } {
       </view>
     </view>
 
-    <!-- ===== 关键词筛选 ===== -->
-    <view class="filter-bar">
-      <input
-        v-model="keyword"
-        class="filter-input"
-        placeholder="搜索派车单号/客户/园区/司机/车牌"
-        placeholder-class="filter-placeholder"
-      />
-    </view>
+    <!-- ===== 关键词筛选（O5：AppSearch 统一组件） ===== -->
+    <AppSearch
+      v-model="keyword"
+      placeholder="搜索派车单号/客户/园区/司机/车牌"
+      custom-class="company-filter-search"
+    />
 
     <!-- ===== 4 Sub Tab ===== -->
     <view class="sub-tabs">
@@ -270,21 +268,9 @@ function emptyForTab(tab: ScheduleSubTab): { title: string; desc: string } {
 .kpi-vehicles { background: rgba(114, 46, 209, 0.08); }
 .kpi-vehicles .kpi-value { color: #722ed1; }
 
-/* ===== 关键词筛选 ===== */
-.filter-bar {
-  padding: 0 var(--space-md) var(--space-sm);
-}
-.filter-input {
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
-  font-size: var(--font-size-body);
-  border: 1rpx solid var(--color-divider);
-  width: 100%;
-  box-sizing: border-box;
-}
-.filter-placeholder {
-  color: var(--color-text-placeholder);
+/* ===== O5：AppSearch 容器（仅留间距，组件自带样式） ===== */
+.company-filter-search {
+  margin: 0 var(--space-md) var(--space-sm);
 }
 
 /* ===== 4 Sub Tab ===== */
