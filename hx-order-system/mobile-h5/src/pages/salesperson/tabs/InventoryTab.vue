@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * v0.3.0-M2.2 + P1-3：库存列表 Tab（业务员视角，E2 方案）
+ * v0.3.0-M2.2 + P1-3 + D-Fix：库存列表 Tab（业务员视角，E2 方案 + 与 Web 端对齐）
  *
  * 内容：我维护的库存列表 + 快速改数量 + 新建商品入口
  *
@@ -9,6 +9,10 @@
  *  - 卡片：物料名/客户/数量/状态/包装
  *  - 操作按钮：【改数量】【新建商品】
  *  - 库存类型/状态徽章
+ *
+ * D-Fix 业务规则对齐 Web 端（commit D-Fix-1）：
+ *  - KPI 由 3 项改 4 项，对齐 Web 端：总项数 / 已入库 / 已锁定 / 已发货
+ *  - 【改数量】按钮权限锁：仅 status === 'in_stock' 可点，其他状态 disabled + 提示原因
  *
  * 数据：inventory (props from salesperson/index.vue, 已按 salespersonId 过滤)
  */
@@ -34,12 +38,16 @@ const sortedInventory = computed(() => {
   return [...props.inventory].sort((a, b) => b.id.localeCompare(a.id))
 })
 
+// ===== KPI（D-Fix-1：4 项对齐 Web 端状态分组）=====
 const kpiTotal = computed(() => sortedInventory.value.length)
 const kpiInStock = computed(() =>
   sortedInventory.value.filter((i) => i.status === 'in_stock').length
 )
-const kpiTotalQty = computed(() =>
-  sortedInventory.value.reduce((sum, i) => sum + i.quantity, 0)
+const kpiLocked = computed(() =>
+  sortedInventory.value.filter((i) => i.status === 'locked').length
+)
+const kpiShipped = computed(() =>
+  sortedInventory.value.filter((i) => i.status === 'shipped').length
 )
 
 // ===== 修改数量弹窗 =====
@@ -83,19 +91,23 @@ function statusClass(status: Inventory['status']): string {
 
 <template>
   <view class="tab-pane">
-    <!-- ===== 顶部 3 KPI ===== -->
+    <!-- ===== 顶部 4 KPI（D-Fix-1：对齐 Web 端状态分组）===== -->
     <view class="stat-row">
       <view class="stat-item">
         <text class="stat-num">{{ kpiTotal }}</text>
         <text class="stat-label">总项数</text>
       </view>
-      <view class="stat-item highlight">
-        <text class="stat-num">{{ kpiInStock }}</text>
-        <text class="stat-label">在库数</text>
-      </view>
       <view class="stat-item success">
-        <text class="stat-num">{{ kpiTotalQty }}</text>
-        <text class="stat-label">总箱数</text>
+        <text class="stat-num">{{ kpiInStock }}</text>
+        <text class="stat-label">已入库</text>
+      </view>
+      <view class="stat-item warn">
+        <text class="stat-num">{{ kpiLocked }}</text>
+        <text class="stat-label">已锁定</text>
+      </view>
+      <view class="stat-item info">
+        <text class="stat-num">{{ kpiShipped }}</text>
+        <text class="stat-label">已发货</text>
       </view>
     </view>
 
@@ -141,10 +153,15 @@ function statusClass(status: Inventory['status']): string {
           <text class="info-value ellipsis remark-text">{{ i.remark }}</text>
         </view>
 
-        <!-- 操作按钮（O3 改用 AppButton 通用组件） -->
+        <!-- 操作按钮（D-Fix-1：仅 in_stock 可改数量，其他状态 disabled 提示原因） -->
         <view class="card-actions">
-          <AppButton variant="secondary" icon="/static/icons/edit.svg" @click="openQtyModal(i)">
-            改数量
+          <AppButton
+            variant="secondary"
+            icon="/static/icons/edit.svg"
+            :disabled="i.status !== 'in_stock'"
+            @click="openQtyModal(i)"
+          >
+            {{ i.status === 'in_stock' ? '改数量' : (INVENTORY_STATUS_LABEL[i.status] + ' 不可改') }}
           </AppButton>
         </view>
       </view>
@@ -207,6 +224,9 @@ function statusClass(status: Inventory['status']): string {
 }
 .stat-item.highlight .stat-num { color: var(--role-sales); }
 .stat-item.success .stat-num { color: var(--color-status-completed); }
+/* D-Fix-1：KPI 4 项颜色（对齐 Web 端状态色） */
+.stat-item.warn .stat-num { color: var(--color-status-locked); }
+.stat-item.info .stat-num { color: var(--color-status-shipped); }
 
 /* ===== 空状态 ===== */
 .empty-wrap { padding: 60rpx var(--space-md); }
