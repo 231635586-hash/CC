@@ -11,18 +11,50 @@
  *   - 状态机 dispatched → entering 由 GPS 自动触发
  */
 
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import type { DispatchMock } from '@/mock/dispatches'
 import {
   ACTIVE_STATUSES,
   PENDING_STATUSES,
   DONE_STATUSES,
+  DISPATCH_STATUS_MAP,
 } from '@/constants/dispatchStatus'
 import { useUiStore } from '@/stores/ui'
 import type { OrderSubTab } from '@/types/driver'
 import EmptyState from '@/components/EmptyState.vue'
 import DispatchCard from '@/components/DispatchCard.vue'
+
+// O7-C：下拉筛选（参考截图「未处理 ▼」风格，3 选项：全部/未处理/紧急）
+type QuickFilter = 'all' | 'pending' | 'urgent'
+
+interface QuickFilterOption {
+  key: QuickFilter
+  label: string
+  /** 匹配的 status 集合（任一命中即视为符合） */
+  matchStatus: DispatchMock['status'][]
+}
+
+const QUICK_FILTER_OPTIONS: QuickFilterOption[] = [
+  {
+    key: 'all',
+    label: '全部',
+    matchStatus: [...ACTIVE_STATUSES, ...PENDING_STATUSES, ...DONE_STATUSES] as DispatchMock['status'][],
+  },
+  {
+    key: 'pending',
+    label: '未处理',
+    // 未处理：待确认/已确认/草稿（还没真正开始的状态）
+    matchStatus: ['pending_confirm', 'confirmed', 'draft'],
+  },
+  {
+    key: 'urgent',
+    label: '紧急',
+    // 紧急：mock 阶段以 driver_confirmed/arrived/queued 近似（用 status 排序显示）
+    // 真实阶段应基于 isUrgent 字段；mobile-h5 mock 未引入该字段
+    matchStatus: ['queued', 'arrived', 'driver_confirmed'],
+  },
+]
 
 const props = defineProps<{
   dispatchList: DispatchMock[]
@@ -40,14 +72,38 @@ const emit = defineEmits<{
 const uiStore = useUiStore()
 const { orderSubTab } = storeToRefs(uiStore)
 
+// O7-C：下拉筛选状态
+const quickFilter = ref<QuickFilter>('all')
+const quickFilterOpen = ref(false)
+const currentFilterOption = computed(
+  () => QUICK_FILTER_OPTIONS.find((o) => o.key === quickFilter.value) || QUICK_FILTER_OPTIONS[0],
+)
+
+function toggleQuickFilter() {
+  quickFilterOpen.value = !quickFilterOpen.value
+}
+
+function selectQuickFilter(key: QuickFilter) {
+  quickFilter.value = key
+  quickFilterOpen.value = false
+}
+
 const activeList = computed(() => props.dispatchList.filter((d) => ACTIVE_STATUSES.includes(d.status)))
 const pendingList = computed(() => props.dispatchList.filter((d) => PENDING_STATUSES.includes(d.status)))
 const doneList = computed(() => props.dispatchList.filter((d) => DONE_STATUSES.includes(d.status)))
 
 const currentOrderList = computed(() => {
-  if (orderSubTab.value === 'active') return activeList.value
-  if (orderSubTab.value === 'pending') return pendingList.value
-  return doneList.value
+  // 1) 先按子 Tab 过滤（进行中/待出发/已完成）
+  let list: DispatchMock[]
+  if (orderSubTab.value === 'active') list = activeList.value
+  else if (orderSubTab.value === 'pending') list = pendingList.value
+  else list = doneList.value
+  // 2) 再按下拉筛选过滤（全部/未处理/紧急）
+  if (quickFilter.value !== 'all' && currentFilterOption.value) {
+    const matchStatus = currentFilterOption.value.matchStatus
+    list = list.filter((d) => matchStatus.includes(d.status))
+  }
+  return list
 })
 
 const orderSubTabs = computed(() => [
@@ -76,6 +132,40 @@ const subTabLabelMap: Record<OrderSubTab, string> = {
       >
         <text>{{ t.label }}</text>
         <text class="sub-tab-count">{{ t.count }}</text>
+      </view>
+    </view>
+
+    <!-- O7-C：下拉筛选（参考截图「未处理 ▼」风格） -->
+    <view class="quick-filter-bar">
+      <view
+        class="quick-filter-trigger"
+        :class="{ open: quickFilterOpen }"
+        @click="toggleQuickFilter"
+      >
+        <text class="quick-filter-label">{{ currentFilterOption.label }}</text>
+        <image
+          class="quick-filter-arrow"
+          :class="{ open: quickFilterOpen }"
+          src="/static/icons/info.svg"
+          mode="aspectFit"
+        />
+      </view>
+      <text class="quick-filter-count">{{ currentOrderList.length }} 单</text>
+    </view>
+
+    <!-- 下拉菜单 -->
+    <view v-if="quickFilterOpen" class="quick-filter-mask" @click="quickFilterOpen = false">
+      <view class="quick-filter-dropdown" @click.stop>
+        <view
+          v-for="opt in QUICK_FILTER_OPTIONS"
+          :key="opt.key"
+          class="quick-filter-option"
+          :class="{ active: quickFilter === opt.key }"
+          @click="selectQuickFilter(opt.key)"
+        >
+          <text class="quick-filter-option-label">{{ opt.label }}</text>
+          <view v-if="quickFilter === opt.key" class="quick-filter-option-check"></view>
+        </view>
       </view>
     </view>
 
@@ -151,6 +241,98 @@ const subTabLabelMap: Record<OrderSubTab, string> = {
 }
 
 .list { padding: 20rpx var(--space-md) 0; }
+
+/* ===== O7-C：下拉筛选（参考截图「未处理 ▼」风格） ===== */
+.quick-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-card);
+  border-bottom: 1rpx solid var(--color-divider);
+}
+.quick-filter-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-bg);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sub);
+  color: var(--color-text-primary);
+  transition: background var(--motion-fast) var(--ease-out-quart);
+}
+.quick-filter-trigger.open {
+  background: var(--color-brand-bg);
+  color: var(--color-brand);
+}
+.quick-filter-trigger:active {
+  background: var(--color-divider);
+}
+.quick-filter-label {
+  font-weight: var(--font-weight-medium);
+}
+.quick-filter-arrow {
+  width: 24rpx;
+  height: 24rpx;
+  transition: transform var(--motion-fast) var(--ease-out-quart);
+  color: var(--color-text-secondary);
+}
+.quick-filter-arrow.open {
+  transform: rotate(180deg);
+}
+.quick-filter-count {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-mono);
+}
+
+.quick-filter-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: transparent;
+}
+.quick-filter-dropdown {
+  position: absolute;
+  top: 240rpx; /* 估算：header ~ 200rpx + sub-tab 80rpx + filter bar 60rpx */
+  left: var(--space-md);
+  right: var(--space-md);
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  z-index: 100;
+}
+.quick-filter-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  border-bottom: 1rpx solid var(--color-bg);
+  font-size: var(--font-size-body);
+  color: var(--color-text-regular);
+  transition: background var(--motion-fast) var(--ease-out-quart);
+}
+.quick-filter-option:last-child {
+  border-bottom: none;
+}
+.quick-filter-option:active {
+  background: var(--color-bg);
+}
+.quick-filter-option.active {
+  color: var(--color-brand);
+  background: var(--color-brand-bg);
+}
+.quick-filter-option-label {
+  font-weight: var(--font-weight-medium);
+}
+.quick-filter-option-check {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: var(--color-brand);
+}
 
 .load-more {
   text-align: center;
