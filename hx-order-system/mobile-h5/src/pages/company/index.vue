@@ -1,13 +1,12 @@
 <script setup lang="ts">
 /**
- * 物流公司工作台（v0.3-MVP）
+ * 物流公司工作台（v0.3-MVP + D-Fix-8 Tab 精简）
  *
  * 架构：router + state hub(跟 driver orders/index.vue + salesperson/index.vue 同款)
  *
- * Tab:
- *  ① 待确认  - 本公司 pending_confirm 单,一键确认受理 → confirmed
- *  ② 待派车  - 本公司 confirmed 单,触发派车 modal → dispatched
- *  ③ 我的    - 当前公司 + 切换角色
+ * Tab（D-Fix-8 后）：
+ *  ① 待派车  - 本公司 confirmed 单,触发派车 modal → dispatched
+ *  ② 我的    - 当前公司 + 切换角色
  *
  * 主题色：橙色 var(--role-company)
  */
@@ -21,7 +20,6 @@ import { MOCK_DISPATCHES, type DispatchMock } from '@/mock/dispatches'
 import { MOCK_LOGISTICS_COMPANIES } from '@/mock/companies'
 import type { TabKey } from '@/types/driver'
 
-import ToConfirmTab from './tabs/ToConfirmTab.vue'
 import ToAssignTab from './tabs/ToAssignTab.vue'
 import MeTab from './tabs/MeTab.vue'
 import AssignDispatchModal from '@/components/AssignDispatchModal.vue'
@@ -68,22 +66,6 @@ function switchTab(tab: TabKey) {
   uiStore.setActiveTab(tab)
 }
 
-// 待确认:pending_confirm → confirmed
-function handleConfirm(item: DispatchMock) {
-  uni.showModal({
-    title: '确认受理',
-    content: `${item.dispatchNo}\n${item.customerName} · ${item.yardNames.join('、')}园区\n\n确认后进入待派车环节`,
-    confirmText: '确认受理',
-    confirmColor: 'var(--role-company)',
-    success: (res) => {
-      if (res.confirm) {
-        item.status = 'confirmed'
-        uni.showToast({ title: '已确认受理', icon: 'success' })
-      }
-    },
-  })
-}
-
 // 待派车:触发 modal
 const showAssignModal = ref(false)
 const assigningItem = ref<DispatchMock | null>(null)
@@ -126,14 +108,9 @@ function onAssigned() {
     <view class="content">
       <!-- O1：加载骨架屏 -->
       <AppSkeleton
-        v-if="initialLoading && (activeTab === 'orders' || activeTab === 'assign')"
-        :type="activeTab === 'assign' ? 'kpi' : 'list'"
+        v-if="initialLoading && activeTab === 'assign'"
+        type="kpi"
         :count="3"
-      />
-      <ToConfirmTab
-        v-else-if="activeTab === 'orders'"
-        :dispatches="myDispatches"
-        @confirm="handleConfirm"
       />
       <ToAssignTab
         v-else-if="activeTab === 'assign'"
@@ -143,11 +120,10 @@ function onAssigned() {
       <MeTab v-else-if="activeTab === 'me'" />
     </view>
 
-    <!-- 底部 TabBar -->
+    <!-- 底部 TabBar（D-Fix-8：移除「待确认」Tab,2 项精简） -->
     <view class="tabbar">
       <view
         v-for="t in [
-          { key: 'orders' as TabKey, label: '待确认', icon: '/static/icons/list.svg' },
           { key: 'assign' as TabKey, label: '待派车', icon: '/static/icons/truck.svg' },
           { key: 'me' as TabKey, label: '我的', icon: '/static/icons/user.svg' },
         ]"
