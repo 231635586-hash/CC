@@ -188,18 +188,29 @@ function openInventoryForm() {
 
 <template>
   <view class="page">
-    <!-- 顶部状态栏 + Header -->
-    <view class="status-bar"></view>
-    <view class="header">
-      <view class="header-top">
-        <view class="welcome">
-          <text class="welcome-hi">营销业务员</text>
-          <view class="welcome-name-row">
-            <text class="welcome-name">{{ DEFAULT_SALESPERSON.name }}</text>
+    <!-- D-Fix-3：create 状态下显示返回栏（替代 Header） -->
+    <view v-if="activeTab === 'create'" class="create-header">
+      <view class="create-header-back" @click="switchTab('orders')">
+        <text class="create-back-icon">‹</text>
+      </view>
+      <text class="create-header-title">创建调车单</text>
+      <view class="create-header-placeholder"></view>
+    </view>
+
+    <!-- 顶部状态栏 + Header（仅非 create 状态显示） -->
+    <view v-if="activeTab !== 'create'">
+      <view class="status-bar"></view>
+      <view class="header">
+        <view class="header-top">
+          <view class="welcome">
+            <text class="welcome-hi">营销业务员</text>
+            <view class="welcome-name-row">
+              <text class="welcome-name">{{ DEFAULT_SALESPERSON.name }}</text>
+            </view>
           </view>
-        </view>
-        <view class="welcome-avatar">
-          <text>{{ DEFAULT_SALESPERSON.name.charAt(0) }}</text>
+          <view class="welcome-avatar">
+            <text>{{ DEFAULT_SALESPERSON.name.charAt(0) }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -235,12 +246,11 @@ function openInventoryForm() {
       <MeTab v-else-if="activeTab === 'me'" />
     </view>
 
-    <!-- 底部 TabBar（v0.3-MVP 3 项 + P1-3 新增库存） -->
-    <view class="tabbar">
+    <!-- 底部 TabBar（D-Fix-3：3 项,移除「创建」,create 状态隐藏） -->
+    <view v-if="activeTab !== 'create'" class="tabbar">
       <view
         v-for="t in [
           { key: 'orders' as SalespersonTabKey, label: '调车单', icon: '/static/icons/list.svg' },
-          { key: 'create' as SalespersonTabKey, label: '创建', icon: '/static/icons/package.svg' },
           { key: 'inventory' as SalespersonTabKey, label: '库存', icon: '/static/icons/warehouse.svg' },
           { key: 'me' as SalespersonTabKey, label: '我的', icon: '/static/icons/user.svg' },
         ]"
@@ -287,6 +297,42 @@ html.hx-frame-on .page {
 .status-bar {
   height: 40rpx;
   background: var(--role-sales); /* 业务员主题色:青色 */
+}
+
+/* ===== D-Fix-3：create 状态返回栏 ===== */
+.create-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  background: var(--role-sales);
+  color: var(--color-text-on-brand);
+  /* 状态栏占位（与 Header 顶部的 status-bar 高度一致） */
+  padding-top: calc(var(--space-md) + var(--space-2xs));
+}
+.create-header-back {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.create-back-icon {
+  font-size: 56rpx;
+  line-height: 1;
+  font-weight: var(--font-weight-medium);
+}
+.create-header-title {
+  font-size: var(--font-size-card-title);
+  font-weight: var(--font-weight-semibold);
+  flex: 1;
+  text-align: center;
+}
+.create-header-placeholder {
+  width: 64rpx;
+  height: 64rpx;
 }
 
 /* ===== Header ===== */

@@ -17,6 +17,7 @@ import { computed, ref } from 'vue'
 import type { DispatchMock, DispatchStatus } from '@/mock/dispatches'
 import { DISPATCH_STATUS_MAP } from '@/constants/dispatchStatus'
 import EmptyState from '@/components/EmptyState.vue'
+import AppButton from '@/components/AppButton.vue'
 
 type StatusFilter = 'all' | 'pending_confirm' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
 
@@ -118,6 +119,19 @@ const statusFilters: { key: StatusFilter; label: string }[] = [
 
 <template>
   <view class="tab-pane">
+    <!-- D-Fix-3：新建调车单按钮（架构调整：TabBar 移除「创建」,挪到调车单 Tab 顶部） -->
+    <view class="top-actions">
+      <AppButton
+        variant="primary"
+        size="md"
+        block
+        icon="/static/icons/package.svg"
+        @click="emit('switchTab', 'create')"
+      >
+        新建调车单
+      </AppButton>
+    </view>
+
     <!-- ===== 顶部 3 统计 ===== -->
     <view class="stat-row">
       <view class="stat-item">
@@ -248,6 +262,11 @@ const statusFilters: { key: StatusFilter; label: string }[] = [
 
 <style scoped>
 .tab-pane { padding-bottom: 40rpx; }
+
+/* ===== D-Fix-3：新建调车单按钮 ===== */
+.top-actions {
+  padding: var(--space-md) var(--space-md) 0;
+}
 
 /* 顶部 3 统计 */
 .stat-row {
