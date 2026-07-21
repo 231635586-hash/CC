@@ -1,11 +1,16 @@
 /**
- * 司机端 UI 状态 store（v0.2.x 重构抽出）
+ * 司机端 UI 状态 store（v0.2.x 重构抽出 + D-Fix-9 默认路由修复）
  *
- * 收纳 Tab 级别的 UI 状态：
- *  - activeTab：当前工作台 / 派车单 / 消息 / GPS / 我的
+ * 收纳 Tab 级别的 UI 状态（D-Fix-9 后）：
+ *  - activeTab：当前 派车单 / 消息 / 我的（默认 orders）
  *  - orderSubTab：派车单内子 Tab（进行中/待出发/已完成）
  *  - msgFilter：消息筛选（全部/未读/库房通知）
- *  - gpsSubTab：GPS 子 Tab（入园/离厂）
+ *  - gpsSubTab：GPS 子 Tab（入园/离厂，D-Fix-6 后 UI 移除但 state 保留）
+ *
+ * D-Fix-9 修复：
+ *  - 默认 activeTab 从 'workbench' 改为 'orders'
+ *  - 原因：D-Fix-6 移除 WorkbenchTab 后,司机端默认进入空白内容
+ *  - 修复：resetForRole('driver') 重置为 'orders',直接显示派车单列表
  *
  * 设计动机（v0.2.x Plan B 拆 5 Tab 组件）：
  *  - 这些状态原本散在 orders/index.vue 的 5 个 ref
@@ -28,10 +33,10 @@ interface UiState {
   gpsSubTab: GpsSubTab
 }
 
-/** 按角色给定 activeTab 默认值（司机端首屏 = 工作台，业务员/公司端首屏 = 派车单/待确认） */
+/** 按角色给定 activeTab 默认值（司机端首屏 = 派车单 D-Fix-9，业务员/公司端首屏 = 派车单） */
 function defaultActiveTabForRole(role: UserRole): TabKey {
   switch (role) {
-    case 'driver': return 'workbench'
+    case 'driver': return 'orders'
     case 'salesperson':
     case 'company': return 'orders'
   }
@@ -39,7 +44,7 @@ function defaultActiveTabForRole(role: UserRole): TabKey {
 
 export const useUiStore = defineStore('ui', {
   state: (): UiState => ({
-    activeTab: 'workbench',
+    activeTab: 'orders',
     orderSubTab: 'active',
     msgFilter: 'all',
     gpsSubTab: 'in',
