@@ -208,16 +208,19 @@ function openInventoryForm() {
               <text class="welcome-name">{{ DEFAULT_SALESPERSON.name }}</text>
             </view>
           </view>
-          <!-- D-Fix-4：调车单 Tab 右上角圆形 + 按钮（替代 D-Fix-3 顶部全宽按钮） -->
-          <view
-            v-if="activeTab === 'orders'"
-            class="header-create-btn"
-            @click="switchTab('create')"
-          >
-            <image class="header-create-icon" src="/static/icons/plus.svg" mode="aspectFit" />
-          </view>
-          <view class="welcome-avatar">
-            <text>{{ DEFAULT_SALESPERSON.name.charAt(0) }}</text>
+          <!-- D-Fix-5：右侧容器（[+] 按钮 + avatar）固定贴右 -->
+          <view class="header-right">
+            <!-- D-Fix-4：调车单 Tab 右上角圆形 + 按钮（替代 D-Fix-3 顶部全宽按钮） -->
+            <view
+              v-if="activeTab === 'orders'"
+              class="header-create-btn"
+              @click="switchTab('create')"
+            >
+              <image class="header-create-icon" src="/static/icons/plus.svg" mode="aspectFit" />
+            </view>
+            <view class="welcome-avatar">
+              <text>{{ DEFAULT_SALESPERSON.name.charAt(0) }}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -303,8 +306,15 @@ html.hx-frame-on .page {
 }
 
 .status-bar {
-  height: 40rpx;
+  height: 88rpx; /* iPhone 14 Dynamic Island 安全区 (44dp × 2rpx) */
   background: var(--role-sales); /* 业务员主题色:青色 */
+}
+
+/* ===== D-Fix-5：右侧容器（[+] 按钮 + avatar）固定贴右 ===== */
+.header-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 /* ===== D-Fix-4：Header 右上角 + 按钮（调车单 Tab 用） ===== */
@@ -374,7 +384,8 @@ html.hx-frame-on .page {
   justify-content: space-between;
   align-items: center;
 }
-.welcome { display: flex; flex-direction: column; }
+/* D-Fix-5：.welcome 加 flex: 1，让 [+] 按钮与 avatar 自然贴到右侧 */
+.welcome { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .welcome-hi {
   font-size: var(--font-size-sub);
   opacity: 0.9;
