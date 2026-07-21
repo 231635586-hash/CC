@@ -29,6 +29,7 @@ import CreateDispatchForm from './tabs/CreateDispatchForm.vue'
 import InventoryTab from './tabs/InventoryTab.vue'
 import InventoryFormModal from './tabs/InventoryFormModal.vue'
 import MeTab from './tabs/MeTab.vue'
+import WorkbenchTab from './tabs/WorkbenchTab.vue'  // D-Fix-7：从司机端迁移
 import AppSkeleton from '@/components/AppSkeleton.vue'
 
 // O1：加载状态（首次进入时显示骨架屏）
@@ -46,7 +47,7 @@ const initialLoading = ref(true)
  *  - salesperson 端 4 个（orders/create/inventory/me），完全不同
  *  - uiStore.activeTab 类型是 TabKey（driver），salesperson 用本地类型 + 类型断言兼容
  */
-type SalespersonTabKey = 'orders' | 'create' | 'inventory' | 'me'
+type SalespersonTabKey = 'workbench' | 'orders' | 'create' | 'inventory' | 'me'  // D-Fix-7：新增 workbench
 
 const uiStore = useUiStore()
 const roleStore = useRoleStore()
@@ -230,9 +231,15 @@ function openInventoryForm() {
     <view class="content">
       <!-- O1：加载骨架屏（首次进入时显示） -->
       <AppSkeleton
-        v-if="initialLoading && (activeTab === 'orders' || activeTab === 'inventory')"
+        v-if="initialLoading && (activeTab === 'workbench' || activeTab === 'orders' || activeTab === 'inventory')"
         :type="activeTab === 'orders' ? 'list' : 'card'"
         :count="3"
+      />
+      <WorkbenchTab
+        v-else-if="activeTab === 'workbench'"
+        :dispatch-list="myDispatches"
+        @go-detail="onViewDetail"
+        @switch-tab="switchTab"
       />
       <MyDispatchesTab
         v-else-if="activeTab === 'orders'"
@@ -257,10 +264,11 @@ function openInventoryForm() {
       <MeTab v-else-if="activeTab === 'me'" />
     </view>
 
-    <!-- 底部 TabBar（D-Fix-3：3 项,移除「创建」,create 状态隐藏） -->
+    <!-- 底部 TabBar（D-Fix-7：4 项含工作台，create 状态隐藏） -->
     <view v-if="activeTab !== 'create'" class="tabbar">
       <view
         v-for="t in [
+          { key: 'workbench' as SalespersonTabKey, label: '工作台', icon: '/static/icons/dashboard.svg' },
           { key: 'orders' as SalespersonTabKey, label: '调车单', icon: '/static/icons/list.svg' },
           { key: 'inventory' as SalespersonTabKey, label: '库存', icon: '/static/icons/warehouse.svg' },
           { key: 'me' as SalespersonTabKey, label: '我的', icon: '/static/icons/user.svg' },
