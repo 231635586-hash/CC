@@ -38,9 +38,7 @@ const props = withDefaults(defineProps<Props>(), { mode: 'list' })
 
 const emit = defineEmits<{
   (e: 'tap', item: DispatchMock): void
-  /** 司机点 [导航前往园区] → 调起地图/调用 openNavi(yard) */
-  (e: 'navigate', item: DispatchMock): void
-  /** 司机点 [扫码排队] → 触发 markYardQueuedByScan（v0.3.0-M2.2 新增） */
+  /** D-Fix-10：司机点 [扫码排队] → 触发 markYardQueuedByScan */
   (e: 'queue', item: DispatchMock): void
 }>()
 
@@ -103,13 +101,9 @@ function formatTime(iso: string): string {
       <view class="arrow-icon" aria-hidden="true">›</view>
     </view>
 
-    <!-- 已派车状态：两个操作按钮 -->
-    <view v-if="item.status === 'dispatched'" class="card-actions" @click.stop>
-      <button class="btn-navigate" @click="emit('navigate', item)">
-        <image class="btn-icon" src="/static/icons/compass.svg" mode="aspectFit" />
-        导航前往园区
-      </button>
-      <button class="btn-scan" @click="emit('queue', item)">
+    <!-- D-Fix-10：司机端不需要导航按钮，只保留【扫码排队】 -->
+    <view v-if="item.status === 'dispatched'" class="card-actions card-actions-single" @click.stop>
+      <button class="btn-scan btn-scan-full" @click="emit('queue', item)">
         <text class="btn-scan-emoji" aria-hidden="true">📱</text>
         扫码排队
       </button>
@@ -254,7 +248,6 @@ function formatTime(iso: string): string {
   padding-top: var(--space-md);
   border-top: 1rpx solid var(--color-divider);
 }
-.btn-navigate,
 .btn-scan {
   flex: 1;
   min-height: 72rpx;            /* Pre-Flight 第 12 项：触摸目标 ≥44dp */
@@ -267,19 +260,14 @@ function formatTime(iso: string): string {
   gap: 8rpx;
   border: none;
 }
-.btn-navigate {
-  background: var(--color-brand);
-  color: var(--color-text-on-brand);
-}
 /* v2.0 关键修复：原硬编码 #fa8c16 → 业务 warn token */
 .btn-scan {
   background: var(--color-warn);
   color: white;
 }
-.btn-icon {
-  width: 32rpx;
-  height: 32rpx;
-  filter: brightness(0) invert(1);   /* 让 SVG 在彩色背景上变白 */
+/* D-Fix-10：单按钮时占满宽度（删除【导航】按钮后,只剩扫码排队） */
+.btn-scan-full {
+  flex: 1 1 100%;
 }
 .btn-scan-emoji {
   font-size: 32rpx;

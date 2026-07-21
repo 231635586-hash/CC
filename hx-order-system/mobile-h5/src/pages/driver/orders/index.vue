@@ -9,7 +9,7 @@
  * Plan B 架构（v0.2.x）：
  *  - index.vue 退化为 router + state hub
  *    · 共享状态：dispatchList / notifications / position / yards
- *    · 跨 Tab 业务方法：navigateToYard / markMessageRead / ...
+ *    · 跨 Tab 业务方法：markMessageRead / ... (D-Fix-10: navigateToYard 已删除)
  *    · TabBar（3 项精简后）
  *  - 3 个 Tab 拆为 tabs/*.vue 子组件，各自管自己内部的 sub-tab / filter 等 UI state
  *  - Tab 级别 UI state（orderSubTab / msgFilter）提到 uiStore
@@ -249,16 +249,7 @@ function startArrivalWatcher() {
   })
 }
 
-/** 司机点 [导航前往园区] → 查首个园区坐标 → 调起导航(mock 阶段弹 modal,真实阶段调地图 SDK) */
-function navigateToYard(item: DispatchMock) {
-  const yardId = item.yardIds[0]
-  const yard = yards.find((y) => y.id === yardId)
-  if (!yard) {
-    uni.showToast({ title: '园区未配置', icon: 'none' })
-    return
-  }
-  openNavi(yard)
-}
+// D-Fix-10：navigateToYard 函数已删除（司机端不需要导航功能）
 
 function markMessageRead(n: NotificationItem) {
   n.read = true
@@ -477,17 +468,7 @@ function showDriverSwitcher() {
   })
 }
 
-function openNavi(yard?: Yard) {
-  if (!yard?.lng || !yard?.lat) {
-    uni.showToast({ title: '园区坐标未配置', icon: 'none' })
-    return
-  }
-  uni.showModal({
-    title: '一键导航',
-    content: `目标：${yard.name}\n坐标：${yard.lng}, ${yard.lat}\n（真实阶段将调起地图 APP）`,
-    showCancel: false,
-  })
-}
+// D-Fix-10：openNavi 函数已删除（司机端不需要导航功能）
 
 // ===== 生命周期 =====
 onLoad((query: any) => {
@@ -579,7 +560,6 @@ onPullDownRefresh(async () => {
         v-else-if="activeTab === 'orders'"
         :dispatch-list="dispatchList"
         @go-detail="goDetail"
-        @navigate="navigateToYard"
         @queue="handleScanQueue"
       />
       <MessagesTab

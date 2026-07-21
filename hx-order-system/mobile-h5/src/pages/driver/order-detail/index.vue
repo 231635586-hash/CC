@@ -283,17 +283,7 @@ function callPhone(phone: string, name: string) {
   uni.makePhoneCall({ phoneNumber: phone, fail: () => uni.showToast({ title: '拨号失败', icon: 'none' }) })
 }
 
-function openNavi(yard: YardInfo) {
-  if (!yard.lng || !yard.lat) {
-    uni.showToast({ title: '园区坐标未配置', icon: 'none' })
-    return
-  }
-  uni.showModal({
-    title: '一键导航',
-    content: `目标：${yard.name}\n坐标：${yard.lng}, ${yard.lat}\n（真实阶段将调起地图 APP）`,
-    showCancel: false,
-  })
-}
+// D-Fix-10：openNavi 函数已删除（司机端不需要导航功能）
 
 function copyAddress() {
   if (!detail.value) return
@@ -384,7 +374,6 @@ onLoad((query: any) => {
             <text class="yard-addr">{{ yard.lng }}, {{ yard.lat }}</text>
           </view>
         </view>
-        <button class="btn-navi" @click="openNavi(yard)">导航</button>
       </view>
     </view>
 
@@ -721,15 +710,7 @@ html.hx-frame-on .bottom-bar {
   font-size: var(--font-size-mini);
   color: var(--color-text-secondary);
 }
-.btn-navi {
-  background: var(--color-brand-bg);
-  color: var(--color-brand);
-  font-size: var(--font-size-caption);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-sm);
-  border: none;
-  line-height: 1.4;
-}
+/* D-Fix-10：.btn-navi CSS 已删除（司机端不需要导航功能） */
 
 /* Info */
 .info-row {
