@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * v0.3.0-M2.2 + P1-3：库存列表 Tab（业务员视角，E2 方案）
+ * v0.3.0-M2.2 + P1-3 + D-Fix-1 v2：库存列表 Tab（业务员视角，与 Web 端业务逻辑对齐）
  *
- * 内容：我维护的库存列表 + 快速改数量 + 新建商品入口
+ * 内容：我维护的库存列表 + 新建商品入口
  *
  * P1-3 升级（业务员手动添加库存）：
  *  - 顶部 3 KPI（总项数 / 在库数 / 总箱数）
@@ -10,10 +10,18 @@
  *  - 操作按钮：【改数量】【新建商品】
  *  - 库存类型/状态徽章
  *
+ * D-Fix-1 v2 业务逻辑对齐 Web 端（commit 重做）：
+ *  - KPI 由 3 项改 4 项：总项数 / 已入库 / 已锁定 / 已发货
+ *  - 删除「改数量」按钮 + 改数量 Modal（业务逻辑不存在，Web 端无此按钮）
+ *  - 新增 4 个操作按钮（与 Web 端一致）：
+ *    · 查看：任何状态可点
+ *    · 编辑 / 调车 / 删除：仅 status === 'in_stock' 可点
+ *  - 1 行 4 按钮等宽布局（size sm + 紧凑 padding）
+ *
  * 数据：inventory (props from salesperson/index.vue, 已按 salespersonId 过滤)
  */
 
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { Inventory } from '@/types/shared/inventory'
 import { INVENTORY_STATUS_LABEL, STOCK_TYPE_LABEL } from '@/mock/inventory'
 import EmptyState from '@/components/EmptyState.vue'
@@ -25,11 +33,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'switchTab', tab: 'create'): void
-  (e: 'editQuantity', item: Inventory): void
   (e: 'createNew'): void
+  /** D-Fix-1 v2：4 个新操作按钮（仅 InventoryTab 触发，由父组件 salesperson/index.vue 实际执行） */
+  (e: 'view', item: Inventory): void
+  (e: 'edit', item: Inventory): void
+  (e: 'dispatch', item: Inventory): void
+  (e: 'remove', item: Inventory): void
 }>()
 
-// ===== 排序 + KPI =====
+// ===== 排序 + KPI（D-Fix-1 v2：4 项对齐 Web 端状态分组）=====
 const sortedInventory = computed(() => {
   return [...props.inventory].sort((a, b) => b.id.localeCompare(a.id))
 })
@@ -38,37 +50,12 @@ const kpiTotal = computed(() => sortedInventory.value.length)
 const kpiInStock = computed(() =>
   sortedInventory.value.filter((i) => i.status === 'in_stock').length
 )
-const kpiTotalQty = computed(() =>
-  sortedInventory.value.reduce((sum, i) => sum + i.quantity, 0)
+const kpiLocked = computed(() =>
+  sortedInventory.value.filter((i) => i.status === 'locked').length
 )
-
-// ===== 修改数量弹窗 =====
-const showQtyModal = ref(false)
-const qtyTarget = ref<Inventory | null>(null)
-const qtyInput = ref('')
-
-function openQtyModal(item: Inventory) {
-  qtyTarget.value = item
-  qtyInput.value = String(item.quantity)
-  showQtyModal.value = true
-}
-
-function closeQtyModal() {
-  showQtyModal.value = false
-  qtyTarget.value = null
-  qtyInput.value = ''
-}
-
-function confirmQtyChange() {
-  if (!qtyTarget.value) return
-  const newQty = Number(qtyInput.value)
-  if (!Number.isFinite(newQty) || newQty < 0) {
-    uni.showToast({ title: '请输入有效数字', icon: 'none' })
-    return
-  }
-  emit('editQuantity', { ...qtyTarget.value, quantity: newQty })
-  closeQtyModal()
-}
+const kpiShipped = computed(() =>
+  sortedInventory.value.filter((i) => i.status === 'shipped').length
+)
 
 function statusClass(status: Inventory['status']): string {
   const map: Record<Inventory['status'], string> = {
@@ -83,19 +70,23 @@ function statusClass(status: Inventory['status']): string {
 
 <template>
   <view class="tab-pane">
-    <!-- ===== 顶部 3 KPI ===== -->
+    <!-- ===== 顶部 4 KPI（D-Fix-1 v2：对齐 Web 端状态分组）===== -->
     <view class="stat-row">
       <view class="stat-item">
         <text class="stat-num">{{ kpiTotal }}</text>
         <text class="stat-label">总项数</text>
       </view>
-      <view class="stat-item highlight">
-        <text class="stat-num">{{ kpiInStock }}</text>
-        <text class="stat-label">在库数</text>
-      </view>
       <view class="stat-item success">
-        <text class="stat-num">{{ kpiTotalQty }}</text>
-        <text class="stat-label">总箱数</text>
+        <text class="stat-num">{{ kpiInStock }}</text>
+        <text class="stat-label">已入库</text>
+      </view>
+      <view class="stat-item warn">
+        <text class="stat-num">{{ kpiLocked }}</text>
+        <text class="stat-label">已锁定</text>
+      </view>
+      <view class="stat-item info">
+        <text class="stat-num">{{ kpiShipped }}</text>
+        <text class="stat-label">已发货</text>
       </view>
     </view>
 
@@ -141,38 +132,38 @@ function statusClass(status: Inventory['status']): string {
           <text class="info-value ellipsis remark-text">{{ i.remark }}</text>
         </view>
 
-        <!-- 操作按钮（O3 改用 AppButton 通用组件） -->
-        <view class="card-actions">
-          <AppButton variant="secondary" icon="/static/icons/edit.svg" @click="openQtyModal(i)">
-            改数量
+        <!-- 操作按钮（D-Fix-1 v2：4 个按钮 1 行布局，仅 in_stock 可编辑/调车/删除） -->
+        <view class="card-actions card-actions-row4">
+          <AppButton variant="ghost" size="sm" custom-class="action-tight" @click="emit('view', i)">
+            查看
           </AppButton>
-        </view>
-      </view>
-    </view>
-
-    <!-- ===== 修改数量弹窗 ===== -->
-    <view v-if="showQtyModal && qtyTarget" class="qty-modal-mask" @click.self="closeQtyModal">
-      <view class="qty-modal">
-        <view class="qty-modal-header">
-          <text class="qty-modal-title">修改库存数量</text>
-        </view>
-        <view class="qty-modal-body">
-          <view class="qty-modal-info">
-            <text class="qty-modal-material">{{ qtyTarget.materialName }}</text>
-            <text class="qty-modal-customer">{{ qtyTarget.customerName }}</text>
-            <text class="qty-modal-current">当前数量：{{ qtyTarget.quantity }} {{ qtyTarget.unit }}</text>
-          </view>
-          <input
-            v-model="qtyInput"
-            class="qty-input"
-            type="number"
-            placeholder="输入新数量"
-          />
-          <text class="qty-input-unit">{{ qtyTarget.unit }}</text>
-        </view>
-        <view class="qty-modal-actions">
-          <button class="qty-btn-cancel" @click="closeQtyModal">取消</button>
-          <button class="qty-btn-confirm" @click="confirmQtyChange">确认</button>
+          <AppButton
+            variant="secondary"
+            size="sm"
+            custom-class="action-tight"
+            :disabled="i.status !== 'in_stock'"
+            @click="emit('edit', i)"
+          >
+            编辑
+          </AppButton>
+          <AppButton
+            variant="secondary"
+            size="sm"
+            custom-class="action-tight"
+            :disabled="i.status !== 'in_stock'"
+            @click="emit('dispatch', i)"
+          >
+            调车
+          </AppButton>
+          <AppButton
+            variant="danger"
+            size="sm"
+            custom-class="action-tight"
+            :disabled="i.status !== 'in_stock'"
+            @click="emit('remove', i)"
+          >
+            删除
+          </AppButton>
         </view>
       </view>
     </view>
@@ -207,6 +198,9 @@ function statusClass(status: Inventory['status']): string {
 }
 .stat-item.highlight .stat-num { color: var(--role-sales); }
 .stat-item.success .stat-num { color: var(--color-status-completed); }
+/* D-Fix-1 v2：4 KPI 颜色（已锁定橙色 / 已发货蓝色，对齐 Web 端） */
+.stat-item.warn .stat-num { color: var(--color-status-locked); }
+.stat-item.info .stat-num { color: var(--color-status-shipped); }
 
 /* ===== 空状态 ===== */
 .empty-wrap { padding: 60rpx var(--space-md); }
@@ -329,98 +323,14 @@ function statusClass(status: Inventory['status']): string {
   height: 28rpx;
 }
 
-/* ===== 改数量 Modal ===== */
-.qty-modal-mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* ===== D-Fix-1 v2：4 按钮紧凑布局（移动端小屏适配）===== */
+.card-actions-row4 {
+  gap: var(--space-xs) !important;  /* 4 按钮 gap 缩到 8rpx */
 }
-.qty-modal {
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
-  width: 640rpx;
-  max-width: 90%;
-  padding: var(--space-lg);
-}
-.qty-modal-header {
-  margin-bottom: var(--space-md);
-}
-.qty-modal-title {
-  font-size: var(--font-size-card-title);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-.qty-modal-body {
-  margin-bottom: var(--space-lg);
-}
-.qty-modal-info {
-  background: var(--color-bg);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-.qty-modal-material {
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-}
-.qty-modal-customer {
-  font-size: var(--font-size-sub);
-  color: var(--color-text-secondary);
-}
-.qty-modal-current {
-  font-size: var(--font-size-sub);
-  color: var(--role-sales);
-  margin-top: 4rpx;
-}
-.qty-input {
-  display: block;
-  width: 100%;
-  padding: var(--space-md);
-  background: var(--color-bg);
-  border-radius: var(--radius-md);
-  font-size: 40rpx;
-  font-weight: var(--font-weight-bold);
-  color: var(--role-sales);
-  text-align: center;
-  box-sizing: border-box;
-  min-height: 96rpx;
-}
-.qty-input-unit {
-  display: block;
-  text-align: center;
-  font-size: var(--font-size-caption);
-  color: var(--color-text-secondary);
-  margin-top: var(--space-xs);
-}
-.qty-modal-actions {
-  display: flex;
-  gap: var(--space-sm);
-}
-.qty-btn-cancel {
-  flex: 1;
-  height: 80rpx;
-  background: var(--color-card);
-  color: var(--color-text-regular);
-  border: 1rpx solid var(--color-divider);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-body);
-}
-.qty-btn-confirm {
-  flex: 1;
-  height: 80rpx;
-  background: var(--role-sales);
-  color: var(--color-text-on-brand);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-semibold);
+.action-tight {
+  padding: 0 var(--space-xs) !important;  /* 紧凑 padding（覆盖 AppButton sm 默认 24rpx） */
+  min-width: 0 !important;
+  font-size: var(--font-size-mini) !important;  /* 字号缩到 24rpx */
+  letter-spacing: -0.5rpx;  /* 字间距收紧 */
 }
 </style>

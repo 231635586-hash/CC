@@ -131,13 +131,45 @@ function onCancel(item: DispatchMock) {
   })
 }
 
-// P1-3：业务员修改库存数量（弹 modal 收集 → patch → 同步 mock）
-function onEditQuantity(item: Inventory) {
-  const idx = myInventory.value.findIndex((i) => i.id === item.id)
-  if (idx >= 0) myInventory.value[idx] = item
-  const mockIdx = MOCK_INVENTORY.findIndex((i) => i.id === item.id)
-  if (mockIdx >= 0) MOCK_INVENTORY[mockIdx] = item
-  uni.showToast({ title: '已更新数量', icon: 'success' })
+// D-Fix-1 v2：4 个库存操作按钮 handler
+//   - onRemoveInventory: 真做（删除已入库库存并同步 mock）
+//   - onViewInventory / onEditInventory / onDispatchFromInventory: 临时 toast 占位
+//     （InventoryFormModal 暂不支持 view/edit 模式，CreateDispatchForm 暂不支持
+//      inventoryId 预填，后续 commit 扩展）
+
+function onViewInventory(item: Inventory) {
+  // 后续 commit 扩展 InventoryFormModal 支持 view 模式（readonly 弹窗）
+  uni.showToast({ title: `查看「${item.materialName}」功能开发中`, icon: 'none' })
+}
+
+function onEditInventory(item: Inventory) {
+  // 后续 commit 扩展 InventoryFormModal 支持 edit 模式
+  uni.showToast({ title: `编辑「${item.materialName}」功能开发中`, icon: 'none' })
+}
+
+function onDispatchFromInventory(item: Inventory) {
+  // 后续 commit 扩展 CreateDispatchForm 支持 inventoryId 预填（已写入 storage 标记）
+  uni.showToast({ title: `从「${item.materialName}」发起调车功能开发中`, icon: 'none' })
+}
+
+function onRemoveInventory(item: Inventory) {
+  uni.showModal({
+    title: '确认删除',
+    content: `确认删除库存「${item.materialName}」? 仅可删除已入库库存,删除后不可恢复`,
+    confirmText: '确认删除',
+    cancelText: '取消',
+    confirmColor: '#ff4d4f',
+    success: (res) => {
+      if (!res.confirm) return
+      // 1) 从 myInventory 移除
+      const idx = myInventory.value.findIndex((i) => i.id === item.id)
+      if (idx >= 0) myInventory.value.splice(idx, 1)
+      // 2) 同步 MOCK_INVENTORY
+      const mockIdx = MOCK_INVENTORY.findIndex((i) => i.id === item.id)
+      if (mockIdx >= 0) MOCK_INVENTORY.splice(mockIdx, 1)
+      uni.showToast({ title: '已删除', icon: 'success' })
+    },
+  })
 }
 
 // P1-3：业务员新建商品（InventoryFormModal emit created）
@@ -194,8 +226,11 @@ function openInventoryForm() {
       <InventoryTab
         v-else-if="activeTab === 'inventory'"
         :inventory="myInventory"
-        @edit-quantity="onEditQuantity"
         @create-new="openInventoryForm"
+        @view="onViewInventory"
+        @edit="onEditInventory"
+        @dispatch="onDispatchFromInventory"
+        @remove="onRemoveInventory"
       />
       <MeTab v-else-if="activeTab === 'me'" />
     </view>
